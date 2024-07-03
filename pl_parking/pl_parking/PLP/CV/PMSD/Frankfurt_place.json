@@ -1,0 +1,452 @@
+{
+    "name": "Frankfurt-Roedelheim",
+    "lines": [
+      {
+        "id": 0,
+        "start": {
+          "longitude": 8.59447809652796,
+          "latitude": 50.1379942287108,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59447360880939,
+          "latitude": 50.1379399393992,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 1,
+        "start": {
+          "longitude": 8.59451340429507,
+          "latitude": 50.1380032518293,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59451031597263,
+          "latitude": 50.13795046661,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 2,
+        "start": {
+          "longitude": 8.59454952795369,
+          "latitude": 50.1380135401255,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59454621912465,
+          "latitude": 50.137959771292,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 3,
+        "start": {
+          "longitude": 8.59458494539691,
+          "latitude": 50.1380230653157,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59458231023983,
+          "latitude": 50.1379696529519,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 4,
+        "start": {
+          "longitude": 8.59462108556552,
+          "latitude": 50.1380331969447,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59461810681911,
+          "latitude": 50.1379795899485,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 5,
+        "start": {
+          "longitude": 8.59462181420655,
+          "latitude": 50.1380334631078,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59465483490521,
+          "latitude": 50.1379845777202,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 6,
+        "start": {
+          "longitude": 8.59465427913263,
+          "latitude": 50.1380423643516,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59468811859581,
+          "latitude": 50.1379938732738,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 7,
+        "start": {
+          "longitude": 8.59468699240741,
+          "latitude": 50.1380514973334,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59472038533486,
+          "latitude": 50.1380033656759,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 8,
+        "start": {
+          "longitude": 8.59472015635917,
+          "latitude": 50.1380608086611,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59475382371254,
+          "latitude": 50.1380118890692,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 9,
+        "start": {
+          "longitude": 8.59475333376089,
+          "latitude": 50.1380699310298,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.5947867118894,
+          "latitude": 50.1380209106125,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 10,
+        "start": {
+          "longitude": 8.59479913449647,
+          "latitude": 50.1380825795484,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59483246642714,
+          "latitude": 50.1380334437376,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 11,
+        "start": {
+          "longitude": 8.594765049,
+          "latitude": 50.138132992,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.59473135,
+          "latitude": 50.138182755,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 12,
+        "start": {
+          "longitude": 8.594719599,
+          "latitude": 50.138119904,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594686282,
+          "latitude": 50.138169783,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 13,
+        "start": {
+          "longitude": 8.594686546,
+          "latitude": 50.13811085,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594653077,
+          "latitude": 50.138160361,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 14,
+        "start": {
+          "longitude": 8.594653725,
+          "latitude": 50.138101512,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594620152,
+          "latitude": 50.138150924,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 15,
+        "start": {
+          "longitude": 8.594621257,
+          "latitude": 50.138091888,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594587517,
+          "latitude": 50.13814164,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 16,
+        "start": {
+          "longitude": 8.594588216,
+          "latitude": 50.138082886,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594554303,
+          "latitude": 50.138132167,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 17,
+        "start": {
+          "longitude": 8.59451,
+          "latitude": 50.138060954,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594498235,
+          "latitude": 50.138078697,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 18,
+        "start": {
+          "longitude": 8.59443363,
+          "latitude": 50.138039565,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594422005,
+          "latitude": 50.138056568,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 19,
+        "start": {
+          "longitude": 8.59435724,
+          "latitude": 50.138017942,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594344506,
+          "latitude": 50.13803686,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 20,
+        "start": {
+          "longitude": 8.59473135,
+          "latitude": 50.138182755,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594686282,
+          "latitude": 50.138169783,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 21,
+        "start": {
+          "longitude": 8.594686282,
+          "latitude": 50.138169783,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594653077,
+          "latitude": 50.138160361,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 22,
+        "start": {
+          "longitude": 8.594653077,
+          "latitude": 50.138160361,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594620152,
+          "latitude": 50.138150924,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 23,
+        "start": {
+          "longitude": 8.594620152,
+          "latitude": 50.138150924,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594587517,
+          "latitude": 50.13814164,
+          "altitude": 110
+        }
+      },
+      {
+        "id": 24,
+        "start": {
+          "longitude": 8.594587517,
+          "latitude": 50.13814164,
+          "altitude": 110
+        },
+        "end": {
+          "longitude": 8.594554303,
+          "latitude": 50.138132167,
+          "altitude": 110
+        }
+      }
+    ],
+    "slots": [
+      {
+        "id": 0,
+        "type": "perpendicular",
+        "line_left_id": 6,
+        "line_right_id": 5
+      },
+      {
+        "id": 1,
+        "type": "perpendicular",
+        "line_left_id": 7,
+        "line_right_id": 6
+      },
+      {
+        "id": 2,
+        "type": "perpendicular",
+        "line_left_id": 8,
+        "line_right_id": 7
+      },
+      {
+        "id": 3,
+        "type": "perpendicular",
+        "line_left_id": 9,
+        "line_right_id": 8
+      },
+      {
+        "id": 4,
+        "type": "perpendicular",
+        "line_left_id": 10,
+        "line_right_id": 9
+      },
+      {
+        "id": 5,
+        "type": "perpendicular",
+        "line_left_id": 16,
+        "line_right_id": 15,
+        "line_back_id": 24
+      },
+      {
+        "id": 6,
+        "type": "perpendicular",
+        "line_left_id": 15,
+        "line_right_id": 14,
+        "line_back_id": 23
+      },
+      {
+        "id": 7,
+        "type": "perpendicular",
+        "line_left_id": 14,
+        "line_right_id": 13,
+        "line_back_id": 22
+      },
+      {
+        "id": 8,
+        "type": "perpendicular",
+        "line_left_id": 13,
+        "line_right_id": 12,
+        "line_back_id": 21
+      },
+      {
+        "id": 9,
+        "type": "perpendicular",
+        "line_left_id": 12,
+        "line_right_id": 11,
+        "line_back_id": 20
+      },
+      {
+        "id": 10,
+        "type": "parallel",
+        "line_left_id": 19,
+        "line_right_id": 18
+      },
+      {
+        "id": 11,
+        "type": "parallel",
+        "line_left_id": 18,
+        "line_right_id": 17
+      },
+      {
+        "id": 12,
+        "type": "angled",
+        "line_left_id": 1,
+        "line_right_id": 0
+      },
+      {
+        "id": 13,
+        "type": "angled",
+        "line_left_id": 2,
+        "line_right_id": 1
+      },
+      {
+        "id": 14,
+        "type": "angled",
+        "line_left_id": 3,
+        "line_right_id": 2
+      },
+      {
+        "id": 15,
+        "type": "angled",
+        "line_left_id": 4,
+        "line_right_id": 3
+      },
+      {
+        "id": 16,
+        "type": "parallel",
+        "line_left_id": 17,
+        "line_right_id": 16
+      }
+    ],
+    "topology": {
+      "connections": [
+        {
+          "from": 0,
+          "to_list": [
+            {
+              "type": "cross",
+              "to": 0
+            }
+          ]
+        }
+      ]
+    }
+  }

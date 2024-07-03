@@ -1,0 +1,15 @@
+adas-tsf>=2.4.1
+black>=23
+build
+coverage
+flake8
+plotly-express
+pre-commit
+pytest>=5.3.5
+pytest-cov
+pytest-xdist
+ruff>=0.3.2
+scikit-learn
+torch
+twine
+wheel

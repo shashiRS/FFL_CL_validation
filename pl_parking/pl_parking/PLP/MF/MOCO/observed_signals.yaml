@@ -1,0 +1,19 @@
+# File used in ConTest, keep it just for further references
+signals:
+  - signal: 'ADC5xx_Device.VD_DATA.IuTrajRequestPort.plannedTraj[{id}].xTrajRAReq_m'
+    rename: 'xTrajRAReq_m'
+
+  - signal: 'ADC5xx_Device.VD_DATA.IuTrajRequestPort.plannedTraj[{id}].yTrajRAReq_m'
+    rename: 'yTrajRAReq_m'
+
+  - signal: 'ADC5xx_Device.VD_DATA.IuTrajRequestPort.plannedTraj[{id}].yawReq_rad'
+    rename: 'yawReq_rad'
+
+  - signal: 'ADC5xx_Device.VD_DATA.IuTrajRequestPort.plannedTraj[{id}].crvRAReq_1pm'
+    rename: 'crvRAReq_1pm'
+
+  - signal: 'ADC5xx_Device.VD_DATA.IuTrajRequestPort.plannedTraj[{id}].distanceToStopReq_m'
+    rename: 'distanceToStopReq_m'
+
+  - signal: 'ADC5xx_Device.VD_DATA.IuTrajRequestPort.plannedTraj[{id}].velocityLimitReq_mps'
+    rename: 'velocityLimitReq_mps'

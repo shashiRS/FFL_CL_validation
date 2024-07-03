@@ -1,0 +1,525 @@
+"""
+    Copyright 2023 Continental Corporation
+
+    This file contains the implementation of the test cases for Test Cases LIB_L3_SW_MoCo_TM:
+        - SWT_swrt_cnc_moco_lateral_active_control()
+        - SWT_swrt_cnc_moco_longitudinal_active_control()
+        - SWT_swrt_cnc_moco_lateral_inactive_control()
+        - SWT_swrt_cnc_moco_longitudinal_inactive_control()
+        - SWT_swrt_cnc_moco_longitudinal_active_gearbox_control()
+        - SWT_swrt_cnc_moco_longitudinal_inactive_gearbox_control()
+        - SWT_swrt_cnc_moco_longitudinal_comfort_stop_request()
+        - SWT_swrt_cnc_moco_longitudinal_first_steer_accur()
+        - SWT_swrt_cnc_moco_lateral_max_lat_error()
+        - SWT_swrt_cnc_moco_lateral_max_yaw_error()
+
+    :file: swt_functional_test_cases.pytest
+
+    :author:
+        - Cesar Bernal cesar.bernal@continental-corporation.com
+        - Ricardo Bautista ricardo.bautista.diaz@continental-corporation.com
+"""
+from pathlib import Path
+
+from ptf.ptf_utils.report import *
+from ptf.ptf_utils.global_params import get_parameter, add_meta_data_links_to_reports
+from ptf.verify_utils import ptf_asserts
+
+from constants import LoDMCHoldRequestType, Parameter
+from helpers import evaluate_target_gear, check_comfort_stop_request, is_vehicle_in_standstill
+from helpers import check_hold_request_due_to_steer_angle, calculate_steer_angle_velocity
+
+from helpers import get_ego_position, get_planned_path, closest_point_on_line_segment, get_orthogonal_projection_point
+from helpers import calculate_lateral_deviation, calculate_orientation_deviation_from_path
+
+
+def SWT_swrt_cnc_moco_lateral_active_control():
+    DETAILS("Ensure that the component activates lateral control when the request input is set to true")
+
+    PRECONDITION("Data file containing input values for the test (Activate lateral control request)")
+    VERIFIES("1406994")  # Requirement name/ID
+    TESTTAG("lateral")
+    AUTOMATES("40988")  # Test case ID
+
+    expected_la_dmc_ctrl_request_nu = True
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    csv_path = get_parameter("csv_path")
+
+    TESTSTEP("Read the value of laCtrlRequestPort.activateLaCtrl from the data file")
+    df = get_parameter("dataframe")
+
+    TESTSTEP("Compare observed data versus expected data")
+    df['match'] = (df['activateLaCtrl'] == 1) & (df['laDMCCtrlRequest_nu'] == 1)
+    TESTSTEP("Verify if the component has set loDMCCtrlRequestPort.loDMCCtrlRequest_nu to true")
+    total = df[(df['activateLaCtrl'] == 1) | (df['laDMCCtrlRequest_nu'] == 1)].shape[0]
+    match = df['match'].sum()
+    percent_match = (match / total) * 100 if total > 0 else 0
+
+    if percent_match == 100:
+        observed_la_dmc_ctrl_request_nu = True
+    else:
+        observed_la_dmc_ctrl_request_nu = False
+
+    TESTSTEP("Comparison of the expected result with the actual result")
+    ptf_asserts.verify(observed_la_dmc_ctrl_request_nu, expected_la_dmc_ctrl_request_nu, f"some error.")
+
+    print(f"la_dmc_ctrl_request_nu: {observed_la_dmc_ctrl_request_nu} = {expected_la_dmc_ctrl_request_nu}")
+
+
+def SWT_swrt_cnc_moco_longitudinal_active_control():
+    DETAILS("Ensure that the component activates longitudinal control when the input request is set to true")
+
+    PRECONDITION("Data file containing input values for the test (Activate longitudinal control request)")
+    VERIFIES("1407042")  # Requirement name/ID
+    TESTTAG("longitudinal")
+    AUTOMATES("41004")  # Test case ID
+
+    expected_lo_dmc_ctrl_request_nu = True
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    EXPECTED("Variables fetched successfully")
+    csv_path = get_parameter("csv_path")
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    df = get_parameter("dataframe")
+
+    TESTSTEP("Compare observed data versus expected data")
+    df['match'] = (df['activateLoCtrl'] == 1) & (df['loDMCCtrlRequest_nu'] == 1)
+    TESTSTEP("Verify if the component has set loDMCCtrlRequestPort.loDMCCtrlRequest_nu to true")
+    total = df[(df['activateLoCtrl'] == 1) | (df['loDMCCtrlRequest_nu'] == 1)].shape[0]
+    match = df['match'].sum()
+    percent_match = (match / total) * 100 if total > 0 else 0
+
+    if percent_match == 100:
+        observed_lo_dmc_ctrl_request_nu = True
+    else:
+        observed_lo_dmc_ctrl_request_nu = False
+
+    TESTSTEP("Comparison of the expected result with the actual result")
+    ptf_asserts.verify(observed_lo_dmc_ctrl_request_nu, expected_lo_dmc_ctrl_request_nu, f"some error.")
+
+    print(f"lo_dmc_ctrl_request_nu: {observed_lo_dmc_ctrl_request_nu} = {expected_lo_dmc_ctrl_request_nu}")
+
+
+def SWT_swrt_cnc_moco_lateral_inactive_control():
+    DETAILS("Ensure that the component does not activate lateral control when the lateral request input is set to false")
+
+    PRECONDITION("Data file containing input values for the test (Inactive lateral control request)")
+    VERIFIES("1406995")  # Requirement name/ID
+    TESTTAG("lateral")
+    AUTOMATES("40997")  # Test case ID
+
+    expected_la_dmc_ctrl_request_nu = False
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    csv_path = get_parameter("csv_path")
+
+    TESTSTEP("Read the value of laCtrlRequestPort.activateLaCtrl from the data file")
+    df = get_parameter("dataframe")
+    TESTSTEP("Compare observed data versus expected data")
+    df['match'] = (df['activateLaCtrl'] == 0) & (df['laDMCCtrlRequest_nu'] == 0)
+    TESTSTEP("Verify if the component has set laDMCCtrlRequestPort.laDMCCtrlRequest_nu to false")
+    total = df[(df['activateLaCtrl'] == 0) | (df['laDMCCtrlRequest_nu'] == 0)].shape[0]
+    match = df['match'].sum()
+    percent_match = (match / total) * 100 if total > 0 else 0
+
+    if percent_match == 100:
+        observed_la_dmc_ctrl_request_nu = False
+    else:
+        observed_la_dmc_ctrl_request_nu = True
+
+    TESTSTEP("Comparison of the expected result with the actual result")
+    ptf_asserts.verify(observed_la_dmc_ctrl_request_nu, expected_la_dmc_ctrl_request_nu, f"some error.")
+
+    print(f"la_dmc_ctrl_request_nu: {observed_la_dmc_ctrl_request_nu} = {expected_la_dmc_ctrl_request_nu}")
+
+s
+def SWT_swrt_cnc_moco_longitudinal_inactive_control():
+    DETAILS("Ensure that the component does not activate longitudinal control when the input request is set to false")
+
+    PRECONDITION("Data file containing input values for the test (Inactive longitudinal control request)")
+    VERIFIES("1407047")  # Requirement name/ID
+    TESTTAG("longitudinal")
+    AUTOMATES("41005")  # Test case ID
+
+    expected_lo_dmc_ctrl_request_nu = False
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    csv_path = get_parameter("csv_path")
+
+    TESTSTEP("Read the value of loCtrlRequestPort.activateLoCtrl from the data file")
+    df = get_parameter("dataframe")
+
+    TESTSTEP("Compare observed data versus expected data")
+    df['match'] = (df['activateLoCtrl'] == 0) & (df['loDMCCtrlRequest_nu'] == 0)
+    TESTSTEP("Verify if the component has set loDMCCtrlRequestPort.loDMCCtrlRequest_nu to false")
+    total = df[(df['activateLoCtrl'] == 0) | (df['loDMCCtrlRequest_nu'] == 0)].shape[0]
+    match = df['match'].sum()
+    percent_match = (match / total) * 100 if total > 0 else 0
+
+    if percent_match == 100:
+        observed_lo_dmc_ctrl_request_nu = False
+    else:
+        observed_lo_dmc_ctrl_request_nu = True
+
+    TESTSTEP("Comparison of the expected result with the actual result")
+    ptf_asserts.verify(observed_lo_dmc_ctrl_request_nu, expected_lo_dmc_ctrl_request_nu, f"some error.")
+
+    print(f"lo_dmc_ctrl_request_nu: {observed_lo_dmc_ctrl_request_nu} = {expected_lo_dmc_ctrl_request_nu}")
+
+
+def SWT_swrt_cnc_moco_longitudinal_active_gearbox_control():
+    DETAILS(
+        "Ensure that the component maintains the activation of gear box control as long as the input request signal "
+        "is active")
+
+    PRECONDITION("Data file containing input values for the test (Inactive lateral control request)")
+    VERIFIES("1407043")  # Requirement name/ID
+    TESTTAG("gearbox")
+    AUTOMATES("41007")  # Test case ID
+
+    expected_gearbox_ctrl_request_nu = True
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    csv_path = get_parameter("csv_path")
+
+    TESTSTEP("Processing observed and expected component data")
+    df = get_parameter("dataframe")
+
+    TESTSTEP("Read the value of loCtrlRequestPort.activateLoCtrl from the data file")
+    df['match'] = (df['activateLoCtrl'] == 1) & (df['gearboxCtrlRequest_nu'] == 1)
+    TESTSTEP("Verify if the component has set gearboxCtrlRequestPort.gearboxCtrlRequest_nu to true")
+    total = df[(df['activateLoCtrl'] == 1) | (df['gearboxCtrlRequest_nu'] == 1)].shape[0]
+    match = df['match'].sum()
+    percent_match = (match / total) * 100 if total > 0 else 0
+
+    if percent_match == 100:
+        observed_lo_dmc_ctrl_request_nu = True
+    else:
+        observed_lo_dmc_ctrl_request_nu = False
+
+    TESTSTEP("Comparison of the expected result with the actual result")
+    ptf_asserts.verify(observed_lo_dmc_ctrl_request_nu, expected_gearbox_ctrl_request_nu, f"some error.")
+
+    print(f"observed:{observed_lo_dmc_ctrl_request_nu} = expected: {expected_gearbox_ctrl_request_nu}")
+
+
+def SWT_swrt_cnc_moco_longitudinal_inactive_gearbox_control():
+    DETAILS(
+        "Ensure that the component does not activate gear box control as long as the input request signal is not active")
+
+    PRECONDITION("Data file containing input values for the test (inactive longitudinal control request)")
+    VERIFIES("1407046")  # Requirement name/ID
+    TESTTAG("gearbox")
+    AUTOMATES("41009")  # Test case ID
+
+    expected_gearbox_ctrl_request_nu = False
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    csv_path = get_parameter("csv_path")
+
+    TESTSTEP("Read the value of loCtrlRequestPort.activateLoCtrl from the data file")
+    df = get_parameter("dataframe")
+
+    TESTSTEP("Compare observed data versus expected data")
+    df['match'] = (df['activateLoCtrl'] == 0) & (df['gearboxCtrlRequest_nu'] == 0)
+    TESTSTEP("Verify if the component has set gearboxCtrlRequestPort.gearboxCtrlRequest_nu to false")
+    total = df[(df['activateLoCtrl'] == 0) | (df['gearboxCtrlRequest_nu'] == 0)].shape[0]
+    match = df['match'].sum()
+    percent_match = (match / total) * 100 if total > 0 else 0
+
+    if percent_match == 100:
+        observed_lo_dmc_ctrl_request_nu = False
+    else:
+        observed_lo_dmc_ctrl_request_nu = True
+
+    TESTSTEP("Comparison of the expected result with the actual result")
+    ptf_asserts.verify(observed_lo_dmc_ctrl_request_nu, expected_gearbox_ctrl_request_nu, f"some error.")
+
+    print(f"observed:{observed_lo_dmc_ctrl_request_nu} = expected: {expected_gearbox_ctrl_request_nu}")
+
+# Testcase commented due to follow up in https://jira.auto.continental.cloud/browse/PLP-40409 and merge in master
+# def SWT_swrt_cnc_moco_longitudinal_target_gear():
+#     DETAILS(
+#         "Ensure that the component sends a request to stop and hold in standstill in case of the applied gear "
+#         "is not equal to the target gear")
+#
+#     PRECONDITION("Scenario where the applied gear is not equal to the target gear for each target")
+#     PRECONDITION("Data file containing input values for the test")
+#     VERIFIES("1407045")  # Requirement name/ID
+#     TESTTAG("gearbox")
+#     AUTOMATES("41281")  # Test case ID
+#
+#     TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+#     csv_path = get_parameter("csv_path")
+#
+#     TESTSTEP("Read the value of gearboxCtrlStatusPort.gearInformation.gearCur_nu from the data file")
+#     df = get_parameter("dataframe")
+#     df = df[df['activateLoCtrl'] == 1]
+#
+#     TESTSTEP("Verify that the component is in standstill")
+#     df['calculated_standstill'] = df.apply(
+#         lambda row: is_vehicle_in_standstill(row['standstillHoldCur_nu'], row['standstillSecureCur_nu'],
+#                                              row['motionStatus_nu']), axis=1)
+#
+#     TESTSTEP('Determine the target gear based on various control signals')
+#     df['calculated_target_gear'] = df.apply(evaluate_target_gear, axis=1)
+#     # If calculated_target_gear is not equal to gearCur_nu, then calculated_hold_req must be 1
+#     df['calculated_hold_req'] = (df['calculated_target_gear'] != df['gearCur_nu']).astype(int)
+#     TESTSTEP("Verify if the component has set loDMCCtrlRequestPort.holdReq_nu to LODMC_HOLD_REQ_ON in case of "
+#              "the applied gear is not equal for every target gear ")
+#     TESTSTEP("Comparison of the expected result with the actual result")
+#     for _, row in df.iterrows():
+#         if row['calculated_hold_req']:
+#             ptf_asserts.verify(row['holdReq_nu'], row['calculated_hold_req'],
+#                                f"Error: holdReq_nu for row {row} should be {LoDMCHoldRequestType.LODMC_HOLD_REQ_ON}")
+
+
+def SWT_swrt_cnc_moco_longitudinal_comfort_stop_request():
+    DETAILS(
+        "Ensure that the component sends a request to stop and hold in standstill in case of comfort stop request "
+        "is set true")
+
+    PRECONDITION("Scenario where the comfort stop request is set true")
+    PRECONDITION("Data file containing input values for the test")
+    VERIFIES("1407048")  # Requirement name/ID
+    TESTTAG("comfort stop")
+    AUTOMATES("41282")  # Test case ID
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    csv_path = get_parameter("csv_path")
+
+    TESTSTEP("Read the value of loCtrlRequestPort.comfortStopRequest from the data file")
+    df = get_parameter("dataframe")
+    TESTSTEP("Filter data by comfort stop request")
+    df = df[df['comfortStopRequest'] == 1]
+
+    TESTSTEP("Comparison of the expected result with the actual result")
+    for _, row in df.iterrows():
+        ptf_asserts.verify(row['holdReq_nu'], LoDMCHoldRequestType.LODMC_HOLD_REQ_ON,
+                           f"Error: holdReq_nu for row {row} should be {LoDMCHoldRequestType.LODMC_HOLD_REQ_ON}")
+ADC5xx_Device.VD_DATA.IuLoDMCCtrlRequestPort.holdReq_nu
+ADC5xx_Device.VD_DATA.IuLoDMCCtrlRequestPort.emergencyHoldReq_nu
+# Testcase commented due to follow up in https://jira.auto.continental.cloud/browse/PLP-40409 and merge in master
+# def SWT_swrt_cnc_moco_longitudinal_first_steer_accur():
+#     DETAILS(
+#         "Ensure that the component requests to hold the vehicle in standstill in case of current steer angle(s) "
+#         "is/are not close to the requested steer angle(s) until current steer angle(s) is/are close to static")
+#
+#     PRECONDITION("Scenario where the current steer angle(s) is/are not close to the requested steer angle(s)")
+#     PRECONDITION("Data file containing input values for the test")
+#     VERIFIES("1407125")  # Requirement name/ID
+#     TESTTAG("steer")
+#     AUTOMATES("41283")  # Test case ID
+#
+#     TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+#     csv_path = get_parameter("csv_path")
+#
+#     TESTSTEP("Read the value of the current steer angle (odoEstimationPort.steerAngFrontAxle_rad) from the data file")
+#     df = get_parameter("dataframe")
+#
+#     TESTSTEP("Verify that the vehicle is in standstill")
+#     df['calculated_standstill'] = df.apply(
+#         lambda row: is_vehicle_in_standstill(row['standstillHoldCur_nu'], row['standstillSecureCur_nu'],
+#                                              row['motionStatus_nu']), axis=1)
+#
+#     TESTSTEP("Calculate the Steer Angle Velocity")
+#     df = calculate_steer_angle_velocity(df)
+#
+#     TESTSTEP("Check if the absolute steer angle difference is greater than (>) {AP_C_PC_FIRST_STEER_ACCUR_RAD}")
+#     TESTSTEP("Verify if the component has set loDMCCtrlRequestPort.holdReq_nu to LODMC_HOLD_REQ_ON until current steer "
+#              "angle(s) is/are close to static.")
+#     df['calculated_hold_req_nu'] = df.apply(
+#         lambda row: check_hold_request_due_to_steer_angle(vehicle_standstill=row['calculated_standstill'],
+#                                                           current_angle=row['steerAngFrontAxle_rad'],
+#                                                           requested_angle=row['frontSteerAngReq_rad'],
+#                                                           steer_angle_velocity=row['steer_angle_velocity']), axis=1)
+#
+#     TESTSTEP("Comparison of the expected result with the actual result")
+#     for _, row in df.iterrows():
+#         if row['calculated_hold_req_nu'] == 1:
+#             ptf_asserts.verify(row['holdReq_nu'], LoDMCHoldRequestType.LODMC_HOLD_REQ_ON,
+#                                f"Error: holdReq_nu for row {row} should be {LoDMCHoldRequestType.LODMC_HOLD_REQ_ON}")
+
+
+def SWT_swrt_cnc_moco_lateral_max_lat_error():
+    DETAILS(
+        "Ensure that the component sends a request to stop and hold in standstill in case of the absolute "
+        "lateral deviation from planned path is larger than maximum lateral error")
+
+    PRECONDITION("Lateral and longitudinal control requested")
+    PRECONDITION("Scenario where the absolute lateral deviation from planned path is larger than "
+                 "{AP_C_FAIL_MAX_LAT_ERROR_M} ")
+    PRECONDITION("Data file containing input values for the test ")
+    VERIFIES("1407123")  # Requirement name/ID
+    TESTTAG("lateral error")
+    AUTOMATES("41284")  # Test case ID
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    df = get_parameter("dataframe")
+    df_planned_traj = get_parameter("df_plannedTraj")
+
+    TESTSTEP("Filter data by longitudinal control request")
+    df = df[df['activateLoCtrl'] == 1]
+    TESTSTEP("Filter data by lateral control request")
+    df = df[df['activateLaCtrl'] == 1]
+
+    # TESTSTEP("Check that the calculated lateral deviation matches the debug signal")
+    # planned_path = get_planned_path(df_planned_traj)
+    # calculate_lateral_deviation_list = []
+    #
+    # for _, row in df.iterrows():
+    #     ego_position = get_ego_position(row)
+    #     orthogonal_projection_point = get_orthogonal_projection_point(ego_position, planned_path)
+    #     calculated_lateral_deviation = calculate_lateral_deviation(ego_position, orthogonal_projection_point)
+    #     calculate_lateral_deviation_list.append(calculated_lateral_deviation)
+    #
+    # df['calculated_lateral_deviation'] = calculate_lateral_deviation_list
+    # are_equal = df['calculated_lateral_deviation'].equals(df['currentDeviation_m'])
+    #
+    # ptf_asserts.verify(are_equal, True, f"Lateral deviation in test not matching to debug signal")
+
+    TESTSTEP("Check if absolute lateral deviation from planned path is greater than AP_C_FAIL_MAX_LAT_ERROR_M")
+    calculated_hold_req_nu = LoDMCHoldRequestType.LODMC_HOLD_REQ_OFF
+    for _, car_pos_row in df.iterrows():
+        lateral_deviation = car_pos_row['currentDeviation_m']
+
+        if abs(lateral_deviation) > Parameter.AP_C_PC_FAIL_MAX_LAT_ERROR_M:
+            calculated_hold_req_nu = LoDMCHoldRequestType.LODMC_HOLD_REQ_ON
+
+            ptf_asserts.verify(car_pos_row['holdReq_nu'], calculated_hold_req_nu,
+                               f"The component didn't correctly request to stop and hold the vehicle in standstill,"
+                               f"holdReq_nu for row {car_pos_row}")
+
+
+def SWT_swrt_cnc_moco_lateral_max_yaw_error():
+    DETAILS(
+        "Ensure that the component sends a request to stop and hold in standstill in case of absolute orientation"
+        " deviation from planned path is larger than maximum yaw error allowed")
+
+    PRECONDITION("Lateral and longitudinal control requested")
+    PRECONDITION("Scenario where the absolute orientation deviation from planned path is larger than "
+                 "{AP_C_PC_FAIL_MAX_YAW_ERROR_RAD} ")
+    PRECONDITION("Data file containing input values for the test ")
+    VERIFIES("1407126")  # Requirement name/ID
+    TESTTAG("yaw error")
+    AUTOMATES("41285")  # Test case ID
+
+    TESTSTEP("Getting the global variables which were created in 'global_setup' function")
+    df = get_parameter("dataframe")
+    df_planned_traj = get_parameter("df_plannedTraj")
+
+    TESTSTEP("Filter data by longitudinal control request")
+    df = df[df['activateLoCtrl'] == 1]
+    TESTSTEP("Filter data by lateral control request")
+    df = df[df['activateLaCtrl'] == 1]
+
+    # TESTSTEP("Check that the calculated orientation deviation matches the debug signal")
+    # planned_path = get_planned_path(df_planned_traj)
+    # calculate_orientation_deviation_list = []
+    #
+    # for _, row in df.iterrows():
+    #     ego_yaw_angle = row['yawAngle_rad']
+    #     ego_position = get_ego_position(row)
+    #     orthogonal_projection_point = get_orthogonal_projection_point(ego_position, planned_path)
+    #     orientation_deviation_from_path = calculate_orientation_deviation_from_path(ego_yaw_angle, planned_path,
+    #                                                                                 orthogonal_projection_point)
+    #     calculate_orientation_deviation_list.append(orientation_deviation_from_path)
+    #
+    # df['calculated_orientation_deviation'] = calculate_orientation_deviation_list
+    # are_equal = df['calculated_orientation_deviation'].equals(df['orientationError_rad'])
+    #
+    # ptf_asserts.verify(are_equal, True f"Orientation deviation in test not matching to debug signal")
+
+    TESTSTEP(
+        "Check if the absolute orientation deviation from planned path is greater than {AP_C_PC_FAIL_MAX_YAW_ERROR_RAD}")
+    calculated_hold_req_nu = LoDMCHoldRequestType.LODMC_HOLD_REQ_OFF
+    for _, car_pos_row in df.iterrows():
+
+        orientation_deviation_from_path = car_pos_row['orientationError_rad']
+
+        if abs(orientation_deviation_from_path) > Parameter.AP_C_PC_FAIL_MAX_YAW_ERROR_RAD:
+            calculated_hold_req_nu = LoDMCHoldRequestType.LODMC_HOLD_REQ_ON
+
+            ptf_asserts.verify(car_pos_row['holdReq_nu'], calculated_hold_req_nu,
+                               f"The component didn't correctly request to stop and hold the vehicle in standstill,"
+                               f"holdReq_nu for row {car_pos_row}")
+
+
+def SWT_swit_if_moco_instantiation_interface():
+    DETAILS("Ensure that the component provides an instantiation interface (e.g 'getInstance')")
+
+    PRECONDITION("Repository with algo code")
+    VERIFIES("1407130")  # Requirement name/ID
+    TESTTAG("integration")
+    AUTOMATES("41527")  # Test case ID
+
+    TESTSTEP("Provide a screenshot and link with evidence, that the requirement is "
+             "satisfied by detailed design and code and tested by unit test.")
+    EXPECTED("Requirement fully covered by Detailed Design, Code and Unit test")
+
+    file_base_path = Path(__file__).parents[1]
+    image_path = os.path.join(file_base_path, "data", "review", "instantiation_interface.png")
+    IMAGE(image_path)
+    TESTSTEP("Link to tracing report: "
+             "https://report-overview.cmo.conti.de/?project_id=mf_trjctl&tag_name=release%2F8.2.0")
+
+
+def SWT_swit_if_moco_initialization_interface():
+    DETAILS("Ensure that the component provides an initialization interface (e.g 'init')")
+
+    PRECONDITION("Repository with algo code")
+    VERIFIES("1407131")  # Requirement name/ID
+    TESTTAG("integration")
+    AUTOMATES("41529")  # Test case ID
+
+    TESTSTEP("Provide a screenshot and link with evidence, that the requirement is "
+             "satisfied by detailed design and code and tested by unit test.")
+    EXPECTED("Requirement fully covered by Detailed Design, Code and Unit test")
+
+    file_base_path = Path(__file__).parents[1]
+    image_path = os.path.join(file_base_path, "data", "review", "initialization_interface.png")
+    IMAGE(image_path)
+    TESTSTEP("Link to tracing report: "
+             "https://report-overview.cmo.conti.de/?project_id=mf_trjctl&tag_name=release%2F8.2.0")
+
+
+def SWT_swit_if_moco_run_interface():
+    DETAILS("Ensure that the component provides a run interface (e.g 'run')")
+
+    PRECONDITION("Repository with algo code")
+    VERIFIES("1407132")  # Requirement name/ID
+    TESTTAG("integration")
+    AUTOMATES("41530")  # Test case ID
+
+    TESTSTEP("Provide a screenshot and link with evidence, that the requirement is "
+             "satisfied by detailed design and code and tested by unit test.")
+    EXPECTED("Requirement fully covered by Detailed Design, Code and Unit test")
+    DETAILS("Requirement on component level covered by Detailed Design, Code and Unit tests.")
+    DETAILS("Component intern and component module level will be covered later via linked Detailed Design")
+    file_base_path = Path(__file__).parents[1]
+    image_path = os.path.join(file_base_path, "data", "review", "run_interface.png")
+    IMAGE(image_path)
+    TESTSTEP("Link to tracing report: "
+             "https://report-overview.cmo.conti.de/?project_id=mf_trjctl&tag_name=release%2F8.2.0")
+
+
+def SWT_swit_if_moco_cobolt_integration():
+    DETAILS("Ensure that the component provides interfaces for Cobolt Integration")
+
+    PRECONDITION("Repository with algo code")
+    VERIFIES("1533311")  # Requirement name/ID
+    TESTTAG("integration")
+    AUTOMATES("41531")  # Test case ID
+
+    TESTSTEP("Provide a screenshot and link with evidence, that the requirement is "
+             "satisfied by detailed design and code and tested by unit test.")
+    EXPECTED("Requirement fully covered by Detailed Design, Code and Unit test")
+    DETAILS("Architecture layer (SWA tag) used to group Cobolt specific design.")
+
+    file_base_path = Path(__file__).parents[1]
+    image_path = os.path.join(file_base_path, "data", "review", "cobolt_integration.png")
+    IMAGE(image_path)
+    TESTSTEP("Link to tracing report: "
+             "https://report-overview.cmo.conti.de/?project_id=mf_trjctl&tag_name=release%2F8.2.0")

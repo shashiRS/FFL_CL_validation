@@ -1,0 +1,72 @@
+{{ thead }}
+      <tbody>
+            {% for key, value in usecases.items() %}
+            <tr class="triggerRow">
+              <th class="styled-link" >{{ key }}</th>
+              {% for item_from_list in value %}
+              <td style="text-align: center;">{{ item_from_list }}</td>
+
+              {% endfor %}
+            </tr>
+            {% for meas,results in data[key].items() %}
+          <tr class="hidden rowToToggle">
+          <th>{{ meas }}</th>
+                  {% for result_item in results %}
+                        {{result_item}}
+                  {% endfor %}
+                </tr>
+                    {% endfor %}
+
+            {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <script>
+      // Get all trigger rows
+      const triggerRows = document.querySelectorAll('.triggerRow');
+
+      // Function to toggle row visibility
+      function toggleRows(row) {
+        let nextRow = row.nextElementSibling;
+        while (nextRow && !nextRow.classList.contains('triggerRow')) {
+          if (nextRow.classList.contains('hidden')) {
+            nextRow.classList.remove('hidden');
+          } else {
+            nextRow.classList.add('hidden');
+          }
+          nextRow = nextRow.nextElementSibling;
+        }
+      }
+
+      // Add click event listener to each trigger row
+      triggerRows.forEach(row => {
+        row.addEventListener('click', function() {
+          toggleRows(row);
+        });
+      });
+    </script>
+    <style>
+      .table-container {
+        max-height: 600px; /* Set a maximum height for scroll */
+        overflow-y: auto; /* Enable vertical scrolling */
+      }
+
+      th {
+        background-color: #f2f2f2;
+      }
+
+      thead {
+        position: sticky;
+        top: 0;
+        background-color: #f2f2f2; /* Optional: Set background color for the sticky header */
+        z-index: 0; /* Ensure the header stays above the table body */
+      }
+      .styled-link {
+    color: orange; /* Change color to match your link color */
+    /* text-decoration: underline; /* Add underline to mimic link */
+    cursor: pointer; /* Add pointer cursor to mimic link behavior */
+  }
+      .hidden {
+    display: none;
+  }
+    </style>

@@ -1,0 +1,58 @@
+<table border="1" style="height: 600px;" class="dataframe table table-hover table-responsive height:auto">
+  <thead>
+      <tr>
+          <th style="min-width: 100px;"></th>
+          {% for step in stp_list %}
+              <th colspan="2" halign="left" style="min-width: 100px;">
+                  <a href="../testcases/tc_1.html" style="text-align:center; display:block">{{ step }}</a>
+              </th>
+          {% endfor %}
+      </tr>
+      <tr>
+          <th style="min-width: 100px;"></th>
+          {% for link, step_name in cs_dict.items() %}
+              <th style="min-width: 100px;">
+                  <a href="{{ link }}" style="text-align:center; display:block">{{step_name}}</a>
+              </th>
+          {% endfor %}
+      </tr>
+  </thead>
+  <tbody>
+      {% for key, value in data.items() %}
+          <tr>
+              <th>{{ key }}</th>
+              {% for sub_key, sub_value in value.items() %}
+                  {% for sub_sub_key, sub_sub_value in sub_value.items() %}
+                      {% for sub_sub_sub_key, sub_sub_sub_value in sub_sub_value.items() %}
+                          <td bgcolor="{{ sub_sub_sub_value.color }}">
+                              <a href="{{sub_sub_sub_value.link}}" align="center" style="width: 100%; height: 100%; color: #ffffff">
+                                  {{ sub_sub_sub_value.verdict }}
+                              </a>
+                          </td>
+                      {% endfor %}
+                  {% endfor %}
+              {% endfor %}
+          </tr>
+      {% endfor %}
+  </tbody>
+
+  <style>
+      .dataframe th,
+      .dataframe td {
+          padding: 8px;
+          text-align: left;
+          border-bottom: 1px solid #ddd;
+      }
+
+      .dataframe th {
+          position: sticky;
+          top: 0;
+          background-color: #f2f2f2;
+          min-width: 100px;
+      }
+
+      .dataframe td {
+          min-width: 100px;
+      }
+  </style>
+</table>

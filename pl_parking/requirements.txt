@@ -1,0 +1,13 @@
+adas-tsf>=2.4.1
+asammdf
+drawsvg
+geopandas
+numpy
+opencv-python
+plotly
+plotly-express
+psycopg2-binary
+pyproj
+rrecreader
+scikit-learn
+torch

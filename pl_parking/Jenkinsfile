@@ -1,0 +1,78 @@
+#!/usr/bin/env groovy
+
+pipeline
+{
+  agent { label 'python38' }
+  stages {
+    stage('Build Wheel') {
+          steps {
+              script {
+                  echo 'Starting Build Wheel...'
+                  bat('pip config set install.trusted-host eu.artifactory.conti.de ')
+                  bat('pip config set global.index-url https://eu.artifactory.conti.de/artifactory/api/pypi/c_adas_cip_pypi_v/simple ')
+                  bat('pip config set global.extra-index-url "https://eu.artifactory.conti.de/artifactory/api/pypi/ams_adas_tsf_pypi_l/simple https://eu.artifactory.conti.de/artifactory/api/pypi/c_adas_sys_ads_vv_pypi_l/simple" ')
+                  bat("pip install -U build twine nox && python -m build -w")
+                  bat("pip install -U build twine nox && python -m build -w")
+                  echo 'Build Wheel completed successfully.'
+              }
+          }
+      }
+    stage('Ruff Linting') {
+      steps {
+          script {
+              bat(script: "nox -s lint", returnStatus: true)
+                }
+                  }
+              }
+    stage('Upload Python Wheel to Artifactory')
+      {
+        environment
+          {
+            CREDS = credentials('artifactory_api_key_uie40478')
+            CCP_ART_CERT = credentials('ccp_artifactory_cert_uie40478')
+            CCP_ART_API = credentials('cpp_artifactory_api_key_uie40478')
+            CCP_UIDG5548_TOKEN = credentials('3563add8-0ad1-4da8-9483-718e53e88ec8')
+          }
+        steps
+          {
+            script
+              {
+                // archiveArtifacts artifacts: 'cov.xml', followSymlinks: false
+                // zip(dir: 'coverage', zipFile: "coverage_${BUILD_TAG}.zip", archive: true)
+                if(env.TAG_NAME)
+                  {
+                    bat('twine upload --repository-url https://eu.artifactory.conti.de/artifactory/api/pypi/ams_adas_tsf_pypi_l -u %CREDS_USR% -p %CREDS_PSW% dist/*.whl')
+                    bat('twine upload --repository-url https://artifactory.8675.ccp.continental.exchange/artifactory/api/pypi/tsf-local-pypi -u %CCP_UIDG5548_TOKEN_USR% -p %CCP_UIDG5548_TOKEN_PSW%  dist/*.whl')
+                  }
+                  else
+                    {
+                    echo("Not a tag! Wheel locally saved!")
+                    archiveArtifacts(artifacts: 'dist/*.whl', followSymlinks: false)
+                    }
+                  }
+              }
+          }
+        }
+  post {
+        always {
+            discoverGitReferenceBuild(targetBranch: 'develop')
+
+            recordIssues(
+                skipBlames: false,
+                enabledForFailure: true,
+                aggregatingResults: true,
+                ignoreQualityGate: false,
+                unhealthy: 1,
+                minimumSeverity: "WARNING_LOW",
+                failOnError: true,
+                publishAllIssues: true,
+                tools: [flake8(pattern: "flake8.report", name: "Ruff")],
+                qualityGates: [[threshold: 1, type: 'TOTAL', criticality: 'FAILURE']])
+
+            publishCoverage adapters: [coberturaAdapter('cov.xml')], sourceFileResolver: sourceFiles('STORE_LAST_BUILD')
+              }
+            cleanup {
+              cleanWs()
+                    }
+        }
+}

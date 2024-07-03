@@ -1,0 +1,97 @@
+[tool.black]
+line-length = 120
+target-version = ['py36', 'py37', 'py38']
+preview = true
+
+[tool.pytest.ini_options]
+markers = [
+    "py_38: marks tests as which require python 3.8 or higher (deselect with '-m \"not py_38\"')",
+]
+
+[tool.ruff]
+# Enable pycodestyle (`E`) and Pyflakes (`F`) Pydocstyle, Isort, Warning, pyupgrade, flake8-bugbear  codes by default.
+lint.select = [
+    "E",
+    "F",
+    "D",
+    "I",
+    "W",
+    "B",
+    "UP"
+]
+# lint.ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107", "E402", "D203", "D213", "E501"]
+lint.ignore = ["D105", "D106", "D107", "D205", "D401", "D203", "D213", "D400", "E402", "E501"]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+lint.fixable = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "I",
+    "N",
+    "Q",
+    "S",
+    "T",
+    "W",
+    "ANN",
+    "ARG",
+    "BLE",
+    "COM",
+    "DJ",
+    "DTZ",
+    "EM",
+    "ERA",
+    "EXE",
+    "FBT",
+    "ICN",
+    "INP",
+    "ISC",
+    "NPY",
+    "PD",
+    "PGH",
+    "PIE",
+    "PL",
+    "PT",
+    "PTH",
+    "PYI",
+    "RET",
+    "RSE",
+    "RUF",
+    "SIM",
+    "SLF",
+    "TCH",
+    "TID",
+    "TRY",
+    "UP",
+    "YTT",
+]
+lint.unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+        "recordings",
+        "templates",
+        "utils",
+        ".gitignore",
+        ".pre-commit-config.yaml",
+        "Jenkinsfile",
+        "README.md",
+        "noxfile.py",
+        "pyproject.toml",
+        "requirements.txt",
+        "requirements_development.txt",
+        "setup.py",
+        ]
+
+# Same as Black.
+line-length = 120
+
+# Allow unused variables when underscore-prefixed.
+#dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"

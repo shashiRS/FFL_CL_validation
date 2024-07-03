@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2" xmlns:gx="http://www.google.com/kml/ext/2.2" xmlns:kml="http://www.opengis.net/kml/2.2" xmlns:atom="http://www.w3.org/2005/Atom">
+<Document>
+	<Placemark>
+		<name>parking_slot_01</name>
+		<description>parking_slot, perpendicular</description>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						19.50946497283358,47.32259626565749,0
+						19.50943102968444,47.32254926568531,0
+						19.50946168188617,47.32253996235713,0
+						19.50949506945678,47.32258670303955,0
+						19.50946497283358,47.32259626565749,0
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+	<Placemark>
+		<name>parking_slot_02</name>
+		<description>parking_slot, perpendicular</description>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						19.50943320501639,47.32260678658368,0
+						19.50939972181682,47.32255919442138,0
+						19.50942936432465,47.3225498508705,0
+						19.50946318715658,47.32259693978425,0
+						19.50943320501639,47.32260678658368,0
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+	<Placemark>
+		<name>parking_slot_03</name>
+		<description>parking_slot, perpendicular</description>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						19.50940124593868,47.32261698351004,0
+						19.50936842463137,47.32257029521529,0
+						19.50939774073855,47.32256012972576,0
+						19.50943162225057,47.32260732223313,0
+						19.50940124593868,47.32261698351004,0
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+	<Placemark>
+		<name>parking_slot_04</name>
+		<description>parking_slot, angled</description>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						19.50933250192756,47.32263945991208,0
+						19.50926931350708,47.3226100536538,0
+						19.5093046832967,47.32259933362879,0
+						19.50936709766841,47.32262840811565,0
+						19.50933250192756,47.32263945991208,0
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+	<Placemark>
+		<name>parking_slot_05</name>
+		<description>parking_slot, angled</description>
+		<Polygon>
+			<outerBoundaryIs>
+				<LinearRing>
+					<coordinates>
+						19.50929488999853,47.32265140665192,0
+						19.50923198036255,47.32262168621035,0
+						19.5092673502098,47.32261096618244,0
+						19.50932988342289,47.32264022008363,0
+						19.50929488999853,47.32265140665192,0
+					</coordinates>
+				</LinearRing>
+			</outerBoundaryIs>
+		</Polygon>
+	</Placemark>
+</Document>
+</kml>

@@ -1,0 +1,166 @@
+{
+    "name": "M-Ring",
+    "lines": [
+      {
+        "id": 0,
+        "start":{
+          "longitude": 19.509496992261,
+          "latitude": 47.32258736519,
+          "altitude": 197.7
+        },
+        "end":{
+          "longitude": 19.509462703829,
+          "latitude": 47.322539609364,
+          "altitude": 197.7
+        }
+      },
+      {
+        "id": 1,
+        "start":{
+          "longitude": 19.509295769522,
+          "latitude": 47.322652634065,
+          "altitude": 197.7
+        },
+        "end":{
+          "longitude": 19.509230742787,
+          "latitude": 47.322622109616,
+          "altitude": 197.7
+        }
+      },
+      {
+        "id": 2,
+        "start":{
+          "longitude": 19.509332999943,
+          "latitude": 47.322640462489,
+          "altitude": 197.7
+        },
+        "end":{
+          "longitude": 19.509267665289,
+          "latitude": 47.322610384676,
+          "altitude": 197.7
+        }
+      },
+      {
+        "id": 3,
+        "start":{
+          "longitude": 19.509370050547,
+          "latitude": 47.322628543355,
+          "altitude": 197.7
+        },
+        "end":{
+          "longitude": 19.509304800482,
+          "latitude": 47.322598411241,
+          "altitude": 197.7
+        }
+      },
+      {
+        "id": 4,
+        "start":{
+          "longitude": 19.509401301566,
+          "latitude": 47.322618243133,
+          "altitude": 197.7
+        },
+        "end":{
+          "longitude": 19.509367081232,
+          "latitude": 47.322570335612,
+          "altitude": 197.7
+        }
+      },
+      {
+        "id": 5,
+        "start":{
+          "longitude": 19.509433170763,
+          "latitude": 47.322607864888,
+          "altitude": 197.7
+        },
+        "end":{
+          "longitude": 19.509398502135,
+          "latitude": 47.3225595972,
+          "altitude": 197.7
+        }
+      },
+      {
+        "id": 6,
+        "start":{
+          "longitude": 19.509464889647,
+          "latitude": 47.322597562336,
+          "altitude": 197.7
+        },
+        "end":{
+          "longitude": 19.509430411528,
+          "latitude": 47.32254936553,
+          "altitude": 197.7
+        }
+      },
+      {
+        "id": 7,
+        "start":{
+           "longitude": 19.509565331381,
+           "latitude": 47.32256290079,
+           "altitude": 197.7
+        },
+        "end":{
+           "longitude": 19.509526714666,
+           "latitude": 47.32251610506,
+           "altitude": 197.7
+        }
+      }
+    ],
+    "slots": [
+      {
+        "id": 0,
+        "type": "perpendicular",
+        "line_left_id": 0,
+        "line_right_id": 6
+      },
+      {
+        "id": 1,
+        "type": "perpendicular",
+        "line_left_id": 6,
+        "line_right_id": 5
+      },
+      {
+        "id": 2,
+        "type": "perpendicular",
+        "line_left_id": 5,
+        "line_right_id": 4
+      },
+      {
+        "id": 3,
+        "type": "angled",
+        "line_left_id": 3,
+        "line_right_id": 2
+      },
+      {
+        "id": 4,
+        "type": "angled",
+        "line_left_id": 1,
+        "line_right_id": 2
+      },
+      {
+        "id": 5,
+        "type": "angled",
+        "line_left_id": 4,
+        "line_right_id": 3
+      },
+      {
+        "id": 6,
+        "type": "perpendicular",
+        "line_left_id": 7,
+        "line_right_id": 0
+      }
+    ],
+    "topology": {
+      "connections": [
+        {
+          "from": 0,
+          "to_list": [
+            {
+              "type": "cross",
+              "to": 0
+            }
+          ]
+        }
+      ]
+    }
+  }
