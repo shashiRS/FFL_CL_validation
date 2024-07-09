@@ -19,9 +19,9 @@ def send_email_with_attachment(sender_email, sender_password, recipient_email, s
     msg['Subject'] = subject
     
     #greetings = "Hello Team,\n\n\n"
-    #regards = "Thanks,\n"+"FFL Jenkins\n"
+    #regards = "Thanks,\n"+"FFL CL Jenkins\n"
 
-    full_text = f"Hello Team,{body_html}<br/>Thanks and Regards,<br/>FFL Jenkins"
+    full_text = f"Hello Team,{body_html}<br/>Thanks and Regards,<br/>FFL CL Jenkins"
     html_part = MIMEText(full_text, 'html')
     msg.attach(html_part)
  
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     sender_password = 'Helloworld@123'
     #recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com']
     recipient_email = ['shashikala.r.s@continental-corporation.com']   
-    subject = '[ADC544NN16] FFL JENKINS CI/CD'
+    subject = '[ADC544NN16] Closed Loop FFL JENKINS CI/CD'
     body_html = """
     <!DOCTYPE html>
     <html>
@@ -121,11 +121,6 @@ if __name__ == "__main__":
                 <td><b>Start date & time</b></td>
                 <td><b>:</b></td>
                 <td>{datetime}</td>
-            </tr>
-            <tr>
-                <td><b>Algo Check Point</b></td>
-                <td><b>:</b></td>
-                <td>{algo_cp}</td>
             </tr>
             <tr>
                 <td><b>Software Version</b></td>
@@ -189,10 +184,10 @@ if __name__ == "__main__":
     """
 
     txt_dict = {}
-    txt_key_list = ['output_folder', 'url', 'algo_cp', 'simulation_repo', 'validation_repo']
+    txt_key_list = ['output_folder', 'url', 'simulation_repo', 'validation_repo']
 
     # basepath
-    basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\Report_Files'
+    basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_report'
     # Fetch information from the text file related to the Jenkin jobs
     with open(basepath + '\Jenkin_information.txt') as txt:
         for key, line in zip(txt_key_list, txt.readlines()):
