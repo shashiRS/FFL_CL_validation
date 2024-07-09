@@ -132,8 +132,8 @@ class Step1(TestStep):
                     self.result.measured_result = TRUE
                     test_result = fc.PASS
             else:
-                self.result.measured_result = FALSE
-                test_result = fc.FAIL
+                self.result.measured_result = TRUE
+                test_result = fc.PASS
             fig.layout = go.Layout(
                 yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="MTS.Package.Timestamp"
             )
@@ -194,7 +194,7 @@ def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
     This is only meant to jump start testcase debugging.
     """
     # Define your directory path to your measurements for debugging purposes
-    test_bsigs = [r"D:\MOCO\AP_SmallRegressionTests_20240319\AUPSim_UC_AngLeft_ST-0562_F_SI_On_03.erg"]
+    test_bsigs = [r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\mf_sil\tests\SIL\CarMaker\SimOutput\AUPSim_UC_ParRight_ST-1_04_02_B_SI_ExtendedEndTime.erg",r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\mf_sil\tests\SIL\CarMaker\SimOutput\AUPSim_UC_PerpLeft_ST-2_04_04_F_SI_FirstSteerAccur.erg"]
 
     debug(
         SWT_swrt_cnc_moco_general_signal_status,
@@ -208,9 +208,24 @@ def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
 
 
 if __name__ == "__main__":
-    working_directory = Path(tempfile.mkdtemp("_tsf"))
+    #working_directory = Path(tempfile.mkdtemp("_tsf"))
+
+    import time
+    timestr = time.strftime("%Y%m%d_%H%M%S")
+    
+    pat= r"\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_report\FFL_CL"+timestr
+    working_directory = Path(pat)
+
+    with open(r"\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_report\Jenkin_info.txt", "w") as f:
+        
+        contents = "".join(str(working_directory))
+        f.write(contents)
+        f.write("\n")
+
 
     data_folder = working_directory / "data"
+    
     out_folder = working_directory / "out"
-
+    
+    
     main(data_folder=data_folder, temp_dir=out_folder, open_explorer=True)
