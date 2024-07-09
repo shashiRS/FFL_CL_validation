@@ -21,6 +21,8 @@ from tsf.core.testcase import (
     verifies,
 )
 from tsf.core.utilities import debug
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
+
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
@@ -462,7 +464,8 @@ def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
     This is only meant to jump start testcase debugging.
     """
     # Define your directory path to your measurements for debugging purposes
-    test_bsigs = [r".\absolute_directory_path_to_your_measurement\file.erg"]
+    test_bsigs = [r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\mf_sil\tests\SIL\CarMaker\SimOutput\AUPSim_UC_ParRight_ST-1_04_02_B_SI_ExtendedEndTime.erg",r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\mf_sil\tests\SIL\CarMaker\SimOutput\AUPSim_UC_PerpLeft_ST-2_04_04_F_SI_FirstSteerAccur.erg"]
+
 
     debug(
         SWT_swrt_cnc_moco_longitudinal_first_steer_accur,
@@ -476,9 +479,24 @@ def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
 
 
 if __name__ == "__main__":
-    working_directory = Path(tempfile.mkdtemp("_tsf"))
+    #working_directory = Path(tempfile.mkdtemp("_tsf"))
+
+    import time
+    timestr = time.strftime("%Y%m%d_%H%M%S")
+    
+    pat= r"\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_report\FFL_CL"+timestr
+    working_directory = Path(pat)
+
+    with open(r"\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_report\Jenkin_info.txt", "w") as f:
+        
+        contents = "".join(str(working_directory))
+        f.write(contents)
+        f.write("\n")
+
 
     data_folder = working_directory / "data"
+    
     out_folder = working_directory / "out"
-
+    
+    
     main(data_folder=data_folder, temp_dir=out_folder, open_explorer=True)
