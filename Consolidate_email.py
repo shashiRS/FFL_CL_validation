@@ -81,8 +81,8 @@ def retrieve_html_info(report_file):
 if __name__ == "__main__":
     sender_email = 'uig88154@contiwan.com'
     sender_password = 'Helloworld@123'
-    #recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com']
-    recipient_email = ['shashikala.r.s@continental-corporation.com']   
+    recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com']
+    #recipient_email = ['shashikala.r.s@continental-corporation.com']   
     subject = '[ADC544NN16] Closed Loop FFL JENKINS CI/CD'
     body_html = """
     <!DOCTYPE html>
@@ -138,6 +138,12 @@ if __name__ == "__main__":
                 <td><b><a href="{validation_github_url}">{validation_github_url}</a></b></td>
             </tr>
             <tr>
+            <tr>
+                <td><b>Contest GitHub URL</b></td>
+                <td><b>:</b></td>
+                <td><b><a href="{contest_github_url}">{contest_github_url}</a></b></td>
+            </tr>
+            <tr>
                 <td><b>Target platform</b></td>
                 <td><b>:</b></td>
                 <td>Dummy Platform</td>
@@ -184,7 +190,7 @@ if __name__ == "__main__":
     """
 
     txt_dict = {}
-    txt_key_list = ['output_folder', 'url', 'simulation_repo', 'validation_repo']
+    txt_key_list = ['output_folder', 'url', 'simulation_repo', 'validation_repo','contest_repo']
 
     # basepath
     basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_report'
@@ -198,9 +204,9 @@ if __name__ == "__main__":
 
     project_table_dict, test_case_table_dict = retrieve_html_info(report_file)
 
-    body_html = body_html.format(url_link=txt_dict['url'],algo_cp=txt_dict['algo_cp'], datetime=datetime.datetime.now(), \
+    body_html = body_html.format(url_link=txt_dict['url'], datetime=datetime.datetime.now(), \
                                  sw_version=project_table_dict['Subject under Test'], simulation_github_url=txt_dict['simulation_repo'], \
-                                 validation_github_url=txt_dict['validation_repo'], report_file=txt_dict["output_folder"], \
+                                 validation_github_url=txt_dict['validation_repo'],contest_github_url=txt_dict['contest_repo'], report_file=txt_dict["output_folder"], \
                                  test_execution_duration=None, executed_test_cases=test_case_table_dict['Executed Test Cases'], \
                                  passed_test_cases=test_case_table_dict['PASSED Test Cases'], failed_test_cases=test_case_table_dict['FAILED Test Cases'], \
                                  na_test_cases=test_case_table_dict['N/A Test Cases'], other_executed_test_cases=test_case_table_dict['Other Executed Test Cases'])
