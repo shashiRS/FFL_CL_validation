@@ -83,7 +83,7 @@ if __name__ == "__main__":
     sender_password = 'Helloworld@123'
     #recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com']
     recipient_email = ['shashikala.r.s@continental-corporation.com']   
-    subject = '[ADC544NN16] Closed Loop FFL JENKINS CI/CD'
+    subject = '[SYS230TM14] Closed Loop FFL JENKINS CI/CD'
     body_html = """
     <!DOCTYPE html>
     <html>
@@ -193,7 +193,7 @@ if __name__ == "__main__":
     txt_key_list = ['output_folder', 'url', 'simulation_repo', 'validation_repo','contest_repo']
 
     # basepath
-    basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_report'
+    basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_Report_TATA_LVMD'
     # Fetch information from the text file related to the Jenkin jobs
     with open(basepath + '\Jenkin_information.txt') as txt:
         for key, line in zip(txt_key_list, txt.readlines()):
