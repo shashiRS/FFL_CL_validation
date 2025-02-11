@@ -100,15 +100,15 @@ def evaluation_result(result, tyre, threshold, deviation):
     if not result:
         evaluation = (
             f"Evaluation of Tire Circumference for the {tyre} driven axle wheel is {deviation}m deviated "
-            f"with respect to the ground truth data, and max threshold value {threshold} w.r.to the ,"
+            f"with respect to the ground truth data, and max threshold value {threshold}m w.r.to the "
             f"ground truth, Hence test results is FAILED."
         )
         test_result = False
     else:
         evaluation = (
-            f"Evaluation of Tire Circumference for the {tyre} driven axle wheel is within the "
-            f"expected threshold from  the ground truth and max threshold value {threshold} w.r.to the ,"
-            f"ground truth, Hence test results is FAILED."
+            f"Evaluation of Tire Circumference for the {tyre} driven axle wheel deviated {deviation}m and the"
+            f"deviation is below the threshold value {threshold}m w.r.to the "
+            f"ground truth, Hence test results is PASSED."
         )
         test_result = True
     return test_result, evaluation
@@ -165,7 +165,6 @@ class TceTyreCircumferenceForDrivenAxleWheels(TestStep):
 
         # Init variables
         signal_summary = dict()
-        expected_threshold = "0.5%"
         max_deviation_threshold = 0.005 * gt_tire_front
         max_gps_precision_error = 2.5
 
@@ -177,7 +176,9 @@ class TceTyreCircumferenceForDrivenAxleWheels(TestStep):
             fl_result = True
         else:
             fl_result = False
-        fl_test_result, fl_evaluation = evaluation_result(fl_result, "front left", expected_threshold, fl_max_deviation)
+        fl_test_result, fl_evaluation = evaluation_result(
+            fl_result, "front left", max_deviation_threshold, fl_max_deviation
+        )
 
         fr_tyre_error_list = check_tyre_circumference_for_driven_wheels(gt_tire_front, est_tire_fr, driven_distance)
         fr_max_deviation = max(fr_tyre_error_list)
@@ -186,7 +187,7 @@ class TceTyreCircumferenceForDrivenAxleWheels(TestStep):
         else:
             fr_result = False
         fr_test_result, fr_evaluation = evaluation_result(
-            fr_result, "front right", expected_threshold, fr_max_deviation
+            fr_result, "front right", max_deviation_threshold, fr_max_deviation
         )
 
         if fl_test_result and fr_test_result:
@@ -436,7 +437,7 @@ class TceTyreCircumferenceForDrivenAxleWheels(TestStep):
     "i.de%2Fgc%2Fconfiguration%2F30013&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K2"
     "8PvtEeqIqKySVwTVNQ%2Fcomponents%2F__9Yt9nfVEe6n7Ow9oWyCxw",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class TceTyreCircumferenceForDrivenAxleWheelsTestCase(TestCase):
     """Example test case."""

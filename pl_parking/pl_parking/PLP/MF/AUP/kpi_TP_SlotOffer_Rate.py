@@ -1,5 +1,10 @@
-"""True Positive Slot Offer KPI"""
+"""True Positive Slot Offer KPI
+The KPI must be runned with the measurements and the json files within the same directory.
+The name of the measurement and the name of the JSON file must be the same.
+"""
 
+import base64
+import io
 import json
 import logging
 import os
@@ -10,6 +15,8 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from PIL import Image
+from scipy.spatial import KDTree
 from shapely.geometry import Polygon
 
 TSF_BASE = os.path.abspath(os.path.join(__file__, "..", ".."))
@@ -17,11 +24,13 @@ if TSF_BASE not in sys.path:
     sys.path.append(TSF_BASE)
 from time import time as start_time
 
-from tsf.core.results import FALSE, TRUE, BooleanResult  # nopep8
+from tsf.core.results import DATA_NOK, TRUE, Result  # nopep8
 from tsf.core.testcase import (
+    PreProcessor,
     TestCase,
     TestStep,
     register_inputs,
+    register_pre_processor,
     register_signals,
     testcase_definition,
     teststep_definition,
@@ -123,7 +132,7 @@ def calculate_overlap(json_coords, signal_coords):
 
     # Calculate overlap percentage
     overlap_percentage = 0.0
-
+    percetage_calculated_slot = "No Slot Selected"
     if not intersection.is_empty:
         intersection_area = intersection.area
         json_polygon_area = json_polygon.area
@@ -293,51 +302,102 @@ def check_point_inside_detection_box(point, box):
             # write_log_message(f"Error creating Path object: {e}", "error", LOGGER)
 
 
-def check_distance_condition(centers_signal, centers_gt, ACCEPTABLE_DISTANCE):
+def calculate_distance(centers_signal, centers_gt):
     """
-    Check if the Euclidean distance between two points is less than a specified threshold.
+    Calculates the Euclidean distance between two specified points.
 
     Parameters:
-    - centers_signal (list of tuples): Coordinates of the signal center.
-    - centers_gt (list of tuples): Coordinates of the ground truth center.
-    - ACCEPTABLE_DISTANCE (float): Threshold for acceptable distance.
+    centers_signal (list): A list of tuples representing the signal coordinates. Each tuple is in the form (x, y).
+    centers_gt (list): A list of tuples representing the ground truth coordinates. Each tuple is in the form (x, y).
 
     Returns:
-    - bool: True if the distance is less than the acceptable distance, False otherwise.
+    float: The Euclidean distance between the specified points.
     """
-    # Compute the Euclidean distance between the specified points (indexing for y-coordinates).
-    distance = np.linalg.norm(
-        np.array([centers_signal[0][1], centers_signal[1][1]]) - np.array([centers_gt[0][1], centers_gt[1][1]])
-    )
-
-    # Check if the distance is less than the acceptable distance and return True or False accordingly.
-    return distance < ACCEPTABLE_DISTANCE
+    return np.linalg.norm(np.array([centers_signal[0], centers_signal[1]]) - np.array([centers_gt[0], centers_gt[1]]))
+    # return np.linalg.norm(
+    #     np.array([centers_signal[0][1], centers_signal[1][1]]) - np.array([centers_gt[0][1], centers_gt[1][1]])
+    # )
 
 
-def are_points_collinear(point1, point2, point3, tolerance=0.5):
+def are_points_collinear(point1, point2, point3, absolute_tolerance=0.1):
     """
-    Check if three points are collinear within a given tolerance.
+    Check if three points are collinear in a 2D plane, dynamically adjusting for distances.
 
     Parameters:
-    - point1, point2, point3: dictionaries with 'x' and 'y' keys representing the coordinates of the points.
-    - tolerance: the maximum allowed error for collinearity.
+    - point1, point2, point3: Dictionaries with 'x' and 'y' keys representing the coordinates of the three points.
+    - absolute_tolerance: The maximum allowed deviation for collinearity in meters (e.g., ±0.2 meters).
 
     Returns:
-    - True if the points are collinear within the specified tolerance, False otherwise.
+    - True if the points are collinear within the given tolerance, False otherwise.
     """
+
+    def distance(p1, p2):
+        """Calculate the Euclidean distance between two points."""
+        return ((p2["x"] - p1["x"]) ** 2 + (p2["y"] - p1["y"]) ** 2) ** 0.5
 
     def cross_product(p1, p2, p3):
+        """Calculate the 2D cross product of three points."""
         return (p2["y"] - p1["y"]) * (p3["x"] - p2["x"]) - (p2["x"] - p1["x"]) * (p3["y"] - p2["y"])
 
-    error = (
-        abs(cross_product(point1, point2, point3))
-        / ((point2["x"] - point1["x"]) ** 2 + (point2["y"] - point1["y"]) ** 2) ** 0.5
-    )
+    # Calculate distances between points
+    dist1 = distance(point1, point2)
+    dist2 = distance(point2, point3)
 
-    return error <= tolerance
+    # Avoid division by zero (e.g., coincident points)
+    if dist1 == 0 or dist2 == 0:
+        return False
+
+    # Compute the raw cross-product
+    raw_cross = abs(cross_product(point1, point2, point3))
+
+    # Normalize the cross-product
+    normalized_cross = raw_cross / (dist1 * dist2)
+
+    # Convert absolute tolerance to a normalized value
+    normalized_tolerance = absolute_tolerance / min(dist1, dist2)
+
+    return normalized_cross <= normalized_tolerance
 
 
-def check_collinearity(timestamp_data, tolerance=0.1, **kwargs):
+def is_horizontal(line, tolerance=2):
+    """Function to check if a line is horizontal"""
+    _, y1, _, y2 = line
+    return abs(y1 - y2) < tolerance
+
+
+def find_vertical_lines(points, **kwargs):
+    """
+    Identifies vertical lines from a set of points and appends them to the provided vertical_lines list.
+    Args:
+        points (list): A list of dictionaries, where each dictionary represents a point with 'x' and 'y' coordinates.
+    Returns:
+        list: The updated vertical_lines list containing the identified vertical lines.
+    """
+    z = []
+    horizontal_lines = []
+    vertical_lines = []
+
+    for point in points:
+        for other_point in points:
+            if other_point != point:
+                line = (point["x"], point["y"], other_point["x"], other_point["y"])
+                if is_horizontal(line):
+                    z.append(line)
+                    horizontal_lines.append(line)
+
+    for line in z:
+        x1, y1, x2, y2 = line
+        if kwargs.get("left_points") is not None:
+            x = min(x1, x2)
+        else:
+            x = max(x1, x2)
+        y = y1 if x == x1 else y2
+        vertical_lines.append((x, y))
+
+    return vertical_lines
+
+
+def check_collinearity_new(timestamp_data, tolerance=0.2, **kwargs):
     """
     Check collinearity of points in timestamp data.
 
@@ -345,7 +405,7 @@ def check_collinearity(timestamp_data, tolerance=0.1, **kwargs):
         timestamp_data (dict): A dictionary containing timestamp data.
             Keys: Timestamp (int)
             Values: List of points (dict) containing 'x' and 'y' coordinates.
-        tolerance (float): Tolerance level for collinearity check (default is 0.1).
+        tolerance (float): Tolerance level for collinearity check (default is 0.2).
         **kwargs: Additional keyword arguments:
             - mirror_x_left (float): X-coordinate of the left mirror.
             - mirror_x_right (float): X-coordinate of the right mirror.
@@ -365,6 +425,8 @@ def check_collinearity(timestamp_data, tolerance=0.1, **kwargs):
     d_next_to = 0.5
 
     for timestamp, points in timestamp_data.items():
+        collinear_left = False
+        collinear_right = False
         if (
             kwargs.get("mirror_x_left") is not None
             and kwargs.get("mirror_x_right") is not None
@@ -372,22 +434,37 @@ def check_collinearity(timestamp_data, tolerance=0.1, **kwargs):
             and kwargs.get("mirror_y_right") is not None
         ):
             # Check collinearity with mirror points
-            point1 = points[1]  # Second pair of coordinates
-            point2 = points[2]  # Third pair of coordinates
-            point3_left = {"x": kwargs["mirror_x_left"], "y": kwargs["mirror_y_left"] - d_next_to}
-            point3_right = {"x": kwargs["mirror_x_right"], "y": kwargs["mirror_y_right"] - d_next_to}
+            # Sort points by the x value
+            vertical_lines = find_vertical_lines(points, left_points="left_points")
 
-            if are_points_collinear(point1, point2, point3_left, tolerance) or are_points_collinear(
-                point1, point2, point3_right, tolerance
-            ):
+            final_vertical_line = tuple(dict.fromkeys(vertical_lines))
+            vertical_lines.clear()
+            left_mirror = {"x": kwargs["mirror_x_left"] - d_next_to, "y": kwargs["mirror_y_left"]}
+            right_mirror = {"x": kwargs["mirror_x_right"] - d_next_to, "y": kwargs["mirror_y_right"]}
+            # left_mirror = {"x": kwargs["mirror_x_left"] , "y": kwargs["mirror_y_left"] - d_next_to}
+            # right_mirror = {"x": kwargs["mirror_x_right"], "y": kwargs["mirror_y_right"] - d_next_to}
+            point1 = {"x": final_vertical_line[0][0], "y": final_vertical_line[0][1]}
+            point2 = {"x": final_vertical_line[1][0], "y": final_vertical_line[1][1]}
+            # if are_points_collinear(point1, point2, left_mirror, tolerance) or \
+            #         are_points_collinear(point1, point2, right_mirror, tolerance):
+            #     return timestamp
+            if abs(point1["y"] - left_mirror["y"]) < abs(point1["y"] - right_mirror["y"]):
+                collinear_left = are_points_collinear(point1, point2, left_mirror, tolerance)
+            else:
+                collinear_right = are_points_collinear(point1, point2, right_mirror, tolerance)
+            if collinear_left or collinear_right:
                 return timestamp
 
         elif kwargs.get("rear") is not None:
-            # Check collinearity with rear point
-            point1 = points[0]  # First pair of coordinates
-            point2 = points[3]  # Last pair of coordinates
-            point3 = {"x": 0, "y": kwargs["rear"]}
-            if are_points_collinear(point1, point2, point3, tolerance):
+            vertical_lines = find_vertical_lines(points)
+            final_vertical_line = tuple(dict.fromkeys(vertical_lines))
+            vertical_lines.clear()
+
+            point1 = {"x": final_vertical_line[0][0], "y": final_vertical_line[0][1]}
+            point2 = {"x": final_vertical_line[1][0], "y": final_vertical_line[1][1]}
+            rear_point = {"x": kwargs["rear"], "y": 0}
+            collinear = are_points_collinear(point1, point2, rear_point, tolerance)
+            if collinear:
                 return timestamp
 
     return None
@@ -407,6 +484,79 @@ def transform_timestamp(timestamp, epoch):
     return (timestamp / constants.GeneralConstants.US_IN_S) - epoch
 
 
+def associate_parking_slots(dict_GT_local, dict_scanned_local, file_data, timestamp):
+    """
+    Associates parking slots from the ground truth (GT) data with the scanned slots based on coordinates for a given timestamp.
+
+    Parameters:
+        dict_GT_local (dict): Dictionary containing GT data for various timestamps.
+        dict_scanned_local (dict): Dictionary containing scanned data for various timestamps.
+        timestamp (int): The specific timestamp for which the association is made.
+
+    Returns:
+        dict: Dictionary containing the final associations between scanned slots and GT slots for the given timestamp.
+    """
+    # Check if the timestamp exists in the GT and scanned data
+    if timestamp not in dict_scanned_local:
+        raise ValueError(f"Timestamp {timestamp} does not exist in the GT or scanned data.")
+
+    # Extract the parking slot centers from the GT data
+    gt_centers = list(next(iter(dict_GT_local.values())).keys())
+    # Filter the dictionary to get only the values after the given timestamp
+    filtered_gt_centers = {ts: centers for ts, centers in dict_GT_local.items() if ts > timestamp}
+    gt_centers = list(next(iter(filtered_gt_centers.values())).keys())
+
+    # Try to extract the numeric coordinates
+    try:
+        gt_centers_array = [[float(coord[1]) for coord in center] for center in gt_centers]
+    except (TypeError, ValueError) as e:
+        print(f"Error converting GT centers: {e}")
+        return {}
+
+    # Build KDTree for GT
+    tree = KDTree(gt_centers_array)
+
+    # Initialize the dictionary for associations
+    associations_dict = {}
+    vehicle_local = "VehicleLocal" if "VehicleLocal" in file_data else "VehicleLocalSlots"
+    # Iterate through each scanned coordinate and try to associate it with a ground truth location
+    for _, scanned_data in dict_scanned_local[timestamp].items():
+        for scanned_center, scanned_coords in scanned_data.items():
+            try:
+                if scanned_center[0][1] == 0.0 and scanned_center[1][1] == 0.0:
+                    continue
+                # Convert scanned coordinates to a list of numeric values
+                scanned_center_array = [float(coord[1]) for coord in scanned_center]
+                dist, index = tree.query(scanned_center_array)
+                matched_gt_center = gt_centers[index]
+                # Add the association to the dictionary
+                associations_dict[scanned_center] = {
+                    "GT_center": matched_gt_center,
+                    "GT_coordinates": file_data[vehicle_local][0]["timedObjs"][0]["parkingBoxes"][index][
+                        "slotCoordinates_m"
+                    ],
+                    "ID_parking_box": file_data[vehicle_local][0]["timedObjs"][0]["parkingBoxes"][index]["objectId"],
+                    "distance": dist,
+                    "scanned_coordinates": scanned_coords,
+                }
+            except (TypeError, ValueError) as e:
+                print(f"Error converting scanned centers: {e}")
+
+    matched_gt_indices = set()
+    final_associations = {}
+
+    for scanned_center, assoc_data in associations_dict.items():
+        gt_index = assoc_data["ID_parking_box"]
+        if gt_index not in matched_gt_indices:
+            final_associations[scanned_center] = assoc_data
+            matched_gt_indices.add(gt_index)
+        else:
+            print(f"Conflict: Scanned slot {scanned_center} was ignored due to multiple associations.")
+    # Find the association with the lowest distance
+    associtated_parking_slot = min(associations_dict.items(), key=lambda x: x[1]["distance"])
+    return associtated_parking_slot
+
+
 class Signals(SignalDefinition):
     """Signal definition."""
 
@@ -414,78 +564,136 @@ class Signals(SignalDefinition):
         """Column defines."""
 
         sg_time = "uiTimeStamp"
-        sg_parksm_core_status_stop_reason = "ParkSmCoreStatus"
         sg_parksm_core_status_state = "ParkSmCoreStatusState"
         sg_num_valid_parking_boxes = "NumValidParkingBoxes"
         sg_velocity = "EgoMotionPort"
-        sg_ego_pos = "EgoPositionAP"
-        SOFTWARE_MAJOR = "SOFTWARE_MAJOR"
-        SOFTWARE_MINOR = "SOFTWARE_MINOR"
-        SOFTWARE_PATCH = "SOFTWARE_PATCH"
         Slotcoordinates_x = "Slotcoordinates_{}_{}_x"
         Slotcoordinates_y = "Slotcoordinates_{}_{}_y"
-        sg_selected_parking_box_id = "SelectedParkingBoxID"
-        sg_parking_box_1_id = "ParkingBox0ID"
-        sg_parking_box_2_id = "ParkingBox1ID"
-        sg_parking_box_3_id = "ParkingBox2ID"
-        sg_parking_box_4_id = "ParkingBox3ID"
-        sg_parking_box_5_id = "ParkingBox4ID"
-        sg_parking_box_6_id = "ParkingBox5ID"
-        sg_parking_box_7_id = "ParkingBox6ID"
-        sg_parking_box_8_id = "ParkingBox7ID"
+        sg_selection_status = "SelectionStatus"
+        sg_position_x = "PositionX"
+        sg_position_y = "PositionY"
+        sg_position_yaw = "PositionYaw"
 
     def __init__(self):
         """Initialize the signal definition."""
         super().__init__()
 
         self._root = [
-            "CarPC.EM_Thread",
-            "M7board.ConfigurationTrace",
-            "MTS.Package",
-            "M7board.CAN_Thread",
-            "ADC5xx_Device",
+            "SIM VFB",
+            "MTA_ADC5",
         ]
         self._properties = {
             # self.Columns.sg_time: ".TimeStamp",
-            self.Columns.sg_time: ".TRJPLA_DATA.TrjPlaParkingBoxPort.sSigHeader.uiTimeStamp",
-            self.Columns.sg_parksm_core_status_stop_reason: ".EM_DATA.EmPARRKSMCoreStatusPort.coreStopReason_nu",
-            self.Columns.sg_parksm_core_status_state: ".EM_DATA.EmPARRKSMCoreStatusPort.parksmCoreState_nu",
-            self.Columns.sg_num_valid_parking_boxes: ".EM_DATA.EmApParkingBoxPort.numValidParkingBoxes_nu",
-            self.Columns.sg_velocity: ".EM_DATA.EmEgoMotionPort.vel_mps",
-            self.Columns.sg_selected_parking_box_id: ".TRJPLA_DATA.TrjPlaSlotCtrlPort.selectedParkingBoxId_nu",
-            self.Columns.sg_parking_box_1_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[0].parkingBoxID_nu",
-            self.Columns.sg_parking_box_2_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[1].parkingBoxID_nu",
-            self.Columns.sg_parking_box_3_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[2].parkingBoxID_nu",
-            self.Columns.sg_parking_box_4_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[3].parkingBoxID_nu",
-            self.Columns.sg_parking_box_5_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[4].parkingBoxID_nu",
-            self.Columns.sg_parking_box_6_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[5].parkingBoxID_nu",
-            self.Columns.sg_parking_box_7_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[6].parkingBoxID_nu",
-            self.Columns.sg_parking_box_8_id: ".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[7].parkingBoxID_nu",
+            self.Columns.sg_time: [
+                ".MF_TRJPLA_DATA.syncRef.m_sig_parkingBoxPort.uiTimeStamp",
+                ".MF_TRJPLA_1.syncRef.m_sig_parkingBoxPort.uiTimeStamp",
+            ],
+            self.Columns.sg_position_x: [
+                ".MF_VEDODO_DATA.OdoEstimationOutputPort.odoEstimation.xPosition_m",
+                ".VEDODO_0.m_odoEstimationOutputPort.odoEstimation.xPosition_m",
+            ],
+            self.Columns.sg_position_y: [
+                ".MF_VEDODO_DATA.OdoEstimationOutputPort.odoEstimation.yPosition_m",
+                ".VEDODO_0.m_odoEstimationOutputPort.odoEstimation.yPosition_m",
+            ],
+            self.Columns.sg_position_yaw: [
+                ".MF_VEDODO_DATA.OdoEstimationOutputPort.odoEstimation.yawAngle_rad",
+                ".VEDODO_0.m_odoEstimationOutputPort.odoEstimation.yawAngle_rad",
+            ],
+            self.Columns.sg_parksm_core_status_state: [
+                ".MF_PARKSM_CORE_DATA.parksmCoreStatusPort.parksmCoreState_nu",
+                ".MfPsmCore.parksmCoreStatusPort.parksmCoreState_nu",
+            ],
+            self.Columns.sg_num_valid_parking_boxes: [
+                ".SI_DATA.m_parkingBoxesPort.numValidParkingBoxes_nu",
+                ".SiCoreGeneric.m_parkingBoxesPort.numValidParkingBoxes_nu",
+            ],
+            self.Columns.sg_velocity: [".SI_DATA.m_egoMotionPort.vel_mps", ".SiCoreGeneric.m_egoMotionPort.vel_mps"],
+            self.Columns.sg_selection_status: [
+                ".MF_TRJPLA_DATA.targetPoses.selectedPoseData.selectionStatus",
+                ".MF_TRJPLA_1.targetPoses.selectedPoseData.selectionStatus",
+            ],
         }
         iteration_tuples = []
         for i in range(8):  # 8
             for j in range(4):  # 4
                 iteration_tuples.append((i, j))
-        # ADC5xx_Device.TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[].slotCoordinates_m.array[].x_dir
         slot_coords_x = {
-            self.Columns.Slotcoordinates_x.format(
-                x[0], x[1]
-            ): f".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[{x[0]}].slotCoordinates_m.array[{x[1]}].x_dir"
+            self.Columns.Slotcoordinates_x.format(x[0], x[1]): [
+                f".SI_DATA.m_parkingBoxesPort.parkingBoxes[{x[0]}].slotCoordinates_m.array[{x[1]}].x_dir",
+                f".SiCoreGeneric.m_parkingBoxesPort.parkingBoxes[{x[0]}].slotCoordinates_m.array[{x[1]}].x_dir",
+            ]
             for x in iteration_tuples
         }
         slot_coords_y = {
-            self.Columns.Slotcoordinates_y.format(
-                x[0], x[1]
-            ): f".TRJPLA_DATA.TrjPlaParkingBoxPort.parkingBoxes[{x[0]}].slotCoordinates_m.array[{x[1]}].y_dir"
+            self.Columns.Slotcoordinates_y.format(x[0], x[1]): [
+                f".SI_DATA.m_parkingBoxesPort.parkingBoxes[{x[0]}].slotCoordinates_m.array[{x[1]}].y_dir",
+                f".SiCoreGeneric.m_parkingBoxesPort.parkingBoxes[{x[0]}].slotCoordinates_m.array[{x[1]}].y_dir",
+            ]
             for x in iteration_tuples
         }
         self._properties.update(slot_coords_x)
         self._properties.update(slot_coords_y)
 
 
+class Preprocessor(PreProcessor):
+    """Preprocessor for the ParkEnd test step."""
+
+    def pre_process(self):
+        """
+        Preprocesses the data before further processing.
+
+        Returns:
+        - df: pd.DataFrame, the preprocessed data.
+        """
+
+        def get_time_obj_string(file_data):
+            # Extract VehicleLocal from file_data
+            vehicle_local_string = "VehicleLocal" if "VehicleLocal" in file_data else "VehicleLocalSlots"
+            vehicle_local_coordinates = file_data.get("VehicleLocal") or file_data.get("VehicleLocalSlots")
+            if not vehicle_local_string:
+                raise ValueError("VehicleLocal/VehicleLocalSlots not found in JSON file")
+
+            # Extract timedObjs from the first element of VehicleLocal
+            timed_objs = vehicle_local_coordinates[0].get("timedObjs")
+            if not timed_objs:
+                raise ValueError("timedObjs not found in VehicleLocal")
+
+            # Look for the key that ends with ".uiTimeStamp" in the first element of timedObjs
+            for key in timed_objs[0].keys():
+                if key.endswith(".uiTimeStamp"):
+                    return key, vehicle_local_string
+
+            # If no key ending with '.uiTimeStamp' is found, raise an error
+            raise ValueError("No key ending with '.uiTimeStamp' found in timedObjs")
+
+        file_path = os.path.basename(self.artifacts[0].file_path)
+        time_obj_string_timestamp = None
+        vehicle_local_string = None
+        json_files = []
+
+        if file_path.endswith(".rrec") or file_path.endswith(".bsig"):
+            identifier = file_path[:-5]  # Remove the ".rrec" extension
+            directory = os.path.dirname(self.artifacts[0].file_path)
+
+            # Search for a JSON file that contains the identifier
+            json_files = [f for f in os.listdir(directory) if f.endswith(".json") and identifier in f]
+
+        try:
+            json_path = os.path.join(directory, json_files[0])  # Use the first matching JSON file
+            with open(json_path) as file:
+                file_data = json.loads(file.read())
+                time_obj_string_timestamp, vehicle_local_string = get_time_obj_string(file_data)
+        except FileNotFoundError as e:
+            raise FileNotFoundError("No JSON file found matching the identifier.") from e
+
+        return file_data, time_obj_string_timestamp, vehicle_local_string
+
+
 signals_obj = Signals()
 
 
+@register_pre_processor(alias="AUP_slot_offer", pre_processor=Preprocessor)
 class GenericTestStep(TestStep):
     """Generic TestStep to use the calculation for both scenarios"""
 
@@ -494,6 +702,7 @@ class GenericTestStep(TestStep):
 
     def __init__(self):
         super().__init__()
+        self.test_result = None
 
     def process(self, collinear_timestamp):
         """
@@ -515,61 +724,73 @@ class GenericTestStep(TestStep):
                     "Plot_titles": [],
                     "Remarks": [],
                     "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.basename(self.artifacts[0].file_path),
                 }
             )
 
-            test_result = fc.INPUT_MISSING
+            # Initialize variables
+            self.test_result = fc.INPUT_MISSING
             plot_titles, plots, remarks = fh.rep([], 3)
-
             df = pd.DataFrame()
             signal_name = {}
             signal_name = signals_obj._properties
             time = None
             eval_cond = [False] * 3
             self.result.measured_result = TRUE
+            TPR = 0
+            pre_processor_key = list(x for x in self.pre_processors.keys() if x.startswith("AUP_slot_offer"))[0]
+            file_data, time_obj_string_timestamp, vehicle_local_string = self.pre_processors[pre_processor_key]
+            file_path = os.path.basename(self.artifacts[0].file_path)
+            # Initialize dictionaries and lists
             result_dict = {}
-            dict_GT_app = {}
-            gt_park_slot_centers_app = []
-
+            results = []
+            first_collinear_timestamp = None
+            dict_scanned_local = {}
             dict_GT_park = {}
             gt_park_slot_centers_park = []
             json_timestamps_park = []
-
             dict_GT_local = {}
             gt_park_slot_centers_local = []
             json_timestamps_local = []
-
+            local_parking_box_dict = {}
+            associate_parking_slot = {}
+            # Initialize Plotly figure
             fig_gt = px.scatter(x=[0, 0, 0, 0, 0, 0, 0, 0], y=[0, 0, 0, 0, 0, 0, 0, 0])
+
+            # Get the absolute path of the current script file
+            script_path = os.path.realpath(__file__)
+            image_path = None
+            # Extract the directory path
+            image_base_path = os.path.dirname(script_path)
+
+            # Define the image filenames
+            image1_filename = r"next_to_parkingbox.png"
+            image2_filename = r"fully_passed_parkingbox.png"
+
+            # Extract car coordinates
             # from: github-am.geo.conti.de/ADAS/mf_common/blob/2e24136b576160a23685eaf61ccc3abe3ca94b2f/interface/platform/ultrasonic_parking/Vehicle_Params_default_set.h
-            # mirror_x_left = 1.05
-            mirror_x_left = SlotOffer.CarCoordinates.LEFT_MIRROR_REAR_LEFT_CORNER[1]
-            # mirror_x_right = -1.05
-            mirror_x_right = SlotOffer.CarCoordinates.RIGHT_MIRROR_REAR_RIGHT_CORNER[1]
-            # mirror_y_left = 2.05
-            mirror_y_left = SlotOffer.CarCoordinates.LEFT_MIRROR_REAR_LEFT_CORNER[0]
-            # mirror_y_right = 2.05
-            mirror_y_right = SlotOffer.CarCoordinates.RIGHT_MIRROR_REAR_RIGHT_CORNER[0]
-            # rear = -1.1
+            mirror_x_left = SlotOffer.CarCoordinates.LEFT_MIRROR_REAR_LEFT_CORNER[0]
+            mirror_x_right = SlotOffer.CarCoordinates.RIGHT_MIRROR_REAR_RIGHT_CORNER[0]
+            mirror_y_left = SlotOffer.CarCoordinates.LEFT_MIRROR_REAR_LEFT_CORNER[1]
+            mirror_y_right = SlotOffer.CarCoordinates.RIGHT_MIRROR_REAR_RIGHT_CORNER[1]
             rear = SlotOffer.CarCoordinates.REAR_LEFT[0]
 
             car_fix_coordinates = [
                 value for key, value in vars(SlotOffer.CarCoordinates).items() if not key.startswith("__")
             ]
             car_fix_coordinates.append(car_fix_coordinates[0])
+
+            # Initialize boundary variables
             max_x = 0
             min_x = 0
             max_y = 0
             min_y = 0
 
-            results = []
-            local_parking_box_dict = {}
+            try:
+                df = self.readers[EXAMPLE].signals
+            except Exception:
+                df = self.readers[EXAMPLE]
 
-            df = self.readers[EXAMPLE]
-
-            # major_val = df[Signals.Columns.SOFTWARE_MAJOR]
-            # minor_val = df[Signals.Columns.SOFTWARE_MINOR]
-            # patch_val = df[Signals.Columns.SOFTWARE_PATCH]
-            # software_version_str = str(0)
             sg_slot_coords = []
             df_temp = pd.DataFrame()
 
@@ -587,47 +808,106 @@ class GenericTestStep(TestStep):
                 df[f"Slotcoordinates_{i}"] = df_temp.apply(lambda row: row.tolist(), axis=1)
                 sg_slot_coords.append(f"Slotcoordinates_{i}")
 
-            file_path = os.path.basename(self.artifacts[0].file_path)
-            if file_path.endswith(".rrec"):
-                identifier = file_path[:-5]  # Remove the ".rrec" extension
-                json_path = os.path.join(os.path.dirname(self.artifacts[0].file_path), f"{identifier}.json")
-            file = open(json_path)
-            file_data = json.loads(file.read())
-
-            time = df[Signals.Columns.sg_time] / constants.GeneralConstants.US_IN_S
-            while time.iloc[0] == 0.0:
-                time.drop(index=time.index[0], axis=0, inplace=True)
-            epoch = time.iat[0]
-            time = time - epoch
             df.set_index(Signals.Columns.sg_time, inplace=True)
-            time_obj_string_timestamp = "ADC5xx_Device.TRJPLA_DATA.TrjPlaParkingBoxPort.sSigHeader.uiTimeStamp"
-
             # Extract JSON timestamps for local vehicles and parking start
             json_timestamps_local = [
                 timed_obj[time_obj_string_timestamp]
-                for entry in file_data["VehicleLocal"]
+                for entry in file_data.get(vehicle_local_string, [])
+                # for entry in file_data.get("VehicleLocal", []) + file_data.get("VehicleLocalSlots", [])
                 for timed_obj in entry.get("timedObjs", [])
             ]
-            json_timestamps_park = file_data["ParkingStarted"][0]["timedObjs"][0].get(time_obj_string_timestamp, None)
-
             # Filter DataFrame based on local timestamps
             filtered_df = df[df.index.isin(json_timestamps_local)]
-
             # Remove duplicate indexes from the filtered DataFrame
             duplicate_indexes = filtered_df.index.duplicated()
             filtered_df = filtered_df[~duplicate_indexes]
 
-            for timestamp in filtered_df.index:
-                # Process and extract GT data, resulting in dictionaries filled with all the parking slots
-                dict_GT_app, gt_park_slot_centers_app = process_json_section(
-                    file_data,
-                    timestamp,
-                    time_obj_string_timestamp,
-                    dict_GT_app,
-                    gt_park_slot_centers_app,
-                    "ApplicationStarted",
+            time = filtered_df.index / constants.GeneralConstants.US_IN_S
+            epoch = time[0]
+            time = time - epoch
+
+            json_timestamps_park = None
+            if "ParkingStarted" in file_data and file_data["ParkingStarted"]:
+                for entry in file_data["ParkingStarted"]:
+                    if "timedObjs" in entry and entry["timedObjs"]:
+                        json_timestamps_park = entry["timedObjs"][0].get(time_obj_string_timestamp, None)
+                        if json_timestamps_park:
+                            break
+
+            if json_timestamps_park is None:
+                self.test_result = fc.INPUT_MISSING
+                self.result.measured_result = DATA_NOK
+                signal_summary = pd.DataFrame(
+                    {
+                        "Evaluation": {
+                            "0": "Evaluation was not possible due to no selection of a parking box.",
+                        },
+                        "Verdict": {
+                            "0": "FAILED",
+                        },
+                    }
+                )
+                sig_sum = fh.build_html_table(signal_summary)
+                plots.append(sig_sum)
+
+                fig1 = go.Figure()
+                fig1.add_trace(
+                    go.Scatter(
+                        x=time.tolist(),
+                        y=filtered_df[Signals.Columns.sg_num_valid_parking_boxes].values.tolist(),
+                        mode="lines",
+                        name=f"{signal_name[Signals.Columns.sg_num_valid_parking_boxes]}",
+                        yaxis="y",
+                        showlegend=True,
+                    )
+                )
+                fig1.add_trace(
+                    go.Scatter(
+                        x=time.tolist(),
+                        y=filtered_df[Signals.Columns.sg_selection_status].values.tolist(),
+                        mode="lines",
+                        name=f"{signal_name[Signals.Columns.sg_selection_status]}",
+                        yaxis="y",
+                        showlegend=True,
+                    )
+                )
+                fig1.add_trace(
+                    go.Scatter(
+                        x=time.tolist(),
+                        y=filtered_df[Signals.Columns.sg_velocity].values.tolist(),
+                        mode="lines",
+                        name=f"{signal_name[Signals.Columns.sg_velocity]}",
+                        yaxis="y",
+                        showlegend=True,
+                    )
+                )
+                fig1.add_trace(
+                    go.Scatter(
+                        x=time.tolist(),
+                        y=filtered_df[Signals.Columns.sg_parksm_core_status_state].values.tolist(),
+                        mode="lines",
+                        name=f"{signal_name[Signals.Columns.sg_parksm_core_status_state]}",
+                        yaxis="y",
+                        showlegend=True,
+                    )
                 )
 
+                fig1.layout = go.Layout(
+                    yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time [s]"
+                )
+                fig1.update_layout(
+                    constants.PlotlyTemplate.lgt_tmplt,
+                    title_text="Graphical overview for multiple SlotOffer related signals",
+                )
+                plots.append(fig1)
+                for plot in plots:
+                    if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                        self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                    else:
+                        self.result.details["Plots"].append(plot)
+                return
+
+            for timestamp in filtered_df.index:
                 dict_GT_park, gt_park_slot_centers_park = process_json_section(
                     file_data,
                     timestamp,
@@ -642,129 +922,123 @@ class GenericTestStep(TestStep):
                     time_obj_string_timestamp,
                     dict_GT_local,
                     gt_park_slot_centers_local,
-                    "VehicleLocal",
+                    vehicle_local_string,
                 )
+            selection_timestamp = filtered_df.index[filtered_df[Signals.Columns.sg_selection_status] == 2][0]
 
             for timestamp in filtered_df.index[filtered_df.index >= json_timestamps_park]:
-                # Process and extract signals' data, resulting in a second dictionary filled with all scanned parking slots
-                coord_dict = process_signal_coordinates(timestamp, filtered_df, sg_slot_coords)
-                # Check condition for 'SlotCoordinates_0'
-                slot_0_values = coord_dict.get("Slotcoordinates_0", {})
-                key_values_0 = next(iter(slot_0_values.keys()), None)  # Get the first tuple from 'Slotcoordinates_0'
-                # Check if 'SlotCoordinates_0' has values different from 0
-                if key_values_0 and all(value != 0 for key, value in key_values_0):
-                    # Check condition for all other 'SlotCoordinates'
-                    all_other_slots_condition = all(
-                        next(iter(coord_dict.get(f"Slotcoordinates_{i}", {}).keys()), ()) == (("x", 0.0), ("y", 0.0))
-                        for i in range(1, 8)
-                    )
-                    if all_other_slots_condition:
-                        result_dict[timestamp] = coord_dict
-                        eval_cond[0] = True
+                if timestamp >= selection_timestamp:
+                    # Process and extract signals' data, resulting in a second dictionary filled with all scanned parking slots
+                    coord_dict = process_signal_coordinates(timestamp, filtered_df, sg_slot_coords)
+                    dict_scanned_local[timestamp] = coord_dict
+                    # Check condition for 'SlotCoordinates_0'
+                    slot_0_values = coord_dict.get("Slotcoordinates_0", {})
+                    key_values_0 = next(
+                        iter(slot_0_values.keys()), None
+                    )  # Get the first tuple from 'Slotcoordinates_0'
+                    # Check if 'SlotCoordinates_0' has values different from 0
+                    if key_values_0 and all(value != 0 for key, value in key_values_0):
+                        # Check condition for all other 'SlotCoordinates'
+                        all_other_slots_condition = all(
+                            next(iter(coord_dict.get(f"Slotcoordinates_{i}", {}).keys()), ())
+                            == (("x", 0.0), ("y", 0.0))
+                            for i in range(1, 8)
+                        )
+                        if all_other_slots_condition:
+                            result_dict[timestamp] = coord_dict
+                            eval_cond[0] = True
 
             if eval_cond[0]:
                 result_timestamp = result_dict[next(iter(result_dict), None)]
-                gt_timestamp = dict_GT_park[json_timestamps_park]  # GT ParkingStarted for measurement number 3
-                targeted_slot = 0
-                for _, centers_signal_dict in result_timestamp.items():
-                    for centers_signal, _ in centers_signal_dict.items():
-                        for centers_gt, _ in gt_timestamp.items():
-                            targeted_slot += 1
-                            if check_distance_condition(centers_gt, centers_signal, 1):
-                                break
-                        break
-                    break
-
-                # This for loop is iterating over the 'timedObjs' entries in the 'VehicleLocal' data from a file.
-                # For each 'timedObjs' entry, it extracts a timestamp value. It then checks if there are parking boxes
-                # available in the 'parkingBoxes' list at a specified slot number. If a parking box exists at the specified
-                # slot number, it retrieves the coordinates of the selected parking box.
-                for entry in file_data["VehicleLocal"]:
+                gt_timestamp = dict_GT_park[json_timestamps_park]
+                associate_parking_slot = associate_parking_slots(
+                    dict_GT_local, dict_scanned_local, file_data, next(iter(result_dict), None)
+                )
+                for entry in file_data.get(vehicle_local_string, []):
                     for timesdobjs in entry["timedObjs"]:
                         timestamp = timesdobjs[time_obj_string_timestamp]
-                        # Check if the parking box at the specified slot number exists
-                        if len(timesdobjs.get("parkingBoxes", [])) >= targeted_slot - 1:
-                            selected_parking_box = timesdobjs["parkingBoxes"][targeted_slot - 1]["slotCoordinates_m"]
-                            # Use setdefault to initialize an empty list if the timestamp is encountered for the first time
-                            local_parking_box_dict.setdefault(timestamp, []).extend(selected_parking_box)
+                        for index in range(len(timesdobjs["parkingBoxes"])):
+                            if (
+                                timesdobjs["parkingBoxes"][index]["objectId"]
+                                == associate_parking_slot[1]["ID_parking_box"]
+                            ):
+                                selected_parking_box = timesdobjs["parkingBoxes"][index]["slotCoordinates_m"]
+                                local_parking_box_dict[timestamp] = selected_parking_box
+                                break
 
                 if "NextTo" in collinear_timestamp:
                     # Check collinearity for both left and right mirrors
-                    first_collinear_timestamp = check_collinearity(
+                    first_collinear_timestamp = check_collinearity_new(
                         local_parking_box_dict,
                         mirror_x_left=mirror_x_left,
                         mirror_x_right=mirror_x_right,
                         mirror_y_left=mirror_y_left,
                         mirror_y_right=mirror_y_right,
                     )
+                    image_path = os.path.join(image_base_path, "TP-SlotOffer-imgs", image1_filename)
+                    scenario = "NEXT TO PARKING BOX"
                 else:
-                    first_collinear_timestamp = check_collinearity(local_parking_box_dict, rear=rear)
+                    first_collinear_timestamp = check_collinearity_new(local_parking_box_dict, rear=rear)
+                    image_path = os.path.join(image_base_path, "TP-SlotOffer-imgs", image2_filename)
+                    scenario = "FULLY PASSED THE PARKING BOX"
 
-                if next(iter(result_dict), None) < first_collinear_timestamp:
-                    eval_cond[1] = True
-                    for SlotCoordinates, centers_signal_dict in result_timestamp.items():
-                        for centers_signal, parking_box_signal in centers_signal_dict.items():
-                            for centers_gt, parking_box_gt in gt_timestamp.items():
-                                if check_distance_condition(centers_gt, centers_signal, 1):
+                if first_collinear_timestamp:
+                    if next(iter(result_dict), None) < first_collinear_timestamp:
+                        eval_cond[1] = True
+                        slot_to_be_calculated = list(result_dict[first_collinear_timestamp].items())[
+                            0
+                        ]  # The first(remaining) PB is the one selected
+                        SlotCoordinates, centers_signal_dict = slot_to_be_calculated
 
-                                    coordinates_box_gt = [(dict["x"], dict["y"]) for dict in parking_box_gt]
-                                    coordinates_box_signal = [(dict["x"], dict["y"]) for dict in parking_box_signal]
-                                    intersection_area, overlap_percentage, percetage_calculated_slot = (
-                                        calculate_overlap(coordinates_box_gt, coordinates_box_signal)
-                                    )
-                                    if any(SlotCoordinates in item for item in results):
-                                        break
-                                    results.append(
-                                        {
-                                            SlotCoordinates: {
-                                                "Timestamp": json_timestamps_park,
-                                                "parking_box_signal": parking_box_signal,
-                                                "parking_box_gt": parking_box_gt,
-                                                "intersection_area": intersection_area,
-                                                "overlap_percentage": overlap_percentage,
-                                            }
-                                        }
-                                    )
-                    if overlap_percentage > SlotOffer.Thresholds.THRESHOLD_OVERLAP:
-                        eval_cond[2] = True
-                        test_result = fc.PASS
-                        self.result.measured_result = TRUE
+                        # gt_slot_selected = list(gt_timestamp.items())[associate_parking_slot[1]["ID_parking_box"]]
+                        for center in gt_timestamp.keys():
+                            rounded_center = tuple((k, round(v, 1)) for k, v in center)
+                            rounded_gt_center = tuple(
+                                (k, round(v, 1)) for k, v in associate_parking_slot[1]["GT_center"]
+                            )
+                            if rounded_center == rounded_gt_center:
+                                gt_slot_selected = list(gt_timestamp.items())[list(gt_timestamp.keys()).index(center)]
+                                break
+                        _, parking_box_gt = gt_slot_selected
+
+                        # Proceed with the processing for the second item
+                        for _, parking_box_signal in centers_signal_dict.items():
+                            coordinates_box_gt = [(dict["x"], dict["y"]) for dict in parking_box_gt]
+                            coordinates_box_signal = [(dict["x"], dict["y"]) for dict in parking_box_signal]
+                            intersection_area, overlap_percentage, percentage_calculated_slot = calculate_overlap(
+                                coordinates_box_gt, coordinates_box_signal
+                            )
+                            results.append(
+                                {
+                                    SlotCoordinates: {
+                                        "Timestamp": first_collinear_timestamp,
+                                        "parking_box_signal": parking_box_signal,
+                                        "parking_box_gt": parking_box_gt,
+                                        "intersection_area": intersection_area,
+                                        "overlap_percentage": overlap_percentage,
+                                    }
+                                }
+                            )
+                        if overlap_percentage > SlotOffer.Thresholds.THRESHOLD_OVERLAP:
+                            eval_cond[2] = True
+                            self.test_result = fc.PASS
+                            TPR = 100
+                        else:
+                            self.test_result = fc.FAIL
+                            print(
+                                f"Regarding {file_path}, the percentage of the overlap was not greater than the threshold, the scenario being {scenario}"
+                            )
                     else:
-                        test_result = fc.FAIL
-                        self.result.measured_result = FALSE
+                        self.test_result = fc.FAIL
+                        print(
+                            f"Regarding {file_path}, the timestamp that we've looked for is not smaller than the timestamp of the collinearity in the {scenario} scenario"
+                        )
                 else:
-                    test_result = fc.FAIL
-                    self.result.measured_result = FALSE
+                    self.test_result = fc.FAIL
+                    print(f"Regarding {file_path}, there is no collinearity found for the scenario {scenario}")
             else:
-                test_result = fc.FAIL
-                self.result.measured_result = FALSE
-
-            # """DEBUG OF OVERLAP CALCULATION"""
-            # for SlotCoordinates, centers_signal_dict in result_timestamp.items():
-            #     for centers_signal, parking_box_signal in centers_signal_dict.items():
-            #         for centers_gt, parking_box_gt in gt_timestamp.items():
-            #             if check_distance_condition(centers_gt, centers_signal, 1):
-
-            #                 coordinates_box_gt = [(dict["x"], dict["y"]) for dict in parking_box_gt]
-            #                 coordinates_box_signal = [(dict["x"], dict["y"]) for dict in parking_box_signal]
-            #                 intersection_area, overlap_percentage, percetage_calculated_slot = calculate_overlap(
-            #                     coordinates_box_gt, coordinates_box_signal
-            #                 )
-            #                 if any(SlotCoordinates in item for item in results):
-            #                     break
-            #                 results.append(
-            #                     {
-            #                         SlotCoordinates: {
-            #                             "Timestamp": json_timestamps_park,
-            #                             "parking_box_signal": parking_box_signal,
-            #                             "parking_box_gt": parking_box_gt,
-            #                             "intersection_area": intersection_area,
-            #                             "overlap_percentage": overlap_percentage,
-            #                         }
-            #                     }
-            #                 )
-            # print(overlap_percentage)
-            # eval_cond[1] = True
+                self.test_result = fc.FAIL
+                print(f"Regarding {file_path}, could not find a timestamp where a single parking box is available.")
 
             cond_0 = " ".join("One parking space must be selected.".split())
 
@@ -772,7 +1046,7 @@ class GenericTestStep(TestStep):
                 "The parking space should be chosen before the car reaches the \
                             designated point of the parking area.".split()
             )
-
+            self.result.measured_result = Result.from_string(f"{TPR} %")
             cond_2 = " ".join(f"The overlap percentage must exceed {SlotOffer.Thresholds.THRESHOLD_OVERLAP}%.".split())
             # Set table datatframe
             signal_summary = pd.DataFrame(
@@ -791,24 +1065,24 @@ class GenericTestStep(TestStep):
                         "1": (
                             " ".join(
                                 f"The parking slot was successfully chosen prior to the \
-                                    specified timestamp({first_collinear_timestamp}).".split()
+                                    specified timestamp[{first_collinear_timestamp}({round(transform_timestamp(first_collinear_timestamp, epoch),4)}s)]. Slot was chosen at {next(iter(result_dict), None)}({round(transform_timestamp(next(iter(result_dict), None), epoch),4)}s)".split()
                             )
                             if eval_cond[1]
                             else " ".join(
                                 f"The parking slot was not chosen before the \
-                                    specified timestamp({first_collinear_timestamp}).".split()
+                                    specified timestamp[{first_collinear_timestamp}({round(transform_timestamp(first_collinear_timestamp, epoch),4)}s))]. Slot was chosen at {next(iter(result_dict), None)}({round(transform_timestamp(next(iter(result_dict), None), epoch),4)}s)".split()
                             )
                         ),
                         "2": (
                             " ".join(
                                 f"The calculated overlap percentage ({round(overlap_percentage, 3)}%) exceeds the required \
-                                threshold({SlotOffer.Thresholds.THRESHOLD_OVERLAP}) at timestamp {first_collinear_timestamp}.".split()
+                                threshold({SlotOffer.Thresholds.THRESHOLD_OVERLAP}%) at timestamp {first_collinear_timestamp}({round(transform_timestamp(first_collinear_timestamp, epoch),4)}s).".split()
                             )
                             if eval_cond[0] and eval_cond[1] and eval_cond[2]
                             else (
                                 " ".join(
                                     f"The calculated overlap percentage ({round(overlap_percentage, 3)}%) does not exceed the required \
-                                threshold({SlotOffer.Thresholds.THRESHOLD_OVERLAP}) at timestamp {first_collinear_timestamp}.".split()
+                                threshold({SlotOffer.Thresholds.THRESHOLD_OVERLAP}%) at timestamp {first_collinear_timestamp}({round(transform_timestamp(first_collinear_timestamp, epoch),4)}s).".split()
                                 )
                                 if eval_cond[0] and eval_cond[1] and not eval_cond[2]
                                 else (
@@ -855,6 +1129,75 @@ class GenericTestStep(TestStep):
             # plot_titles.append("Condition Evaluation")
             plots.append(sig_sum)
             remarks.append("")
+
+            try:
+                image = Image.open(image_path)
+                buffered = io.BytesIO()
+                image.save(buffered, format="PNG")
+                img_str = base64.b64encode(buffered.getvalue()).decode()
+            except FileNotFoundError as e:
+                print(f"File not found: {e}")
+            except OSError as e:
+                print(f"IOError: {e}")
+
+            # Create figure
+            fig_img = go.Figure()
+
+            # Constants
+            img_width = 1150
+            img_height = 900
+            scale_factor = 0.5
+
+            # Add invisible scatter trace.
+            # This trace is added to help the autoresize logic work.
+            fig_img.add_trace(
+                go.Scatter(
+                    x=[0, img_width * scale_factor], y=[0, img_height * scale_factor], mode="markers", marker_opacity=0
+                )
+            )
+
+            # Configure axes
+            fig_img.update_xaxes(visible=False, range=[0, img_width * scale_factor])
+
+            fig_img.update_yaxes(
+                visible=False,
+                range=[0, img_height * scale_factor],
+                # the scaleanchor attribute ensures that the aspect ratio stays constant
+                scaleanchor="x",
+            )
+
+            # Add image
+            fig_img.add_layout_image(
+                dict(
+                    x=0,
+                    sizex=img_width * scale_factor,
+                    y=img_height * scale_factor,
+                    sizey=img_height * scale_factor,
+                    xref="x",
+                    yref="y",
+                    opacity=1.0,
+                    layer="below",
+                    sizing="stretch",
+                    source=f"data:image/png;base64,{img_str}",
+                )
+            )
+
+            ## Configure layout to center the image and add a title
+            fig_img.update_layout(
+                margin=dict(l=0, r=0, t=30, b=0),
+                title=dict(
+                    text="Test scenario: NEXT TO PARKING BOX",
+                    y=0.97,
+                    x=0.5,
+                    xanchor="center",
+                    yanchor="top",
+                    font=dict(size=20),
+                ),
+                xaxis=dict(scaleanchor="y", scaleratio=1),
+                yaxis=dict(scaleanchor="x", scaleratio=1),
+                plot_bgcolor="rgba(0,0,0,0)",
+            )
+            plots.append(fig_img)
 
             # Display a graph that contains all th GT data with all the parking slots detected at a specific timestamp:
             fig_all_gt = go.Figure()
@@ -912,28 +1255,22 @@ class GenericTestStep(TestStep):
                 )
 
                 fig_all_gt.update_layout(
+                    height=700,
                     xaxis_range=[
                         min_x - abs(min_x) * SlotOffer.AutoScale.PERCENTAGE_X_GT,
                         max_x + abs(max_x) * SlotOffer.AutoScale.PERCENTAGE_X_GT,
                     ],
-                    # yaxis_range=[min_y - abs(min_y) * SlotOffer.AutoScale.PERCENTAGE_Y_GT, max_y + abs(max_y) * SlotOffer.AutoScale.PERCENTAGE_Y_GT],
                     title_text=(
                         "Timestamp when the slot is selected:"
                         f" {next(iter(result_dict), None)} ({round(transform_timestamp(next(iter(result_dict), None), epoch),4)}s)"
                     ),
                 )
-                car_x = [list[0] for list in car_fix_coordinates]
-                car_y = [list[1] for list in car_fix_coordinates]
-                fig_all_gt.add_scatter(
-                    x=car_x,
-                    y=car_y,
-                    fill="toself",  # Fill the shape with color
-                    line=dict(color="black"),  # Set the color of the exterior lines
-                    fillcolor="orange",  # Set the fill color
-                    mode="lines",
-                    name="Vehicle - Passat B8 Variant",
-                )
 
+                new_origin = [0, 0, 0]
+
+                vehicle_plot = constants.DrawCarLayer.draw_car(new_origin[0], new_origin[1], new_origin[2])
+                for p in vehicle_plot[1]:
+                    fig_all_gt.add_trace(p)
             else:
                 fig_all_gt.add_scatter(
                     x=[None],
@@ -960,9 +1297,8 @@ class GenericTestStep(TestStep):
                         y_axis_gt = [point["y"] for point in data["parking_box_gt"]]
 
                         centroid_GT = calculate_polygon_center(x_coordinates=x_axis_gt, y_coordinates=y_axis_gt)
-                        distance = np.linalg.norm(
-                            np.array([centroid_slot[0], centroid_slot[1]]) - np.array([centroid_GT[0], centroid_GT[1]])
-                        )
+                        distance = calculate_distance(centroid_slot, centroid_GT)
+
                         # Plotting Offered Slot, Target Center, and Ground Truth parking slot
                         x_axis_slot.append(x_axis_slot[0])
                         y_axis_slot.append(y_axis_slot[0])
@@ -997,17 +1333,16 @@ class GenericTestStep(TestStep):
                                 min_x - abs(min_x) * SlotOffer.AutoScale.PERCENTAGE_X_SLOT,
                                 max_x + abs(max_x) * SlotOffer.AutoScale.PERCENTAGE_X_SLOT,
                             ],
-                            # yaxis_range=[min_y - abs(min_y) * SlotOffer.AutoScale.PERCENTAGE_Y_SLOT, max_y + abs(max_y) * SlotOffer.AutoScale.PERCENTAGE_Y_SLOT],
                             title_text=(
-                                "Timestamp:"
-                                f" {data['Timestamp']} ({round(transform_timestamp(data['Timestamp'], epoch), 4)}s),"
+                                "Timestamp when slot is calculated:"
+                                f" {first_collinear_timestamp} ({round(transform_timestamp(first_collinear_timestamp, epoch),4)}s),"
                                 "           Overlap:"
                                 f" <span style='color: {color_overlap}'>{round(data['overlap_percentage'], 3)}%</span>"
-                                f" of the {percetage_calculated_slot}"
+                                f" of the {percentage_calculated_slot}"
                             ),
                             annotations=[
                                 go.layout.Annotation(
-                                    text=f"Additional Information: <br>The distance from <br>Center of Selected Slot to <br>Center of GT Slot is <br>{round(distance, 4)}",
+                                    text=f"Additional Information: <br>The distance from <br>Center of Selected Slot to <br>Center of GT Slot is <br>{round(distance, 4)}m.",
                                     align="left",
                                     showarrow=False,
                                     xref="paper",
@@ -1038,9 +1373,40 @@ class GenericTestStep(TestStep):
             fig1.add_trace(
                 go.Scatter(
                     x=time.tolist(),
-                    y=df[Signals.Columns.sg_num_valid_parking_boxes].values.tolist(),
+                    y=filtered_df[Signals.Columns.sg_num_valid_parking_boxes].values.tolist(),
                     mode="lines",
                     name=f"{signal_name[Signals.Columns.sg_num_valid_parking_boxes]}",
+                    yaxis="y",
+                    showlegend=True,
+                )
+            )
+
+            fig1.add_trace(
+                go.Scatter(
+                    x=time.tolist(),
+                    y=filtered_df[Signals.Columns.sg_parksm_core_status_state].values.tolist(),
+                    mode="lines",
+                    name=f"{signal_name[Signals.Columns.sg_parksm_core_status_state]}",
+                    yaxis="y",
+                    showlegend=True,
+                )
+            )
+            fig1.add_trace(
+                go.Scatter(
+                    x=time.tolist(),
+                    y=filtered_df[Signals.Columns.sg_velocity].values.tolist(),
+                    mode="lines",
+                    name=f"{signal_name[Signals.Columns.sg_velocity]}",
+                    yaxis="y",
+                    showlegend=True,
+                )
+            )
+            fig1.add_trace(
+                go.Scatter(
+                    x=time.tolist(),
+                    y=filtered_df[Signals.Columns.sg_selection_status].values.tolist(),
+                    mode="lines",
+                    name=f"{signal_name[Signals.Columns.sg_selection_status]}",
                     yaxis="y",
                     showlegend=True,
                 )
@@ -1056,11 +1422,10 @@ class GenericTestStep(TestStep):
             remarks.append("")
 
             additional_results_dict = {
-                "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-                # "Procentage TPR": {"value": f"{round(TPR, 4)} %", "color": fh.get_color(test_result)},
+                "Verdict": {"value": self.test_result.title(), "color": fh.get_color(self.test_result)},
                 "TestStep": {
                     "value": collinear_timestamp,
-                    "color": fh.get_color(test_result),
+                    "color": fh.get_color(self.test_result),
                 },
             }
 
@@ -1083,9 +1448,10 @@ class GenericTestStep(TestStep):
     name="Next to parking box",
     description="The overlap percentage should be calculated when the mirrors of the car are reaching the front of \
                     the designated parking area (0.5 meters beyond the initial line of the targeted slot).",
-    expected_result=BooleanResult(TRUE),
+    expected_result=f"> {SlotOffer.Thresholds.THRESHOLD_TPR} %",
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="AUP_slot_offer", pre_processor=Preprocessor)
 class NextToPBStep(GenericTestStep):
     """0.5 meters beyond first line"""
 
@@ -1099,13 +1465,14 @@ class NextToPBStep(GenericTestStep):
 
 
 @teststep_definition(
-    step_number=1,
+    step_number=2,
     name="Fully passed the parking box",
     description="The overlap percentage should be calculated as the rear of the car approaches the point where it has \
                     completely passed the parking slot.",
-    expected_result=BooleanResult(TRUE),
+    expected_result=f"> {SlotOffer.Thresholds.THRESHOLD_TPR} %",
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="AUP_slot_offer", pre_processor=Preprocessor)
 class AfterPBStep(GenericTestStep):
     """After PB"""
 
@@ -1120,14 +1487,17 @@ class AfterPBStep(GenericTestStep):
 
 @verifies("966639")
 @testcase_definition(
-    name="Slot Offer TestCase",
+    name="Slot Offer for AUP - TP TestCase",
     doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_PfAN_8lcEe2iKqc0KPO99Q&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_lWHOEPvsEeqIqKySVwTVNQ%2Fcomponents%2F_u4eQYMlKEe2iKqc0KPO99Q&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
-    description="The true positive slot offer rate considers the total number of times a particular scanned slot \
-        is offered (true positive) by the AP function.",
+    description=f"The True Positive Slot Offer Rate evaluates the frequency with which a specific scanned parking \
+                    slot is correctly identified as a true positive by the AP function. The pass rate is determined \
+                    for each test step using the following formula: \
+                    <b>TPR</b> = (Number of measurements where a slot was offered with an overlap > \
+                    {SlotOffer.Thresholds.THRESHOLD_OVERLAP}) / (Total number of measurements)",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
-class SelectedOfferedSlotADC5(TestCase):
+class SelectedOfferedSlot(TestCase):
     """TP SlotOffer test case."""
 
     custom_report = MfCustomTestcaseReport

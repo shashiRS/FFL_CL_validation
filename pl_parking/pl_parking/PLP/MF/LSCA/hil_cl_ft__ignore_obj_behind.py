@@ -109,14 +109,14 @@ class LscaIgnoreBehindCheck(TestStep):
         """Evaluation part"""
         # Find when trailer set to attached
         for cnt in range(0, len(trailer_conn_sig)):
-            if trailer_conn_sig[cnt] == constants.HilCl.Trailer.CONNECTED:
+            if trailer_conn_sig[cnt] == constants.HilCl.TrailerConnection.OK_TRAILERCONNECTION:
                 t1_idx = cnt
                 break
 
         if t1_idx is not None:
             # Find when trailer set to not attached
             for cnt in range(t1_idx, len(trailer_conn_sig)):
-                if trailer_conn_sig[cnt] != constants.HilCl.Trailer.CONNECTED:
+                if trailer_conn_sig[cnt] != constants.HilCl.TrailerConnection.OK_TRAILERCONNECTION:
                     t2_idx = cnt
                     break
             if t2_idx is not None:
@@ -135,13 +135,13 @@ class LscaIgnoreBehindCheck(TestStep):
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    f"The evaluation of {signal_name['Trailer_connection']} signal is FAILED, signal never switched to trailer connected ({constants.HilCl.Trailer.CONNECTED}).".split()
+                    f"The evaluation of {signal_name['Trailer_connection']} signal is FAILED, signal never switched to trailer connected ({constants.HilCl.TrailerConnection.OK_TRAILERCONNECTION}).".split()
                 )
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['Trailer_connection']} signal is FAILED, signal never switched to trailer disconnected ({constants.HilCl.Trailer.NOT_CONNECTED})".split()
+                f"The evaluation of {signal_name['Trailer_connection']} signal is FAILED, signal never switched to trailer disconnected ({constants.HilCl.TrailerConnection.NO_DETECT_TRAILERCONNECTION})".split()
             )
 
         if all(eval_cond):

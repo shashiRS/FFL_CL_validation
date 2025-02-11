@@ -83,12 +83,12 @@ class FtTPFHelper:
             best_ftp: typing.Tuple[DynamicObject, float] = (None, None)
             for i, ftp in enumerate(FTPs):
                 score = FtTPFHelper.associate_RTP_To_FTP_score(ftp, rtp)
-                if score is not None:
+
+                if score < 0.5:
                     if best_ftp[1] is None or best_ftp[1] < score:
                         best_ftp = (i, score)
             if best_ftp[1] is not None:
                 output[best_ftp[0]].append(rtp)
-
         return output
 
     @staticmethod
@@ -96,21 +96,16 @@ class FtTPFHelper:
     def associate_RTP_To_FTP_score(FTP: DynamicObject, RTP: DynamicObjectDetection) -> float:
         """Calculate the association score between FTP and RTP."""
         if FTP.object_class != RTP.class_type:
-            return None
+            return 0
 
         ftp_poly = geometry.Polygon([[p.x, p.y] for p in FTP.shape])
         rtp_poly = geometry.Polygon([[p.x, p.y] for p in RTP.polygon])
         area_i = rtp_poly.intersection(ftp_poly).area
-        area_ftp = ftp_poly.area
-        area_rtp = rtp_poly.area
+        union_area = rtp_poly.union(ftp_poly).area
+        iou = area_i / union_area
 
-        ratio_1 = area_i / area_ftp
-        ratio_2 = area_i / area_rtp
+        return iou
 
-        if ratio_1 > 0.7 and ratio_2 > 0.7:
-            return ratio_1 + ratio_2
-        else:
-            return None
 
     @staticmethod
     def get_relevant_RTP_Frames(
@@ -335,7 +330,7 @@ class TpfFtp2GtAssociator:
         # first, create a pool of GT objects existing in the timeframe
         for gt_object in self.gt_objects:
             index_prev = gt_object["timestamp"].searchsorted(current_timestamp) - 1
-            if index_prev >= 0 and index_prev < len(gt_object) - 1:
+            if 0 <= index_prev < len(gt_object) - 1:
                 gt_id = gt_object.iat[index_prev, 1]
                 ts_0 = gt_object.iat[index_prev, 0]  # the timestamp before the current timestamp
                 ts_1 = gt_object.iat[index_prev + 1, 0]  # the timestamp after the current timestamp

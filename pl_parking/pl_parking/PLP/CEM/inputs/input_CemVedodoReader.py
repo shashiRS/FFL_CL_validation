@@ -6,7 +6,8 @@ import typing
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.interpolate import interp1d
+
+# from scipy.interpolate import interp1d
 
 
 @dataclass
@@ -33,18 +34,28 @@ class VedodoBuffer:
 
     def __init__(self, buffer: typing.List[VedodoTimeframe]):
         """Initialize object attributes."""
+        # TODO: Can be removed?
         self.buffer = buffer
-        self.x_interpolation_method = interp1d([tf.timestamp for tf in buffer], [tf.x for tf in buffer])
-        self.y_interpolation_method = interp1d([tf.timestamp for tf in buffer], [tf.y for tf in buffer])
-        self.yaw_interpolation_method = interp1d([tf.timestamp for tf in buffer], np.unwrap([tf.yaw for tf in buffer]))
+        # self.x_interpolation_method = interp1d([tf.timestamp for tf in buffer], [tf.x for tf in buffer])
+        # self.y_interpolation_method = interp1d([tf.timestamp for tf in buffer], [tf.y for tf in buffer])
+        # self.yaw_interpolation_method = interp1d([tf.timestamp for tf in buffer],
+        # np.unwrap([tf.yaw for tf in buffer]))
 
     def estimate_vehicle_pose(self, target_timestamp: int):
         """Estimate the vehicle pose at a target timestamp."""
+        # return VedodoTimeframe(
+        #     target_timestamp,
+        #     self.x_interpolation_method(target_timestamp)[()],
+        #     self.y_interpolation_method(target_timestamp)[()],
+        #     self.yaw_interpolation_method(target_timestamp)[()],
+        # )
+        buffer = self.buffer
+
         return VedodoTimeframe(
             target_timestamp,
-            self.x_interpolation_method(target_timestamp)[()],
-            self.y_interpolation_method(target_timestamp)[()],
-            self.yaw_interpolation_method(target_timestamp)[()],
+            np.interp(x=[target_timestamp], xp=[tf.timestamp for tf in buffer], fp=[tf.x for tf in buffer]),
+            np.interp(x=[target_timestamp], xp=[tf.timestamp for tf in buffer], fp=[tf.x for tf in buffer]),
+            np.interp(x=[target_timestamp], xp=[tf.timestamp for tf in buffer], fp=[tf.x for tf in buffer]),
         )
 
     def calc_relative_motion(self, ts1: int, ts2: int):
@@ -91,5 +102,16 @@ class VedodoReader:
 
         for _, row in self.data.as_plain_df.iterrows():
             vedodo_buffer.append(VedodoTimeframe(row["vedodo_timestamp_us"], row["x"], row["y"], row["yaw"]))
+
+        return VedodoBuffer(vedodo_buffer)
+
+    def convert_erg_gt_to_class(self) -> VedodoBuffer:
+        """Converts data from the reader to VedodoBuffer class objects"""
+        vedodo_buffer: typing.List[VedodoTimeframe] = []
+
+        for _, row in self.data.as_plain_df.iterrows():
+            vedodo_buffer.append(
+                VedodoTimeframe(row["vedodo_gt_timestamp_us"], row["x_gt"], row["y_gt"], row["yaw_gt"])
+            )
 
         return VedodoBuffer(vedodo_buffer)

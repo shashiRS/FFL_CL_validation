@@ -263,7 +263,7 @@ class TestStepFtPosesMP(TestStep):
     description="Verify that the MP is completed and position is in range between saved vs reached end position",
     # expected_result=BooleanResult(TRUE),
 )
-# @register_inputs("/Playground_2/TSF-Debug")
+# @register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MPCheckManeuver(TestCase):
     """MP test case."""

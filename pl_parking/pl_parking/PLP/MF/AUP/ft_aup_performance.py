@@ -6,7 +6,7 @@ import sys
 from abc import abstractmethod
 
 import plotly.graph_objects as go
-from tsf.core.results import DATA_NOK, FALSE, NAN, Result
+from tsf.core.results import DATA_NOK, NAN, Result
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -60,6 +60,63 @@ class BaseTeststep(TestStep):
         """
         pass
 
+    def is_end_position_reached(self, signals):
+        """
+        Check if AP becomes active and the end position is reached.
+
+        Parameters:
+            signals (DataFrame): A DataFrame containing signals related to the maneuvering.
+
+        Returns:
+            bool: True if end position is reached, False otherwise.
+        """
+        ap_state = signals[MfSignals.Columns.APSTATE]
+        reached_status = signals[MfSignals.Columns.REACHEDSTATUS]
+
+        is_ap_active = ap_state == constants.GeneralConstants.AP_AVG_ACTIVE_IN
+        is_reached = reached_status > 0
+
+        is_end_position_reached = True
+
+        if ~is_ap_active.any():
+            self.comment = (
+                f"Evaluation not possible, Maneuvering function not active. "
+                f"Signal '{signals_obj._properties[MfSignals.Columns.APSTATE]}' was "
+                f"never '=={constants.GeneralConstants.AP_AVG_ACTIVE_IN}'"
+            )
+            is_end_position_reached = False
+
+        elif ~is_reached.any():
+            self.comment = (
+                f"Evaluation not possible, {signals_obj._properties[MfSignals.Columns.REACHEDSTATUS]} "
+                f"was not > 0 for 0.8s."
+            )
+            is_end_position_reached = False
+
+        return is_end_position_reached
+
+    def is_collision_occured(self, signals):
+        """
+        Check if a collision occurs throughout the parking maneuver.
+
+        Parameters:
+            signals (DataFrame): A DataFrame containing signals related to the maneuvering.
+
+        Returns:
+            bool: True if a collision occured, False otherwise.
+        """
+        ap_state = signals[MfSignals.Columns.APSTATE]
+        collision_count = signals[MfSignals.Columns.COLLISIONCOUNT]
+
+        is_ap_active = ap_state == constants.GeneralConstants.AP_AVG_ACTIVE_IN
+        collision_count_ap_active = collision_count.loc[is_ap_active].diff().cumsum()
+
+        is_collision_occured = False
+        if (collision_count_ap_active > 0).any():
+            self.comment = "Collision occured, test failed."
+            is_collision_occured = True
+        return is_collision_occured
+
     def is_end_position_reached_without_collision(self, signals):
         """
         Check if the end position is reached without collision.
@@ -72,33 +129,11 @@ class BaseTeststep(TestStep):
         Returns:
             bool: True if the end position is reached without collision, False otherwise.
         """
-        ap_state = signals[MfSignals.Columns.APSTATE]
-        collision_count = signals[MfSignals.Columns.COLLISIONCOUNT]
-        reached_status = signals[MfSignals.Columns.REACHEDSTATUS]
-
-        is_ap_active = ap_state == constants.GeneralConstants.AP_AVG_ACTIVE_IN
-        collision_count_ap_active = collision_count.loc[is_ap_active].diff().cumsum()
-        is_reached = reached_status > 0
-
-        if ~is_ap_active.any():
-            self.comment = (
-                f"Evaluation not possible, Maneuvering function not active. "
-                f"Signal '{signals_obj._properties[MfSignals.Columns.APSTATE]}' was "
-                f"never '=={constants.GeneralConstants.AP_AVG_ACTIVE_IN}'"
-            )
-            return False
-        elif (collision_count_ap_active > 0).any():
-            self.comment = "Collision occured, test failed."
-            return False
-
-        elif ~is_reached.any():
-            self.comment = (
-                f"Evaluation not possible, {signals_obj._properties[MfSignals.Columns.REACHEDSTATUS]} "
-                f"was not > 0 for 0.8s."
-            )
-            return False
-
-        return True
+        is_end_position_reached_without_collision = (
+            self.is_end_position_reached(signals)
+            and not self.is_collision_occured(signals)
+        )
+        return is_end_position_reached_without_collision
 
     def create_report_data(self, plot_signals, time_s, signal_summary, remark):
         """
@@ -125,17 +160,16 @@ class BaseTeststep(TestStep):
         plot_titles.append("")
         remarks.append("")
 
-        if self.result.measured_result in [FALSE, NAN, DATA_NOK] or bool(constants.GeneralConstants.ACTIVATE_PLOTS):
-            self.fig = go.Figure()
-            for sig_name, sig_values in plot_signals.items():
-                self.fig.add_trace(go.Scatter(x=time_s, y=sig_values, mode="lines", name=sig_name))
+        self.fig = go.Figure()
+        for sig_name, sig_values in plot_signals.items():
+            self.fig.add_trace(go.Scatter(x=time_s, y=sig_values, mode="lines", name=sig_name))
 
-            self.fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
-            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+        self.fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+        self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
 
-            plots.append(self.fig.to_html(full_html=False, include_plotlyjs=False))
-            plot_titles.append("")
-            remarks.append("")
+        plots.append(self.fig.to_html(full_html=False, include_plotlyjs=False))
+        plot_titles.append("")
+        remarks.append("")
 
         # plots and remarks need to have the same length
         self.result.details["Plots"] = plots
@@ -162,7 +196,7 @@ class GenericPositionTeststep(BaseTeststep):
 
         self.result.measured_result = DATA_NOK
 
-        signals = self.readers[MF_AUP_SIGNALS].signals
+        signals = self.readers[MF_AUP_SIGNALS]
         time_s = signals[MfSignals.Columns.TIME]
         reached_status = signals[MfSignals.Columns.REACHEDSTATUS]
         evaluated_signal = signals[evaluated_signal_name]
@@ -262,7 +296,7 @@ class AupPerformanceManeuveringTime(BaseTeststep):
         _log.debug("Starting processing...")
         self.result.measured_result = DATA_NOK
 
-        signals = self.readers[MF_AUP_SIGNALS].signals
+        signals = self.readers[MF_AUP_SIGNALS]
         time_s = signals[MfSignals.Columns.TIME]
         ap_state = signals[MfSignals.Columns.APSTATE]
         ap_maneuver_duration = None
@@ -300,7 +334,7 @@ class AupPerformanceNumberStrokes(BaseTeststep):
         _log.debug("Starting processing...")
         self.result.measured_result = DATA_NOK
 
-        signals = self.readers[MF_AUP_SIGNALS].signals
+        signals = self.readers[MF_AUP_SIGNALS]
         time_s = signals[MfSignals.Columns.TIME]
 
         number_of_strokes = signals[MfSignals.Columns.NUMBEROFSTROKES]
@@ -322,6 +356,57 @@ class AupPerformanceNumberStrokes(BaseTeststep):
         self.create_report_data(plot_signals, time_s, signal_summary, remark)
 
 
+@teststep_definition(
+    step_number=6,
+    name="Minimum Distance to Objects",
+    description="Check minimum distance between ego vehicle and surrounding objects throughout the parking maneuver."
+)
+@register_signals(MF_AUP_SIGNALS, MfSignals)
+class AupPerformanceMinimumDistanceToObjects(BaseTeststep):
+    """Check the minimum distance between ego velocity and an obstacle around the parking space."""
+
+    def process(self, **kwargs):
+        """Find minimum collision distance between ego velocity and an obstacle and generate a report."""
+        _log.debug("Starting processing...")
+        self.result.measured_result = DATA_NOK
+
+        signals = self.readers[MF_AUP_SIGNALS]
+        time_s = signals[MfSignals.Columns.TIME]
+
+        shortest_dist_columns = [
+            col for col in signals.columns if isinstance(col, tuple) and col[0] == MfSignals.Columns.SHORTEST_DISTANCE
+        ]
+        short_dist = signals.loc[:, shortest_dist_columns]
+        relevant_objects_mask = (short_dist != -1).any(axis=0)
+        short_dist_relevant_objects = short_dist.loc[:, relevant_objects_mask]
+
+        if not self.is_end_position_reached(signals):
+            signal_summary = {"Minimum Distance to Object": self.comment}
+            remark = "End position not reached. Skipping evaluation of KPI."
+            plot_signals = {
+                MfSignals.Columns.REACHEDSTATUS: signals[MfSignals.Columns.REACHEDSTATUS],
+                MfSignals.Columns.APSTATE: signals[MfSignals.Columns.APSTATE],
+            }
+        elif len(short_dist_relevant_objects.columns) > 0:
+            min_short_dist = short_dist_relevant_objects.min().min()
+            self.result.measured_result = Result(min_short_dist)
+            signal_summary = {"Minimum Distance to Object": f"Value: {min_short_dist}. {self.comment}"}
+            remark = (
+                "Check minimum distance between ego vehicle and surrounding objects throughout the parking maneuver."
+            )
+            plot_signals = {
+                f"{MfSignals.Columns.SHORTEST_DISTANCE}_obj_{col[1]}": short_dist_relevant_objects[col]
+                for col in short_dist_relevant_objects.columns
+            }
+            plot_signals[MfSignals.Columns.REACHEDSTATUS] = signals[MfSignals.Columns.REACHEDSTATUS]
+        else:
+            signal_summary = {}
+            plot_signals = {}
+            remark = "No surrounding objects. Minimum distance cannot be evaluated."
+            self.result.measured_result = Result(NAN)
+        self.create_report_data(plot_signals, time_s, signal_summary, remark)
+
+
 @verifies("req-001")
 @testcase_definition(
     name="Performance Tests for AP",
@@ -330,7 +415,7 @@ class AupPerformanceNumberStrokes(BaseTeststep):
         "target position deviation, maneuvering time and number of strokes"
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 class ApPerformance(TestCase):
     """Test case for evaluating performance."""
 
@@ -345,4 +430,5 @@ class ApPerformance(TestCase):
             AupPerformanceYawPosition,
             AupPerformanceManeuveringTime,
             AupPerformanceNumberStrokes,
+            AupPerformanceMinimumDistanceToObjects,
         ]

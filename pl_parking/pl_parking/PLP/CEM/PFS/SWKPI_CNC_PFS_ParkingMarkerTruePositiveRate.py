@@ -6,6 +6,7 @@ from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
+    register_inputs,
     register_side_load,
     register_signals,
     testcase_definition,
@@ -237,6 +238,7 @@ class TestStepFtPCLTruePositive(TestStep):
     description="The test passes if the true positive ratio of the PCL lines is higher or"
     "equal to the true positive ratio of the PMD lines.",
 )
+@register_inputs("/parking")
 class FtPCLTruePositive(TestCase):
     """PCL True Positive test case."""
 

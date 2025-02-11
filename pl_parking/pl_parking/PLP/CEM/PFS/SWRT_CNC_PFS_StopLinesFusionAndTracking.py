@@ -31,7 +31,7 @@ import plotly.graph_objects as go
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
 from pl_parking.common_ft_helper import CemSignals, MfCustomTestcaseReport, MfCustomTeststepReport, rep
-from pl_parking.PLP.CEM.constants import ConstantsCem, ConstantsCemInput
+from pl_parking.PLP.CEM.constants import ConstantsCem
 from pl_parking.PLP.CEM.inputs.input_CemPclReader import PclDelimiterReader
 
 SIGNAL_DATA = "PFS_SL_Output"
@@ -71,42 +71,42 @@ class TestStepFtSLOutput(TestStep):
         pcl_data = PclDelimiterReader(reader).convert_to_class()
         data_df = reader.as_plain_df
         evaluation = [""]
-        # TO DO: CEM Stop Line signals might change later and should be corrected or added in Common_ft_helper.
+
         try:
             sl_data = data_df[
                 [
-                    "CemSl_Front_numberOfLines",
-                    "CemSl_Front_timestamp",
-                    "CemSl_Rear_numberOfLines",
-                    "CemSl_Rear_timestamp",
-                    "CemSl_Left_numberOfLines",
-                    "CemSl_Left_timestamp",
-                    "CemSl_Right_numberOfLines",
-                    "CemSl_Right_timestamp",
+                    "PMDSl_Front_numberOfLines",
+                    "PMDSl_Front_timestamp",
+                    "PMDSl_Rear_numberOfLines",
+                    "PMDSl_Rear_timestamp",
+                    "PMDSl_Left_numberOfLines",
+                    "PMDSl_Left_timestamp",
+                    "PMDSl_Right_numberOfLines",
+                    "PMDSl_Right_timestamp",
                 ]
             ]
 
             # Check if there are PM in the data
             data_df.columns = [f"{col[0]}_{col[1]}" if type(col) is tuple else col for col in data_df.columns]
-            pcl_type = data_df.loc[:, data_df.columns.str.startswith("delimiterType")]
+            pcl_type = data_df.loc[:, data_df.columns.str.startswith("Cem_pcl_delimiterId")]
 
             # Get the first TS where there is an input in all cameras
             first_in_ts = min(
                 [
-                    sl_data[sl_data["CemSl_Front_numberOfLines"] > 0]["CemSl_Front_timestamp"].min(),
-                    sl_data[sl_data["CemSl_Rear_numberOfLines"] > 0]["CemSl_Rear_timestamp"].min(),
-                    sl_data[sl_data["CemSl_Left_numberOfLines"] > 0]["CemSl_Left_timestamp"].min(),
-                    sl_data[sl_data["CemSl_Right_numberOfLines"] > 0]["CemSl_Right_timestamp"].min(),
+                    sl_data[sl_data["PMDSl_Front_numberOfLines"] > 0]["PMDSl_Front_timestamp"].min(),
+                    sl_data[sl_data["PMDSl_Rear_numberOfLines"] > 0]["PMDSl_Rear_timestamp"].min(),
+                    sl_data[sl_data["PMDSl_Left_numberOfLines"] > 0]["PMDSl_Left_timestamp"].min(),
+                    sl_data[sl_data["PMDSl_Right_numberOfLines"] > 0]["PMDSl_Right_timestamp"].min(),
                 ]
             )
 
             # Get the last TS where there is an output in all cameras
             last_in_ts = max(
                 [
-                    sl_data[sl_data["CemSl_Front_numberOfLines"] > 0]["CemSl_Front_timestamp"].max(),
-                    sl_data[sl_data["CemSl_Rear_numberOfLines"] > 0]["CemSl_Rear_timestamp"].max(),
-                    sl_data[sl_data["CemSl_Left_numberOfLines"] > 0]["CemSl_Left_timestamp"].max(),
-                    sl_data[sl_data["CemSl_Right_numberOfLines"] > 0]["CemSl_Right_timestamp"].max(),
+                    sl_data[sl_data["PMDSl_Front_numberOfLines"] > 0]["PMDSl_Front_timestamp"].max(),
+                    sl_data[sl_data["PMDSl_Rear_numberOfLines"] > 0]["PMDSl_Rear_timestamp"].max(),
+                    sl_data[sl_data["PMDSl_Left_numberOfLines"] > 0]["PMDSl_Left_timestamp"].max(),
+                    sl_data[sl_data["PMDSl_Right_numberOfLines"] > 0]["PMDSl_Right_timestamp"].max(),
                 ]
             )
 
@@ -114,40 +114,40 @@ class TestStepFtSLOutput(TestStep):
             first_out_ts = first_in_ts + (delay * 1e3)
             last_out_ts = last_in_ts + (delay * 1e3)
 
-            if ConstantsCemInput.SLEnum in pcl_type.values:
+            if not pcl_type.empty:
                 rows = []
                 failed_timestamps = 0
                 for _, cur_timeframe in enumerate(pcl_data):
-                    ws_number = len(cur_timeframe.wheel_stopper_array)
+                    sl_number = len(cur_timeframe.wheel_stopper_array)
                     cur_timestamp = cur_timeframe.timestamp
                     if cur_timestamp <= first_in_ts:
-                        if ws_number != 0:
+                        if sl_number != 0:
                             failed_timestamps += 1
-                            values = [[cur_timestamp], [ws_number], ["First zone, no input SL"], ["No output"]]
+                            values = [[cur_timestamp], [sl_number], ["First zone, no input SL"], ["No output"]]
                             rows.append(values)
 
                     elif first_in_ts <= cur_timestamp < first_out_ts:
-                        if ws_number != 0:
+                        if sl_number != 0:
                             failed_timestamps += 1
-                            values = [[cur_timestamp], [ws_number], ["Second zone, input SL"], ["No output"]]
+                            values = [[cur_timestamp], [sl_number], ["Second zone, input SL"], ["No output"]]
                             rows.append(values)
 
                     elif first_out_ts <= cur_timestamp < last_in_ts:
-                        if ws_number == 0:
+                        if sl_number == 0:
                             failed_timestamps += 1
-                            values = [[cur_timestamp], [ws_number], ["Third zone, input SL"], ["Output available"]]
+                            values = [[cur_timestamp], [sl_number], ["Third zone, input SL"], ["Output available"]]
                             rows.append(values)
 
                     elif last_in_ts <= cur_timestamp < last_out_ts:
-                        if ws_number == 0:
+                        if sl_number == 0:
                             failed_timestamps += 1
-                            values = [[cur_timestamp], [ws_number], ["Fourth zone, no input SL"], ["Output available"]]
+                            values = [[cur_timestamp], [sl_number], ["Fourth zone, no input SL"], ["Output available"]]
                             rows.append(values)
 
                     else:
-                        if ws_number != 0:
+                        if sl_number != 0:
                             failed_timestamps += 1
-                            values = [[cur_timestamp], [ws_number], ["Fifth zone, no input SL"], ["No output"]]
+                            values = [[cur_timestamp], [sl_number], ["Fifth zone, no input SL"], ["No output"]]
                             rows.append(values)
 
                 if failed_timestamps:
@@ -162,42 +162,50 @@ class TestStepFtSLOutput(TestStep):
                 plots.append(fig)
                 remarks.append("")
 
-                ws_front = sl_data[["CemSl_Front_numberOfLines", "CemSl_Front_timestamp"]].drop_duplicates()
-                ws_front = ws_front.loc[(ws_front["CemSl_Front_timestamp"] != 0)]
-                ws_rear = sl_data[["CemSl_Rear_numberOfLines", "CemSl_Rear_timestamp"]].drop_duplicates()
-                ws_rear = ws_rear.loc[(ws_rear["CemSl_Rear_timestamp"] != 0)]
-                ws_left = sl_data[["CemSl_Left_numberOfLines", "CemSl_Left_timestamp"]].drop_duplicates()
-                ws_left = ws_left.loc[(ws_left["CemSl_Left_timestamp"] != 0)]
-                ws_right = sl_data[["CemSl_Right_numberOfLines", "CemSl_Right_timestamp"]].drop_duplicates()
-                ws_right = ws_right.loc[(ws_right["CemSl_Right_timestamp"] != 0)]
+                sl_front = sl_data[["PMDSl_Front_numberOfLines", "PMDSl_Front_timestamp"]].drop_duplicates()
+                sl_front = sl_front.loc[(sl_front["PMDSl_Front_timestamp"] != 0)]
+                sl_rear = sl_data[["PMDSl_Rear_numberOfLines", "PMDSl_Rear_timestamp"]].drop_duplicates()
+                sl_rear = sl_rear.loc[(sl_rear["PMDSl_Rear_timestamp"] != 0)]
+                sl_left = sl_data[["PMDSl_Left_numberOfLines", "PMDSl_Left_timestamp"]].drop_duplicates()
+                sl_left = sl_left.loc[(sl_left["PMDSl_Left_timestamp"] != 0)]
+                sl_right = sl_data[["PMDSl_Right_numberOfLines", "PMDSl_Right_timestamp"]].drop_duplicates()
+                sl_right = sl_right.loc[(sl_right["PMDSl_Right_timestamp"] != 0)]
 
                 fig = go.Figure()
                 fig.add_trace(
-                    go.Scatter(x=data_df["numPclDelimiters_timestamp"], y=data_df["numPclDelimiters"], name="Output")
+                    go.Scatter(
+                        x=data_df["Cem_numPclDelimiters_timestamp"], y=data_df["Cem_numPclDelimiters"], name="Output"
+                    )
                 )
                 fig.add_vrect(
-                    x0=data_df["numPclDelimiters_timestamp"].iat[0], x1=first_in_ts, fillcolor="#F3E5F5", layer="below"
+                    x0=data_df["Cem_numPclDelimiters_timestamp"].iat[0],
+                    x1=first_in_ts,
+                    fillcolor="#F3E5F5",
+                    layer="below",
                 )
                 fig.add_vrect(x0=first_in_ts, x1=first_out_ts, layer="below")
                 fig.add_vrect(x0=first_out_ts, x1=last_in_ts, fillcolor="#F5F5F5", layer="below")
                 fig.add_vrect(x0=last_in_ts, x1=last_out_ts, layer="below")
                 fig.add_vrect(
-                    x0=last_out_ts, x1=data_df["numPclDelimiters_timestamp"].iat[-1], fillcolor="#F3E5F5", layer="below"
+                    x0=last_out_ts,
+                    x1=data_df["Cem_numPclDelimiters_timestamp"].iat[-1],
+                    fillcolor="#F3E5F5",
+                    layer="below",
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=ws_front["CemSl_Front_timestamp"], y=ws_front["CemSl_Front_numberOfLines"], name="ws_front"
+                        x=sl_front["PMDSl_Front_timestamp"], y=sl_front["PMDSl_Front_numberOfLines"], name="sl_front"
                     )
                 )
                 fig.add_trace(
-                    go.Scatter(x=ws_rear["CemSl_Rear_timestamp"], y=ws_rear["CemSl_Rear_numberOfLines"], name="ws_rear")
+                    go.Scatter(x=sl_rear["PMDSl_Rear_timestamp"], y=sl_rear["PMDSl_Rear_numberOfLines"], name="sl_rear")
                 )
                 fig.add_trace(
-                    go.Scatter(x=ws_left["CemSl_Left_timestamp"], y=ws_left["CemSl_Left_numberOfLines"], name="ws_left")
+                    go.Scatter(x=sl_left["PMDSl_Left_timestamp"], y=sl_left["PMDSl_Left_numberOfLines"], name="sl_left")
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=ws_right["CemSl_Right_timestamp"], y=ws_right["CemSl_Right_numberOfLines"], name="ws_right"
+                        x=sl_right["PMDSl_Right_timestamp"], y=sl_right["PMDSl_Right_numberOfLines"], name="sl_right"
                     )
                 )
                 plots.append(fig)

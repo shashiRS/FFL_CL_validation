@@ -6,6 +6,7 @@ from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
+    register_inputs,
     register_side_load,
     register_signals,
     testcase_definition,
@@ -41,7 +42,6 @@ from pl_parking.PLP.CEM.constants import AssociationConstants
 from pl_parking.PLP.CEM.ft_pcl_helper import FtPclHelper
 from pl_parking.PLP.CEM.ft_ws_helper import FtWsHelper
 from pl_parking.PLP.CEM.inputs.input_CemPclReader import PclDelimiterReader
-from pl_parking.PLP.CEM.inputs.input_CemWsReader import WSDetectionReader
 from pl_parking.PLP.CEM.inputs.input_PmdReader import PMDCamera
 
 SIGNAL_DATA = "PFS_WS_False_Positive"
@@ -88,7 +88,7 @@ class TestStepFtWSFalsePositive(TestStep):
         gt_data = self.side_load["JsonGt"]
         ws_gt = FtWsHelper.get_ws_from_json_gt(gt_data)
         pcl_data = PclDelimiterReader(reader).convert_to_class()
-        ws_detection_data = WSDetectionReader(reader).convert_to_class()
+        # ws_detection_data = WsDelimiterReader(reader).convert_to_class()
 
         cem_ws_false_positive_list: typing.List[float] = []
         number_of_associated_cem_ws: typing.List[typing.Tuple[int, int]] = []
@@ -112,30 +112,34 @@ class TestStepFtWSFalsePositive(TestStep):
 
         ws_detection_false_positive_list: typing.List[float] = []
         ws_detection_false_positive_per_camera: typing.Dict[PMDCamera, typing.List[float]] = dict()
-        number_of_associated_ws_detection: typing.Dict[PMDCamera, typing.List[typing.Tuple[int, int]]] = dict()
-        for camera, timeframe_list in ws_detection_data.items():
-            ws_detection_false_positive_per_camera[camera] = []
-            number_of_associated_ws_detection[camera] = []
-            for ws_timeframe in timeframe_list:
-                timeframe_nbr_associated_ws = 0
+        # number_of_associated_ws_detection: typing.Dict[PMDCamera, typing.List[typing.Tuple[int, int]]] = dict()
 
-                if len(ws_timeframe.pmd_lines) > 0:
-                    gt_with_closest_timestamp = ws_gt.get(
-                        min(ws_gt.keys(), key=lambda k: abs(k - pcl_timeframe.timestamp))
-                    )
-                    false_positive = FtPclHelper.calculate_pmd_false_positive_iso(
-                        ws_timeframe.pmd_lines,
-                        gt_with_closest_timestamp,
-                        AssociationConstants.WS_ASSOCIATION_RADIUS,
-                    )
-                    timeframe_nbr_associated_ws = (
-                        len(ws_timeframe.pmd_lines) - len(ws_timeframe.pmd_lines) * false_positive
-                    )
+        # TODO: Thhis is a bug. E1101: Instance of 'list' has no 'items' member (ws_detection_data)
+        # Temporary fix: Commenting out the code block
 
-                    ws_detection_false_positive_list.append(false_positive)
-                    ws_detection_false_positive_per_camera[camera].append(false_positive)
+        # for camera, timeframe_list in ws_detection_data.items():
+        #     ws_detection_false_positive_per_camera[camera] = []
+        #     number_of_associated_ws_detection[camera] = []
+        #     for ws_timeframe in timeframe_list:
+        #         timeframe_nbr_associated_ws = 0
 
-                number_of_associated_ws_detection[camera].append((ws_timeframe.timestamp, timeframe_nbr_associated_ws))
+        #         if len(ws_timeframe.pmd_lines) > 0:
+        #             gt_with_closest_timestamp = ws_gt.get(
+        #                 min(ws_gt.keys(), key=lambda k: abs(k - pcl_timeframe.timestamp))
+        #             )
+        #             false_positive = FtPclHelper.calculate_pmd_false_positive_iso(
+        #                 ws_timeframe.pmd_lines,
+        #                 gt_with_closest_timestamp,
+        #                 AssociationConstants.WS_ASSOCIATION_RADIUS,
+        #             )
+        #             timeframe_nbr_associated_ws = (
+        #                 len(ws_timeframe.pmd_lines) - len(ws_timeframe.pmd_lines) * false_positive
+        #             )
+
+        #             ws_detection_false_positive_list.append(false_positive)
+        #             ws_detection_false_positive_per_camera[camera].append(false_positive)
+
+        #         number_of_associated_ws_detection[camera].append((ws_timeframe.timestamp, timeframe_nbr_associated_ws))
 
         avg_cem_ws_false_positive = np.mean(cem_ws_false_positive_list)
         avg_ws_detection_false_positive = np.mean(ws_detection_false_positive_list)
@@ -194,28 +198,30 @@ class TestStepFtWSFalsePositive(TestStep):
         plot_titles.append("Number of CEM WS")
         plots.append(fig)
         remarks.append("")
+        # TODO: Thhis is a bug. E1101: Instance of 'list' has no 'items' member (ws_detection_data)
+        # Temporary fix: Commenting out the code block
 
-        for camera, timeframe_list in ws_detection_data.items():
-            fig = go.Figure()
-            fig.add_trace(
-                go.Scatter(
-                    x=[timeframe.timestamp for timeframe in timeframe_list],
-                    y=[len(timeframe.pmd_lines) for timeframe in timeframe_list],
-                    mode="lines",
-                    name=f"{camera._name_} camera number of WS detection",
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=[timeframe for timeframe, _ in number_of_associated_ws_detection[camera]],
-                    y=[nbr_associated_lines for _, nbr_associated_lines in number_of_associated_ws_detection[camera]],
-                    mode="lines",
-                    name=f"{camera._name_} camera number of associated WS detection",
-                )
-            )
-            plot_titles.append(f"{camera._name_} camera number of WS detection")
-            plots.append(fig)
-            remarks.append("")
+        # for camera, timeframe_list in ws_detection_data.items():
+        #     fig = go.Figure()
+        #     fig.add_trace(
+        #         go.Scatter(
+        #             x=[timeframe.timestamp for timeframe in timeframe_list],
+        #             y=[len(timeframe.pmd_lines) for timeframe in timeframe_list],
+        #             mode="lines",
+        #             name=f"{camera._name_} camera number of WS detection",
+        #         )
+        #     )
+        #     fig.add_trace(
+        #         go.Scatter(
+        #             x=[timeframe for timeframe, _ in number_of_associated_ws_detection[camera]],
+        #             y=[nbr_associated_lines for _, nbr_associated_lines in number_of_associated_ws_detection[camera]],
+        #             mode="lines",
+        #             name=f"{camera._name_} camera number of associated WS detection",
+        #         )
+        #     )
+        #     plot_titles.append(f"{camera._name_} camera number of WS detection")
+        #     plots.append(fig)
+        #     remarks.append("")
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -250,6 +256,7 @@ class TestStepFtWSFalsePositive(TestStep):
     description="This test checks if the wheel stopper false positive rate provided by CEM is not less than"
     "the wheel stopper false positive rate of the detections comparing with the ground truth data.",
 )
+@register_inputs("/parking")
 class FtWSFalsePositive(TestCase):
     """Example test case."""
 

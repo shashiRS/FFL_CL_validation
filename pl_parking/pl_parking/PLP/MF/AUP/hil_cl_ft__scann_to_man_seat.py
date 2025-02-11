@@ -151,9 +151,10 @@ class AupScannToManDrivSeatCheck(TestStep):
                         local_actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
                             states_dict[local_key]
                         )
+                        local_actual_number = int(states_dict[local_key])
                         evaluation1 = " ".join(
                             f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, "
-                            f" siganl state stills in {local_actual_value} from {time_signal[t1_idx]} us until end of the measurement.".split()
+                            f" siganl state stills in {local_actual_value} ({local_actual_number}) from {time_signal[t1_idx]} us until end of the measurement.".split()
                         )
                         eval_cond[0] = False
 
@@ -161,18 +162,32 @@ class AupScannToManDrivSeatCheck(TestStep):
                         # Keys contains the idx
                         # Check mode
                         for key in states_dict:
-                            if counter == 1:
-                                actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
-                                    states_dict[key]
-                                )
+                            actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
+                                states_dict[key]
+                            )
+                            actual_number = int(states_dict[key])
 
+                            if counter == 0:
+                                counter += 1
+                                continue
+
+                            if counter == 1:
                                 if key < t3_idx:
                                     evaluation1 = " ".join(
                                         f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, "
-                                        f" signal state switches into {actual_value} at {time_signal[key]} us before driver starts parking maneuver.".split()
+                                        f" signal state switches into {actual_value} ({actual_number}) at {time_signal[key]} us before driver starts parking maneuver.".split()
                                     )
                                     eval_cond[0] = False
                                     break
+
+                                if (
+                                    states_dict[key]
+                                    == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PARKING_INACTIVE
+                                    or states_dict[key]
+                                    == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PREPARE_PARKING
+                                ):
+                                    counter += 1
+                                    continue
 
                                 if (
                                     states_dict[key]
@@ -180,12 +195,43 @@ class AupScannToManDrivSeatCheck(TestStep):
                                 ):
                                     evaluation1 = " ".join(
                                         f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, the driver is present on the driver's seat and driver starts parking"
-                                        f" maneuver but signalstate switches into {actual_value} at {time_signal[key]} us.".split()
+                                        f" maneuver but signalstate switches into {actual_value} ({actual_number}) at {time_signal[key]} us.".split()
                                     )
                                     eval_cond[0] = False
                                     break
+                                counter += 1
 
-                            else:
+                            if counter == 2:
+                                if (
+                                    states_dict[key]
+                                    == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PREPARE_PARKING
+                                ):
+                                    counter += 1
+                                    continue
+
+                                if (
+                                    states_dict[key]
+                                    != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING
+                                ):
+                                    evaluation1 = " ".join(
+                                        f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, the driver is present on the driver's seat and driver starts parking"
+                                        f" maneuver but signalstate switches into {actual_value} ({actual_number}) at {time_signal[key]} us.".split()
+                                    )
+                                    eval_cond[0] = False
+                                    break
+                                counter += 1
+
+                            if counter == 3:
+                                if (
+                                    states_dict[key]
+                                    != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING
+                                ):
+                                    evaluation1 = " ".join(
+                                        f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, the driver is present on the driver's seat and driver starts parking"
+                                        f" maneuver but signalstate switches into {actual_value} ({actual_number}) at {time_signal[key]} us.".split()
+                                    )
+                                    eval_cond[0] = False
+                                    break
                                 counter += 1
 
                     signal_summary[
@@ -210,28 +256,62 @@ class AupScannToManDrivSeatCheck(TestStep):
                     # Keys contains the idx
                     # Check mode
                     for key in states_dict:
-                        if counter == 1:
-                            actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
-                                states_dict[key]
-                            )
+                        actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
+                            states_dict[key]
+                        )
+                        actual_number = int(states_dict[key])
 
+                        if counter == 0:
+                            counter += 1
+                            continue
+
+                        if counter == 1:
                             if key < t3_idx:
                                 evaluation1 = " ".join(
                                     f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, "
-                                    f" signal state switches into {actual_value} at {time_signal[key]} us before driver starts parking maneuver.".split()
+                                    f" signal state switches into {actual_value} ({actual_number}) at {time_signal[key]} us before driver starts parking maneuver.".split()
                                 )
                                 eval_cond[0] = False
                                 break
+
+                            if (
+                                states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PARKING_INACTIVE
+                                or states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PREPARE_PARKING
+                            ):
+                                counter += 1
+                                continue
 
                             if states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
                                 evaluation1 = " ".join(
                                     f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, the driver is NOT present on the driver's seat and driver starts parking"
-                                    f" maneuver but signal state switches into {actual_value} at {time_signal[key]} us.".split()
+                                    f" maneuver but signal state switches into {actual_value} ({actual_number}) at {time_signal[key]} us.".split()
                                 )
                                 eval_cond[0] = False
                                 break
+                            counter += 1
 
-                        else:
+                        if counter == 2:
+                            if states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PREPARE_PARKING:
+                                counter += 1
+                                continue
+
+                            if states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
+                                evaluation1 = " ".join(
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, the driver is NOT present on the driver's seat and driver starts parking"
+                                    f" maneuver but signal state switches into {actual_value} ({actual_number}) at {time_signal[key]} us.".split()
+                                )
+                                eval_cond[0] = False
+                                break
+                            counter += 1
+
+                        if counter == 3:
+                            if states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
+                                evaluation1 = " ".join(
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, the driver is NOT present on the driver's seat and driver starts parking"
+                                    f" maneuver but signal state switches into {actual_value} ({actual_number}) at {time_signal[key]} us.".split()
+                                )
+                                eval_cond[0] = False
+                                break
                             counter += 1
 
                     signal_summary[
@@ -242,14 +322,22 @@ class AupScannToManDrivSeatCheck(TestStep):
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    f"The evaluation of {signal_name['User_action']} signal is FAILED, driver never started parking maneuver.".split()
+                    f"The evaluation of {signal_name['User_action']} signal is FAILED, driver never started parking maneuver. State of signal never switched to TAP_ON_START_PARKING ({constants.HilCl.Hmi.Command.TAP_ON_START_PARKING})."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
+                signal_summary[
+                    "Required AP state change: Not switch to Maneuvering. Reason: Driver's seat not occupied"
+                ] = evaluation1
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal state never switched to Scanning.".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal state never switched to PPC_SCANNING_IN ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SCANNING_IN})."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
+            signal_summary[
+                "Required AP state change: Not switch to Maneuvering. Reason: Driver's seat not occupied"
+            ] = evaluation1
 
         if all(eval_cond):
             test_result = fc.PASS
@@ -260,8 +348,6 @@ class AupScannToManDrivSeatCheck(TestStep):
             self.result.measured_result = TRUE
         else:
             self.result.measured_result = FALSE
-
-        signal_summary["Scanning to Maneuvering, Driver's seat"] = evaluation1
 
         self.sig_sum = HilClFuntions.hil_convert_dict_to_pandas(signal_summary)
         plot_titles.append("")
@@ -287,14 +373,10 @@ class AupScannToManDrivSeatCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:
@@ -311,7 +393,7 @@ class AupScannToManDrivSeatCheck(TestStep):
 
 
 @testcase_definition(
-    name="Mode transition: Scanning to Maneuvering",
+    name="Mode transition: Scanning to Maneuvering, Reaction on seat state",
     description="If an automated parking maneuver is initiated from inside the vehicle, the driver is present on the driver's seat.",
 )
 class AupScannToManDrivSeat(TestCase):

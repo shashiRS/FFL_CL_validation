@@ -505,7 +505,7 @@ class TceRrTyreCircumferenceStdvPersData(TestStep):
     ".conti.de%2Fgc%2Fconfiguration%2F30013&changeSet=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fcm%2Fchangeset%2F_J"
     "7SNMR2oEe-SquMaddCl2A",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class TceTyreCircumferenceStdvPersDataTestCase(TestCase):
     """Example test case."""

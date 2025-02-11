@@ -1,10 +1,15 @@
-"""SWRT CNC TRAJPLA TestCases"""
+"""SWRT CNC TRAJPLA TestCases
+SWRT_CNC_TRJPLA_MaxNumPoses.py
+Test scenario: Scenario can have ParkIn or Parkout maneuver into a parking slot of any type
+"""
 
 import logging
 import os
 
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
-from tsf.core.results import FALSE, TRUE, BooleanResult
+from tsf.core.results import DATA_NOK, FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -17,6 +22,7 @@ from tsf.core.testcase import (
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
+import pl_parking.PLP.MF.constants as constants
 from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport, MfSignals
 from pl_parking.PLP.MF.constants import ConstantsTrajpla
 
@@ -31,7 +37,7 @@ example_obj = MfSignals()
 @teststep_definition(
     step_number=1,
     name="Max num poses",
-    description="TRJPLA shall send max num poses in a parking path",
+    description=f"TRJPLA shall send up to AP_P_MAX_NUM_POSES_IN_PATH_NU ({ConstantsTrajpla.Parameter.AP_P_MAX_NUM_POSES_IN_PATH_NU}) consecutive samples of the planned path.",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(SIGNAL_DATA, MfSignals)
@@ -47,126 +53,198 @@ class TrjplaMaxNumPoses(TestStep):
 
     def process(self, **kwargs):
         """Process the test result."""
-        t2 = None
-        evaluation = ""
+        _log.debug("Starting processing...")
+        # Update the details from the results page with the needed information
+        # All the information from self.result.details is transferred to
+        # report maker(MfCustomTeststepReport in our case)
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        read_data = self.readers[SIGNAL_DATA].signals
-        test_result = fc.INPUT_MISSING  # Result
+        # Create empty lists for titles, plots and remarks,if they are needed,
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = fh.rep([], 3)
-        signal_summary = {}
-        signal_name = example_obj._properties
+        try:
+            t2 = None
+            evaluation = ""
+            read_data = self.readers[SIGNAL_DATA]
+            signal_summary = {}
+            signal_name = example_obj._properties
+            self.result.measured_result = DATA_NOK  # Initializing the result with data nok
+            # Create a lists which will contain test status  and test result for each frame
+            # based on test condition.
+            frame_test_status = []
+            frame_test_result = []
 
-        traj_valid = read_data["trajValid_nu"].tolist()
-        num_valid_poses_nu = read_data["numValidPoses_nu"].tolist()
+            traj_valid = read_data["trajValid_nu"]
+            num_valid_poses_nu = read_data["numValidPoses_nu"]
 
-        for idx, val in enumerate(traj_valid):
-            if val == ConstantsTrajpla.TRAJ_VALID:
-                t2 = idx
-                break
+            for idx, val in enumerate(traj_valid):
+                if val == ConstantsTrajpla.TRAJ_VALID:
+                    t2 = idx
+                    break
+                frame_test_status.append("NA:trajValid_nu not True")
+                frame_test_result.append(None)
 
-        if t2 is not None:
-            eval_cond = True
-            for idx in range(t2, len(traj_valid)):
-                if traj_valid[idx] == ConstantsTrajpla.TRAJ_VALID:
-                    if num_valid_poses_nu[idx] <= ConstantsTrajpla.AP_P_MAX_NUM_POSES_IN_PATH_NU and eval_cond:
-                        evaluation = " ".join(
-                            f"The evaluation of {signal_name['trajValid_nu']} and "
-                            f"{signal_name['numValidPoses_nu']} is PASSED".split()
-                        )
-                        eval_cond = True
+            if t2 is not None:
+                for idx in range(t2, len(traj_valid)):
+                    if traj_valid.iloc[idx] == ConstantsTrajpla.TRAJ_VALID:
+                        if num_valid_poses_nu.iloc[idx] <= ConstantsTrajpla.Parameter.AP_P_MAX_NUM_POSES_IN_PATH_NU:
+                            frame_test_status.append("Pass")
+                            frame_test_result.append(True)
+                        else:
+                            if not evaluation:
+                                evaluation = " ".join(
+                                    f"Failed: {signal_name['numValidPoses_nu']} = {num_valid_poses_nu.iloc[idx]}, "
+                                    f"at frame {idx}".split()
+                                )
+                            frame_test_status.append(
+                                f"Fail: numValidPoses_nu > {ConstantsTrajpla.Parameter.AP_P_MAX_NUM_POSES_IN_PATH_NU}"
+                            )
+                            frame_test_result.append(False)
                     else:
-                        evaluation = " ".join(
-                            f"The evaluation of {signal_name['trajValid_nu']} and "
-                            f"{signal_name['numValidPoses_nu']} is FAILED at frame {idx}".split()
-                        )
-                        eval_cond = False
-                        break
-        else:
-            eval_cond = False
-            evaluation = " ".join("Evaluation not possible, traj valid was never found.".split())
-
-        if eval_cond:
-            test_result = fc.PASS
-        else:
-            test_result = fc.FAIL
-
-        signal_summary[f"{signal_name['trajValid_nu']} and {signal_name['numValidPoses_nu']}"] = evaluation
-
-        colors = "yellowgreen" if test_result != "failed" else "red"
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(values=["Signal Evaluation", "Summary"]),
-                    cells=dict(
-                        values=[list(signal_summary.keys()), list(signal_summary.values())], fill_color=[colors, colors]
-                    ),
+                        frame_test_status.append("NA:trajValid_nu is not true")
+                        frame_test_result.append(None)
+            else:
+                frame_test_result.append(None)
+                evaluation = " ".join(
+                    "Evaluation not possible," f" {signal_name['trajValid_nu']} == True(1) was never found.".split()
                 )
-            ]
-        )
 
-        plot_titles.append("Signal Evaluation")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
+            if False in frame_test_result:
+                verdict = fc.FAIL
+                self.result.measured_result = FALSE
+            elif frame_test_result == [None] * len(frame_test_result):
+                verdict = fc.FAIL
+                self.result.measured_result = FALSE
+                if not evaluation:
+                    evaluation = (
+                        f"Evaluation not possible, valid trajectory "
+                        f"{signal_name['trajValid_nu']} == True(1) not found"
+                    )
+            else:
+                verdict = fc.PASS
+                self.result.measured_result = TRUE
+                evaluation = "Passed"
 
-        frame_list = list(range(0, len(traj_valid)))
-        # Create a table containing all signals and their status for each frame
-        # for the purpose of analysis.
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(
-                        values=["Frames", "trajValid_nu", "numValidPoses_nu"],
-                        fill_color="paleturquoise",
-                    ),
-                    cells=dict(
-                        values=[
-                            frame_list,
-                            traj_valid,
-                            num_valid_poses_nu,
-                        ]
-                    ),
+            expected_val = (
+                f"{signal_name['numValidPoses_nu']} <= AP_P_MAX_NUM_POSES_IN_PATH_NU"
+                f"({ConstantsTrajpla.Parameter.AP_P_MAX_NUM_POSES_IN_PATH_NU})"
+            )
+            signal_summary[
+                f"{signal_name['numValidPoses_nu']} <= AP_P_MAX_NUM_POSES_IN_PATH_NU"
+                f"({ConstantsTrajpla.Parameter.AP_P_MAX_NUM_POSES_IN_PATH_NU}), "
+                f"when {signal_name['trajValid_nu']} = {ConstantsTrajpla.TRAJ_VALID}"
+            ] = [expected_val, evaluation, verdict]
+
+            remark = (
+                f"Check if {signal_name['numValidPoses_nu']} <= AP_P_MAX_NUM_POSES_IN_PATH_NU"
+                f"({ConstantsTrajpla.Parameter.AP_P_MAX_NUM_POSES_IN_PATH_NU}), "
+                f"for all frames where {signal_name['trajValid_nu']} = {ConstantsTrajpla.TRAJ_VALID}"
+            )
+            self.sig_sum = convert_dict_to_pandas(signal_summary, remark)
+            plots.append(self.sig_sum)
+
+            frame_number_list = list(range(0, len(traj_valid)))
+            # add graph for  evaluated signals
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=traj_valid,
+                    mode="lines",
+                    name="trajValid_nu",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<extra></extra>",
+                ),
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=num_valid_poses_nu,
+                    mode="lines",
+                    name="numValidPoses_nu",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<extra></extra>",
+                ),
+            )
+            if True in frame_test_result or False in frame_test_result:
+                fig.add_trace(
+                    go.Scatter(
+                        x=frame_number_list,
+                        y=[0] * len(frame_number_list),
+                        mode="lines",  # 'lines' or 'markers'
+                        name="Test Status",
+                        hovertemplate="Frame: %{x}<br><br>status: %{text}<extra></extra>",
+                        text=frame_test_status,
+                    )
                 )
-            ]
-        )
-        plot_titles.append("Signals Summary")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
+            fig.layout = go.Layout(
+                yaxis=dict(tickformat="14"),
+                xaxis=dict(tickformat="14"),
+                xaxis_title="Frames",
+                showlegend=True,
+                title="Graphical Overview of Evaluated signals",
+            )
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
 
-        result_df = {
-            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            fc.REQ_ID: ["1517101"],
-            fc.TESTCASE_ID: ["41540"],
-            fc.TEST_SAFETY_RELEVANT: [fc.NOT_AVAILABLE],
-            fc.TEST_DESCRIPTION: [
-                "TRJPLA shall send up to AP_P_MAX_NUM_POSES_IN_PATH_NU consecutive samples of the planned path and "
-                "specify the actual number by setting <TrajPlanVisuPort.numValidPoses_nu> accordingly. "
-            ],
-            fc.TEST_RESULT: [test_result],
-        }
+            res_valid = (np.array(frame_test_result)) != np.array(None)
+            res_valid_int = [int(elem) for elem in res_valid]
+            res_valid_int.insert(0, 0)
+            eval_start = [i - 1 for i in range(1, len(res_valid_int)) if res_valid_int[i] - res_valid_int[i - 1] == 1]
+            eval_stop = [i - 1 for i in range(1, len(res_valid_int)) if res_valid_int[i] - res_valid_int[i - 1] == -1]
+            if len(eval_start) > 0:
+                for i in range(len(eval_start)):
+                    fig.add_vline(
+                        x=eval_start[i],
+                        line_width=1,
+                        line_dash="dash",
+                        line_color="darkslategray",
+                        annotation_text=f"t{i + 1}Start",
+                    )
+            if len(eval_stop) > 0:
+                for i in range(len(eval_stop)):
+                    fig.add_vline(
+                        x=eval_stop[i],
+                        line_width=1,
+                        line_dash="dash",
+                        line_color="darkslategray",
+                        annotation_text=f"t{i + 1}Stop",
+                    )
 
-        if test_result == fc.PASS:
-            self.result.measured_result = TRUE
-        else:
-            self.result.measured_result = FALSE
+            plots.append(fig)
+
+            result_df = {
+                "Verdict": {"value": verdict.title(), "color": fh.get_color(verdict)},
+                fc.REQ_ID: ["1517101"],
+                fc.TESTCASE_ID: ["41540"],
+                fc.TEST_SAFETY_RELEVANT: [fc.SAFETY_RELEVANT_QM],
+                fc.TEST_RESULT: [verdict],
+            }
+            self.result.details["Additional_results"] = result_df
+
+        except Exception as e:
+            _log.error(f"Error processing signals: {e}")
+            self.result.measured_result = DATA_NOK
+            self.sig_sum = f"<p>Error processing signals : {e}</p>"
+            plots.append(self.sig_sum)
+
+        # Add the plots in html page
         for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-
-        self.result.details["Additional_results"] = result_df
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+            else:
+                self.result.details["Plots"].append(plot)
 
 
 @verifies("1517101")
 @testcase_definition(
     name="SWRT_CNC_TRJPLA_MaxNumPoses",
-    description="Verify max num poses",
+    description="This testcase will verify that If a valid path is available (PlannedTrajPort.trajValid_nu == true) "
+    "for the given environmental model provided by ApParkingBoxPort and ApEnvModelPort, "
+    "TRJPLA shall send up to AP_P_MAX_NUM_POSES_IN_PATH_NU consecutive samples of the planned path "
+    "in TrajPlanVisuPort.plannedPathXPos_m and TrajPlanVisuPort.plannedPathYPos_m and specify the "
+    "actual number by setting TrajPlanVisuPort.numValidPoses_nu accordingly.",
+    doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_sySRcEsnEe6M5-WQsF_-tQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_p9KzlDK_Ee6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17100",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class TrjplaMaxNumPosesTC(TestCase):
     """Example test case."""
@@ -179,3 +257,23 @@ class TrjplaMaxNumPosesTC(TestCase):
         return [
             TrjplaMaxNumPoses,
         ]
+
+
+def convert_dict_to_pandas(
+    signal_summary: dict,
+    table_remark="",
+    table_title="",
+):
+    """Converts a dictionary to a Pandas DataFrame and creates an HTML table."""
+    # Create a DataFrame from the dictionary
+    evaluation_summary = pd.DataFrame(
+        {
+            "Signal Summary": {key: key for key, val in signal_summary.items()},
+            "Expected Values": {key: val[0] for key, val in signal_summary.items()},
+            "Summary": {key: val[1] for key, val in signal_summary.items()},
+            "Verdict": {key: val[2] for key, val in signal_summary.items()},
+        }
+    )
+
+    # Generate HTML table using build_html_table function
+    return fh.build_html_table(evaluation_summary, table_remark, table_title)

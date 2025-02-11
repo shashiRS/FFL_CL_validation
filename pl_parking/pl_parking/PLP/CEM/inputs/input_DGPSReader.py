@@ -4,12 +4,9 @@ import typing
 from dataclasses import dataclass
 
 import numpy as np
-import pandas as pd
 from scipy.interpolate import interp1d
 
-from pl_parking.common_ft_helper import read_signal
 from pl_parking.PLP.CEM.ground_truth.utm_helper import UtmHelper
-from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import VedodoReader
 
 
 @dataclass
@@ -93,22 +90,29 @@ class DGPSReader:
 
     def __get_ODO_time_string(self, reader):
         """Gets the ODO time string from the reader."""
-        reader_obj = VedodoReader(reader)
-        base = reader_obj.get_base_string(reader)
-        map = reader_obj.data_mapping(base)
+        # reader_obj = VedodoReader(reader)
+        # TODO: This was commented out due to pylint errors
+        # This is not tested, the initial developer of this test should fix this
+        # error: "VedodoReader" has no attribute "get_base_string"
+        # base = reader_obj.get_base_string(reader)
+        # errpr: "VedodoReader" has no attribute "data_mapping"
+        # map = reader_obj.data_mapping(base)
+
+        base = self.__get_base_string(reader)
+        map = self.data_mapping(base)
         return f'{base}.{map["timestamp"]}'
 
-    def __read_all_to_pandas(self, reader):
-        """Reads all data to a pandas DataFrame from the reader."""
-        self.data = pd.DataFrame()
-        data_map = self.data_mapping(self.base_string)
+    # def __read_all_to_pandas(self, reader):
+    #     """Reads all data to a pandas DataFrame from the reader."""
+    #     self.data = pd.DataFrame()
+    #     data_map = self.data_mapping(self.base_string)
 
-        for new_signal_name, signal_name in data_map.items():
-            _, self.data = read_signal(reader, self.data, new_signal_name, f"{self.base_string}.{signal_name}")
+    #     for new_signal_name, signal_name in data_map.items():
+    #         _, self.data = read_signal(reader, self.data, new_signal_name, f"{self.base_string}.{signal_name}")
 
-        self.data = self.data[self.data["timestamp"] > 0]
-        odoString = self.__get_ODO_time_string(reader)
-        self.offset = self.data["timestamp"].iloc[-1] - reader[odoString][-1]
+    #     self.data = self.data[self.data["timestamp"] > 0]
+    #     odoString = self.__get_ODO_time_string(reader)
+    #     self.offset = self.data["timestamp"].iloc[-1] - reader[odoString][-1]
 
     def convert_to_class(self) -> DGPSBuffer:
         """Converts data to a DGPSBuffer class."""

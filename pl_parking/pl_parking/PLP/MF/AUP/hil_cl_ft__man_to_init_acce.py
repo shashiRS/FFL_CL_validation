@@ -41,7 +41,6 @@ class ValidationSignals(MDFSignalDefinition):
     class Columns(MDFSignalDefinition.Columns):
         """Definition of the dataframe columns."""
 
-        USEER_ACTION = "User_action"
         ACCELERATION_PEDAL = "Acce_pedal"
         HMI_INFO = "State_on_HMI"
 
@@ -50,7 +49,6 @@ class ValidationSignals(MDFSignalDefinition):
         super().__init__()
 
         self._properties = {
-            self.Columns.USEER_ACTION: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIOut1.APHMIOutUserActionHU",
             self.Columns.ACCELERATION_PEDAL: "MTS.ADAS_CAN.Conti_Veh_CAN.GasPedal.GasPedalPos",
             self.Columns.HMI_INFO: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIInGeneral1.APHMIParkingProcedureCtrlState",
         }
@@ -133,13 +131,14 @@ class AupManInitAcceCheck(TestStep):
                         actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
                             states_dict[key]
                         )
+                        actual_number = int(states_dict[key])
 
                         if key < t2_idx:
                             evaluation1 = " ".join(
-                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_value}"
+                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_value} ({actual_number})"
                                 f" at {time_signal[key]} us before accelerator pedal position"
                                 f" exceeded {constants.HilCl.ApThreshold.AP_G_THROTTLE_THRESH_PERC} %."
-                                f" Value of pedalposition was {acce_pedal_sig[key]} % when AP funtion (signal: {signal_name['State_on_HMI']}) function sate changed.".split()
+                                f" Value of pedalposition was {acce_pedal_sig[key] * 100} % when {signal_name['State_on_HMI']} signal sate changed.".split()
                             )
                             eval_cond[0] = False
                             break
@@ -147,11 +146,12 @@ class AupManInitAcceCheck(TestStep):
                         if states_dict[key] != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_INACTIVE:
                             evaluation1 = " ".join(
                                 f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, accelerator pedal position exceeded"
-                                f" {constants.HilCl.ApThreshold.AP_G_THROTTLE_THRESH_PERC} % and signal switches into {actual_value} at {time_signal[key]} us."
-                                f" Value of pedalposition was {acce_pedal_sig[key]} % when signal sate changed.".split()
+                                f" {constants.HilCl.ApThreshold.AP_G_THROTTLE_THRESH_PERC} % and signal switches into {actual_value} ({actual_number}) at {time_signal[key]} us."
+                                f" Value of pedalposition was {acce_pedal_sig[key] * 100} % when signal sate changed.".split()
                             )
                             eval_cond[0] = False
                             break
+                        counter += 1
                     else:
                         counter += 1
 
@@ -160,14 +160,17 @@ class AupManInitAcceCheck(TestStep):
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
                     f"The evaluation of {signal_name['Acce_pedal']} signal is FAILED, accelerator pedal position never exceeded"
-                    f" {constants.HilCl.ApThreshold.AP_G_THROTTLE_THRESH_PERC} %.".split()
+                    f" {constants.HilCl.ApThreshold.AP_G_THROTTLE_THRESH_PERC} %."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
 
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Maneuvering mode.".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to"
+                f" Maneuvering ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING}) mode."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -205,14 +208,10 @@ class AupManInitAcceCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:

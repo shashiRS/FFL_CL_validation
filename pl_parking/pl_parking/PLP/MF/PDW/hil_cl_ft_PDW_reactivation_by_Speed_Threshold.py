@@ -74,7 +74,7 @@ class ValidationSignals(MDFSignalDefinition):
         super().__init__()
 
         self._properties = {
-            self.Columns.SPEED: "MTS.ADC5xx_Device.EM_DATA.EmEgoMotionPort.vel_mps",
+            self.Columns.SPEED: "MTS.MTA_ADC5.EM_DATA.EmEgoMotionPort.vel_mps",
             self.Columns.PARK_BRAKE: "MTS.ADAS_CAN.Conti_Veh_CAN.Brake.ParkBrake",
             self.Columns.PARK_BRAKE_STATE: "MTS.ADAS_CAN.Conti_Veh_CAN.Brake.StateParkBrake",
             self.Columns.GEAR_MAN: "MTS.ADAS_CAN.Conti_Veh_CAN.Gear.ActualGear",
@@ -85,20 +85,20 @@ class ValidationSignals(MDFSignalDefinition):
             self.Columns.VEH_VELOCITY: "MTS.ADAS_CAN.Conti_Veh_CAN.VehVelocity.VehVelocityExt",
             self.Columns.PED_BRAKE: "MTS.ADAS_CAN.Conti_Veh_CAN.Brake.DriverBraking",
             self.Columns.IGNITION: "MTS.ADAS_CAN.Conti_Veh_CAN.VehInput05.IgnitionOn",
-            self.Columns.PDW_STANDSTILL_AUTOACTIVATION: "MTS.ADC5xx_Device.CFG_DATA.MF_DWF_APP_Parameter.PDW_L_AUTOM_ACTIV_STANDSTILL_NU",
+            self.Columns.PDW_STANDSTILL_AUTOACTIVATION: "MTS.MTA_ADC5.CFG_DATA.MF_DWF_APP_Parameter.PDW_L_AUTOM_ACTIV_STANDSTILL_NU",
             self.Columns.PDW_BUTTON: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIOut1.APHMIOutUserActionHU",
-            self.Columns.USS0_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[0]",
-            self.Columns.USS1_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[1]",
-            self.Columns.USS2_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[2]",
-            self.Columns.USS3_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[3]",
-            self.Columns.USS4_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[4]",
-            self.Columns.USS5_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[5]",
-            self.Columns.USS6_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[6]",
-            self.Columns.USS7_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[7]",
-            self.Columns.USS8_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[8]",
-            self.Columns.USS9_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[9]",
-            self.Columns.USS10_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[10]",
-            self.Columns.USS11_dist: "MTS.ADC5xx_Device.USP_DATA.SpuUsProcessingDistListOutput.distCross_m[11]",
+            self.Columns.USS0_dist: "CM.Sensor.Object.USS00.relvTgt.NearPnt.ds_p",
+            self.Columns.USS1_dist: "CM.Sensor.Object.USS01.relvTgt.NearPnt.ds_p",
+            self.Columns.USS2_dist: "CM.Sensor.Object.USS02.relvTgt.NearPnt.ds_p",
+            self.Columns.USS3_dist: "CM.Sensor.Object.USS03.relvTgt.NearPnt.ds_p",
+            self.Columns.USS4_dist: "CM.Sensor.Object.USS04.relvTgt.NearPnt.ds_p",
+            self.Columns.USS5_dist: "CM.Sensor.Object.USS05.relvTgt.NearPnt.ds_p",
+            self.Columns.USS6_dist: "CM.Sensor.Object.USS06.relvTgt.NearPnt.ds_p",
+            self.Columns.USS7_dist: "CM.Sensor.Object.USS07.relvTgt.NearPnt.ds_p",
+            self.Columns.USS8_dist: "CM.Sensor.Object.USS08.relvTgt.NearPnt.ds_p",
+            self.Columns.USS9_dist: "CM.Sensor.Object.USS09.relvTgt.NearPnt.ds_p",
+            self.Columns.USS10_dist: "CM.Sensor.Object.USS10.relvTgt.NearPnt.ds_p",
+            self.Columns.USS11_dist: "CM.Sensor.Object.USS11.relvTgt.NearPnt.ds_p",
         }
 
 
@@ -107,7 +107,7 @@ example_obj = ValidationSignals()
 
 @teststep_definition(
     step_number=1,
-    name="PDW state reactivation",
+    name="PDW state reactivation by speed threshold",
     description=("This step is checking if PDW is reactivated after a certain condition is fulfilled."),
     expected_result=BooleanResult(TRUE),
 )

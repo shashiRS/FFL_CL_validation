@@ -36,7 +36,7 @@ from pl_parking.PLP.CEM.ground_truth.vehicle_coordinates_helper import VehicleCo
 from pl_parking.PLP.CEM.inputs.input_CemSlotReader import Slot, SlotReader
 from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import VedodoReader
 from pl_parking.PLP.CEM.inputs.input_DGPSReader import DGPSReader
-from pl_parking.PLP.CEM.inputs.input_PsdSlotReader import PSDCamera, PSDSlotReader
+from pl_parking.PLP.CEM.inputs.input_PmdSlotReader import PMDCamera, PMDSlotReader
 
 SIGNAL_DATA = "CEM_PFS_Slot_Scenario_Confidence_Special"
 example_obj = CemSignals()
@@ -82,7 +82,7 @@ class TestStepFtScenarioConfidence(TestStep):
         )
         slot_reader = SlotReader(reader)
         slot_data = slot_reader.convert_to_class()
-        psd_reader = PSDSlotReader(reader)
+        psd_reader = PMDSlotReader(reader)
         psd_data = psd_reader.convert_to_class()
 
         # Perform comparison of Ground truth against PFS data
@@ -259,7 +259,7 @@ class TestStepFtSlotAccuracy(TestStep):
         )
         slot_reader = SlotReader(reader)
         slot_data = slot_reader.convert_to_class()
-        psd_reader = PSDSlotReader(reader)
+        psd_reader = PMDSlotReader(reader)
         psd_data = psd_reader.convert_to_class()
 
         slot_accuracy: typing.Tuple[typing.List[float], typing.List[int]] = ([], [])
@@ -710,7 +710,7 @@ class TestStepFtSlotMainID(TestStep):
 
         reader = self.readers[SIGNAL_DATA].signals
         slot_data = SlotReader(reader).convert_to_class()
-        psd_data = PSDSlotReader(reader).convert_to_class()
+        psd_data = PMDSlotReader(reader).convert_to_class()
         vedodo_buffer = VedodoReader(reader).convert_to_class()
 
         if any(reader.as_plain_df["CemSlot_numberOfSlots"].values > 0):
@@ -732,12 +732,12 @@ class TestStepFtSlotMainID(TestStep):
                     FtSlotHelper.get_PSD_timeframe_index(
                         curTimeframe.timestamp, prevTimeframe.timestamp, psd_data[camera]
                     )
-                    for camera in PSDCamera
+                    for camera in PMDCamera
                 ]
 
                 psd_timeframes = [
                     psd_data[camera][psd_timeframe_index[int(camera)]]
-                    for camera in PSDCamera
+                    for camera in PMDCamera
                     if psd_timeframe_index[int(camera)] is not None
                 ]
 
@@ -916,7 +916,7 @@ class TestStepFtSlotScenario(TestStep):
         )
         slot_reader = SlotReader(reader)
         slot_data = slot_reader.convert_to_class()
-        psd_reader = PSDSlotReader(reader)
+        psd_reader = PMDSlotReader(reader)
         psd_data = psd_reader.convert_to_class()
 
         slot_confidence: typing.Tuple[typing.List[float], typing.List[int]] = ([], [])

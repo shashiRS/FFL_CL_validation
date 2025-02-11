@@ -3,8 +3,6 @@
 import logging
 import os
 import sys
-import tempfile
-from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
@@ -21,7 +19,6 @@ from tsf.core.testcase import (
     testcase_definition,
     teststep_definition,
 )
-from tsf.core.utilities import debug
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
@@ -830,7 +827,7 @@ class Taposd2(TestStep):
 
 @teststep_definition(
     step_number=3,
-    name="TAPOSD THIRD",
+    name="TAPOSD 3",
     description="""Check if measurements contain Optimal Target Pose.isPresent_nu(==1).""",
     expected_result=BooleanResult(TRUE),
 )
@@ -852,38 +849,14 @@ class Taposd3(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        read_data = self.readers[SIGNAL_DATA].signals
+        read_data = self.readers[SIGNAL_DATA]
         # final_result = fc.INPUT_MISSING  # Result
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = fh.rep([], 3)
 
         signal_name = example_obj._properties
-        # max_car_ay = None
-        # max_car_ax = None
-        # time_for_parking = None
-        # max_speed = None
-        # max_yaw_rate = None
-        # mean_speed = None
-        # max_lat_dist = None
-        # max_long_dist = None
-        # max_yaw_diff = None
-        # max_or_err = None
-        # max_current_dev = None
-        # max_long_dist_error = None
-        # max_lat_dist_error = None
-        # max_yaw_dist_error = None
-        # sim_time = None
-
-        # T10 = None
-        # T11 = None
-        # T12 = None
-        # T15 = None
-        # idx_last = None
-        # total_time = 0
-        # first_valid_index = None
 
         ap_time = read_data[fh.MfSignals.Columns.TIME].tolist()
-        head_unit_screen = read_data[fh.MfSignals.Columns.HEADUNITVISU_SCREEN_NU].tolist()
         optimal_tp_x = read_data[fh.MfSignals.Columns.OPTIMALTARGETPOSE_x].tolist()
         optimal_tp_y = read_data[fh.MfSignals.Columns.OPTIMALTARGETPOSE_y].tolist()
         optimal_tp_yaw = read_data[fh.MfSignals.Columns.OPTIMALTARGETPOSE_yaw].tolist()
@@ -891,21 +864,7 @@ class Taposd3(TestStep):
         cm_tp_y = read_data[fh.MfSignals.Columns.OPTIMALTARGETPOSE_y].tolist()
         cm_tp_yaw = read_data[fh.MfSignals.Columns.OPTIMALTARGETPOSE_yaw].tolist()
 
-        # car_ay = read_data["Car_ay"].tolist()
-        # car_ax = read_data["Car_ax"].tolist()
-        # ap_state = read_data["ApState"].tolist()
-        # ap_lat_dist_to_target = read_data["LatDistToTarget"].tolist()
-        # ap_long_dist_to_target = read_data["LongDistToTarget"].tolist()
-        # ap_yaw_diff_to_target = read_data["YawDiffToTarget"].tolist()
-        # ap_orientation_error = read_data["OrientationError"].tolist()
-        # ap_current_deviation = read_data["LateralError"].tolist()
-        # ap_long_diff_optimal_tp = read_data["longDiffOptimalTP_TargetPose"].tolist()
-        # ap_lat_diff_optimal_tp = read_data["latDiffOptimalTP_TargetPose"].tolist()
-        # ap_yaw_diff_optimal_tp = read_data["yawDiffOptimalTP_TargetPose"].tolist()
-        head_unit_screen = read_data["headUnitVisu_screen_nu"].tolist()
-        # reached_status = read_data["ReachedStatus"].tolist()
-        # vhcl_yawrate = read_data["VhclYawRate"].tolist()
-        # vhcl_v = read_data["Vhcl_v"].tolist()
+        reached_status = read_data["ReachedStatus"].tolist()
 
         self.test_result: str = fc.INPUT_MISSING
         self.sig_sum = None
@@ -918,79 +877,72 @@ class Taposd3(TestStep):
         y_list = []
         yaw_list = []
 
-        for idx, val in enumerate(head_unit_screen):
-            if val == HeadUnitVisuPortScreenVal.MANEUVER_FINISHED:
+        for idx, val in enumerate(reached_status):
+            if val == ConstantsTaposd.REACHED:
                 t2_start_evaluation = idx
                 break
-
-        evaluation1 = " ".join(
-            f"The evaluation of {signal_name['CMTargetPose_x_m']} is PASSED because difference with            "
-            f" {signal_name['OptimalTargetPose_x_m']} is <= 0 while MANEUVER FINISHED".split()
-        )
-        evaluation2 = " ".join(
-            f"The evaluation of {signal_name['CMTargetPose_y_m']} is PASSED because difference with            "
-            f" {signal_name['OptimalTargetPose_y_m']} is <= 0 while MANEUVER FINISHED".split()
-        )
-        evaluation3 = " ".join(
-            f"The evaluation of {signal_name['CMTargetPose_yaw_rad']} is PASSED because difference with            "
-            f" {signal_name['OptimalTargetPose_yaw_rad']} is <= 0 while MANEUVER FINISHED".split()
-        )
-
         x_list = [abs(abs(val1) - abs(val2)) for (val1, val2) in zip(optimal_tp_x, cm_tp_x)]
         y_list = [abs(abs(val1) - abs(val2)) for (val1, val2) in zip(optimal_tp_y, cm_tp_y)]
         yaw_list = [abs(abs(val1) - abs(val2)) for (val1, val2) in zip(optimal_tp_yaw, cm_tp_yaw)]
 
         if t2_start_evaluation is not None:
+            evaluations = [
+                (
+                    "CMTargetPose_x_m",
+                    x_list[t2_start_evaluation],
+                    ConstantsTaposd.TOLERANCE_LONG_DIFF_OTP,
+                    "OptimalTargetPose_x_m",
+                    "m",
+                ),
+                (
+                    "CMTargetPose_y_m",
+                    y_list[t2_start_evaluation],
+                    ConstantsTaposd.TOLERANCE_LAT_DIFF_OTP,
+                    "OptimalTargetPose_y_m",
+                    "m",
+                ),
+                (
+                    "CMTargetPose_yaw_rad",
+                    yaw_list[t2_start_evaluation],
+                    ConstantsTaposd.TOLERANCE_YAW_DIFF_OTP,
+                    "OptimalTargetPose_yaw_rad",
+                    "rad",
+                ),
+            ]
+
             eval_cond = [True] * 3
-            for idx, _val in enumerate(head_unit_screen[t2_start_evaluation:], start=t2_start_evaluation):
-                if x_list[idx] > 0 and eval_cond[0] is True:
-                    evaluation1 = " ".join(
-                        "The evaluation is FAILED, the value of                        "
-                        f" {signal_name['CMTargetPose_x_m']} is different than                        "
-                        f" {signal_name['OptimalTargetPose_x_m']}                         at timestamp"
-                        f" {round(ap_time[idx], 3)} s.".split()
-                    )
-                    eval_cond[0] = False
-                if y_list[idx] > 0 and eval_cond[1] is True:
-                    evaluation2 = " ".join(
-                        "The evaluation is FAILED, the value of                        "
-                        f" {signal_name['CMTargetPose_y_m']} is different than                        "
-                        f" {signal_name['OptimalTargetPose_y_m']}                         at timestamp"
-                        f" {round(ap_time[idx], 3)} s.".split()
-                    )
-                    eval_cond[1] = False
-                if yaw_list[idx] > 0 and eval_cond[2] is True:
-                    evaluation3 = " ".join(
-                        "The evaluation is FAILED, the value of                        "
-                        f" {signal_name['CMTargetPose_yaw_rad']} is different than                        "
-                        f" {signal_name['OptimalTargetPose_yaw_rad']}                         at timestamp"
-                        f" {round(ap_time[idx], 3)} s.".split()
-                    )
-                    eval_cond[2] = False
-            if all(eval_cond):
-                self.test_result = fc.PASS
-            else:
-                self.test_result = fc.FAIL
+            for i, (signal, diff, tolerance, optimal_signal, unit) in enumerate(evaluations):
+                if diff < tolerance:
+                    eval_str = "PASSED"
+                else:
+                    eval_str = "FAILED"
+                    eval_cond[i] = False
 
+                eval_msg = (
+                    f"The evaluation of {signal_name[signal]} is <b>{eval_str}</b> because the difference <b>({round(diff, 3)} {unit})</b> with "
+                    f"{signal_name[optimal_signal]} is {'less' if eval_str == 'PASSED' else 'greater'} than tolerance <b>({tolerance} {unit})</b> "
+                    f" when AP.targetPosesPort.selectedPoseData.reachedStatus == 1 <b>({round(ap_time[t2_start_evaluation], 3)} s)</b>."
+                )
+                signal_summary[signal_name[signal]] = " ".join(eval_msg.split())
+
+                self.test_result = fc.PASS if all(eval_cond) else fc.FAIL
         else:
+            evaluation_msg = f"Evaluation not possible, the signal AP.targetPosesPort.selectedPoseData.reachedStatus did not reach the value <b>{ConstantsTaposd.REACHED}</b>."
+            signal_summary[signal_name["CMTargetPose_x_m"]] = evaluation_msg
+            signal_summary[signal_name["CMTargetPose_y_m"]] = evaluation_msg
+            signal_summary[signal_name["CMTargetPose_yaw_rad"]] = evaluation_msg
             self.test_result = fc.NOT_ASSESSED
-            # eval_cond = [False] * 3
-            evaluation1 = evaluation2 = evaluation3 = " ".join(
-                "Evaluation not possible, the trigger value                    "
-                f" MANEUVER_FINISHED({HeadUnitVisuPortScreenVal.MANEUVER_FINISHED})  for                    "
-                f" {signal_name['headUnitVisu_screen_nu']} was never found.".split()
-            )
-
-        signal_summary[signal_name["CMTargetPose_x_m"]] = evaluation1
-        signal_summary[signal_name["CMTargetPose_y_m"]] = evaluation2
-        signal_summary[signal_name["CMTargetPose_yaw_rad"]] = evaluation3
 
         self.sig_sum = fh.convert_dict_to_pandas(
-            signal_summary, table_remark="Check if measurements contain Optimal Target Pose coordinates are fulfilled."
+            signal_summary,
+            table_remark="Check if measurements contain Optimal Target Pose coordinates are fulfilled.</br> \
+                The difference between Optimal Target Pose and CM Target Pose should be less than the defined tolerances.</br>\
+                Tolerances: Longitudinal difference: 0.1m, Lateral difference: 0.1m, Yaw difference: 0.02rad.</br>",
         )
         plot_titles.append("")
         plots.append(self.sig_sum)
         remarks.append("")
+        self.result.measured_result = TRUE
 
         if self.test_result == fc.PASS:
             verdict_obj.step_3 = fc.PASS
@@ -1002,171 +954,58 @@ class Taposd3(TestStep):
             verdict_obj.step_3 = fc.NOT_ASSESSED
             self.result.measured_result = DATA_NOK
 
-        if self.result.measured_result in [FALSE, DATA_NOK] or bool(GeneralConstants.ACTIVATE_PLOTS):
-            self.fig = go.Figure()
+        self.fig = go.Figure()
 
-            self.fig.add_trace(
-                go.Scatter(
-                    x=ap_time.values.tolist(), y=optimal_tp_x, mode="lines", name=signal_name["OptimalTargetPose_x_m"]
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=ap_time.values.tolist(), y=optimal_tp_y, mode="lines", name=signal_name["OptimalTargetPose_y_m"]
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=ap_time.values.tolist(),
-                    y=optimal_tp_yaw,
-                    mode="lines",
-                    name=signal_name["OptimalTargetPose_yaw_rad"],
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(x=ap_time.values.tolist(), y=cm_tp_x, mode="lines", name=signal_name["CMTargetPose_x_m"])
-            )
-            self.fig.add_trace(
-                go.Scatter(x=ap_time.values.tolist(), y=cm_tp_y, mode="lines", name=signal_name["CMTargetPose_y_m"])
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=ap_time.values.tolist(), y=cm_tp_yaw, mode="lines", name=signal_name["CMTargetPose_yaw_rad"]
-                )
-            )
-            self.fig.add_trace(go.Scatter(x=ap_time.values.tolist(), y=x_list, mode="lines", name="x difference"))
-            self.fig.add_trace(go.Scatter(x=ap_time.values.tolist(), y=y_list, mode="lines", name="y difference"))
-            self.fig.add_trace(go.Scatter(x=ap_time.values.tolist(), y=yaw_list, mode="lines", name="yaw difference"))
-            self.fig.layout = go.Layout(yaxis=dict(tickformat="20"), xaxis=dict(tickformat="20"), xaxis_title="Time[s]")
-            self.fig.update_layout(PlotlyTemplate.lgt_tmplt)
+        self.fig.add_trace(go.Scatter(x=ap_time, y=optimal_tp_x, mode="lines", name=signal_name["OptimalTargetPose_x_m"]))
+        self.fig.add_trace(go.Scatter(x=ap_time, y=optimal_tp_y, mode="lines", name=signal_name["OptimalTargetPose_y_m"]))
+        self.fig.add_trace(go.Scatter(x=ap_time,y=optimal_tp_yaw,mode="lines",name=signal_name["OptimalTargetPose_yaw_rad"],))
+        self.fig.add_trace(go.Scatter(x=ap_time, y=cm_tp_x, mode="lines", name=signal_name["CMTargetPose_x_m"]))
+        self.fig.add_trace(go.Scatter(x=ap_time, y=cm_tp_y, mode="lines", name=signal_name["CMTargetPose_y_m"]))
+        self.fig.add_trace(go.Scatter(x=ap_time, y=cm_tp_yaw, mode="lines", name=signal_name["CMTargetPose_yaw_rad"]))
+        self.fig.add_trace(go.Scatter(x=ap_time, y=x_list, mode="lines", visible="legendonly", name="x difference"))
+        self.fig.add_trace(go.Scatter(x=ap_time, y=y_list, mode="lines", visible="legendonly", name="y difference"))
+        self.fig.add_trace(go.Scatter(x=ap_time, y=yaw_list, mode="lines", visible="legendonly", name="yaw difference"))
+        self.fig.add_trace(go.Scatter(x=ap_time,y=reached_status,mode="lines",visible="legendonly",name="AP.targetPosesPort.selectedPoseData.reachedStatus",))
+        # self.fig.add_vrect(
+        #     x0=ap_time[t2_start_evaluation],
+        #     x1=ap_time[t2_start_evaluation +1 ],
+        #     fillcolor="yellow",
+        #     opacity=0.5,
+        #     layer="below",
+        #     line_width=0,
+        #     annotation="Reached Status == 1",
+        # )
 
-        if self.fig:
-            plot_titles.append("")
-            plots.append(self.fig)
-            remarks.append("Test Graphics third evaluation")
+        self.fig.layout = go.Layout(
+            yaxis=dict(tickformat="20"),
+            xaxis=dict(tickformat="20"),
+            xaxis_title="Time[s]",
+            title="Optimal Target Pose vs CM Target Pose",
+        )
+        self.fig.update_layout(PlotlyTemplate.lgt_tmplt)
+        if t2_start_evaluation is not None:
+            self.fig.add_vline(
+                x=ap_time[t2_start_evaluation],
+                line_dash="dash",
+                line_color="red",
+                line_width=1,
+                annotation_text="Reached Status == 1",
+                annotation_position="top left",
+            )
+
+        plot_titles.append("")
+        plots.append(self.fig)
+        remarks.append("Test Graphics third evaluation")
 
         for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+            else:
+                self.result.details["Plots"].append(plot)
         for plot_title in plot_titles:
             self.result.details["Plot_titles"].append(plot_title)
         for remark in remarks:
             self.result.details["Remarks"].append(remark)
-        # # T10: "AP.headUnitVisualizationPort.screen_nu" == 17
-        # for idx, val in enumerate(head_unit_screen):
-        #     if val == GeneralConstants.MANEUVER_ACTIVE:
-        #         T10 = idx
-        #         break
-
-        # # T15: "AP.headUnitVisualizationPort.screen_nu" == 5
-        # for i, val in enumerate(head_unit_screen):
-        #     if val == GeneralConstants.MANEUVER_FINISH:
-        #         T15 = i
-        #         break
-
-        # # T11: "AP.targetPosesPort.selectedPoseData.reachedStatus" >0 for 0.8 sec
-        # for idx, val in enumerate(reached_status):
-        #     if val > 0:
-        #         if idx_last is not None:
-        #             total_time += (idx - idx_last) / GeneralConstants.IDX_TO_S
-        #             if first_valid_index is None:
-        #                 first_valid_index = idx
-        #             if round(total_time, 6) >= GeneralConstants.T_POSE_REACHED:
-        #                 T11 = first_valid_index
-        #                 break
-        #         idx_last = idx
-        #     else:
-        #         idx_last = None
-        #         total_time = 0
-
-        # # T12: "AP.planningCtrlPort.apStates" == 3
-        # for i, val in enumerate(ap_state):
-        #     if val == GeneralConstants.AP_AVG_ACTIVE_IN:
-        #         T12 = i
-        #         break
-
-        # # calc for every element in the table
-        # if T10 is not None and T15 is not None:
-        #     time_for_parking = round(abs(ap_time[T15] - ap_time[T10]), 3)
-        # else:
-        #     time_for_parking = "n.a"
-
-        # if T12 is not None:
-        #     max_car_ay = np.around(np.amax(np.abs(car_ay[T12:])), 3)
-        #     max_car_ax = np.around(np.amax(np.abs(car_ax[T12:])), 3)
-        #     max_speed = np.around(np.amax(np.abs(vhcl_v[T12:])), 3)
-        #     max_yaw_rate = np.around(np.amax(np.abs(np.rad2deg(vhcl_yawrate[T12:]))), 3)
-        #     max_or_err = np.around(np.amax(np.abs(np.rad2deg(ap_orientation_error[T12:]))), 3)
-        #     max_current_dev = np.around(np.amax(np.abs(ap_current_deviation[T12:])), 3)
-        #     sim_time = round(max(ap_time[T12:]), 3)
-        # else:
-        #     max_car_ay = "n.a"
-        #     max_car_ax = "n.a"
-        #     max_speed = "n.a"
-        #     max_yaw_rate = "n.a"
-        #     max_or_err = "n.a"
-        #     max_current_dev = "n.a"
-        #     sim_time = "n.a"
-        #     final_result = fc.INPUT_MISSING
-
-        # if T12 is not None and T15 is not None:
-        #     mean_speed = np.around(np.mean(np.abs(vhcl_v[T12:T15])), 3)
-        # else:
-        #     mean_speed = "n.a"
-
-        # if T11 is not None:
-        #     max_lat_dist = np.around(np.amax(np.abs(ap_lat_dist_to_target[T11:])), 3)
-        #     max_long_dist = np.around(np.amax(np.abs(ap_long_dist_to_target[T11:])), 3)
-        #     max_yaw_diff = np.around(np.amax(np.rad2deg(np.abs(ap_yaw_diff_to_target[T11:]))), 3)
-        # else:
-        #     max_lat_dist = "n.a"
-        #     max_long_dist = "n.a"
-        #     max_yaw_diff = "n.a"
-        # max_long_dist_error = np.around(np.amax(ap_long_diff_optimal_tp), 3)
-        # max_lat_dist_error = np.around(np.amax(ap_lat_diff_optimal_tp), 3)
-        # max_yaw_dist_error = np.around(np.amax(ap_yaw_diff_optimal_tp), 3)
-
-        # """Add the data in the table from Functional Test Filter Results"""
-        # verdict, color = verdict_obj.check_result()
-        # # color = '#28a745' if verdict_obj.check_result(
-        # # ) else 'rgb(33,39,43)' if final_result == fc.INPUT_MISSING else '#dc3545'
-        # additional_results_dict = {
-        #     "Verdict": {"value": verdict.title(),
-        #                 "color": color},
-        #     "SimulationTime[s]": {"value": sim_time,
-        #                           "color": fh.apply_color(sim_time, 200, '<', 20, '><')},
-        #     "Time for Parking[s]": {"value": time_for_parking,
-        #                             "color": fh.apply_color(time_for_parking, 200, '<', 20, '><')},
-        #     "max Car.ay[m/s^2]": {"value": max_car_ay,
-        #                           "color": fh.apply_color(max_car_ay, 1, "<", 0.5, '><')},
-        #     "max YawRate[deg/s]": {"value": max_yaw_rate,
-        #                            "color": fh.apply_color(max_yaw_rate, 25, "<", 10, '><')},
-        #     "max VehicleSpeed [m/s]": {"value": max_speed,
-        #                                "color": fh.apply_color(max_speed, 2.7, "<", 1.35, '><')},
-        #     "mean VehicleSpeed [m]": {"value": mean_speed,
-        #                               "color": fh.apply_color(mean_speed, 0.3, ">", 0.5, '><')},
-        #     "max Car.ax[m/s^2]": {"value": max_car_ax,
-        #                           "color": fh.apply_color(max_car_ax, 2, "<", 1, '><')},
-        #     "max abs latDistToTarget[m] ": {"value": max_lat_dist,
-        #                                     "color": fh.apply_color(max_lat_dist, 0.05, "<", 0.3, '><')},
-        #     "max abs longDistToTarget[m] ": {"value": max_long_dist,
-        #                                      "color": fh.apply_color(max_long_dist, 0.10, "<", 0.05, '><')},
-        #     "max abs yawDiffToTarget[deg] ": {"value": max_yaw_diff,
-        #                                       "color": fh.apply_color(max_yaw_diff, 1.0, "<", 0.5, '><')},
-        #     "max abs OrientationError[deg] ": {"value": max_or_err,
-        #                                        "color": fh.apply_color(max_or_err, 1, "<", 2, '><')},
-        #     "max abs currentDeviation[m] ": {"value": max_current_dev,
-        #                                      "color": fh.apply_color(max_current_dev, 0.03, "<", 0.05, '><')},
-        #     "max LongDistErrorOTP_TargetPoses[m]": {"value": max_long_dist_error,
-        #                                             "color": fh.apply_color(max_long_dist_error, -1,
-        #                                                                              '==', [0, 0.2], '>=<')},
-        #     "max LatDistErrorOTP_TargetPose[m]": {"value": max_lat_dist_error,
-        #                                           "color": fh.apply_color(max_lat_dist_error, -1,
-        #                                                                            '==', [0, 0.1], '>=<')},
-        #     "max YawDistErrorOTP_TargetPose[deg]": {"value": max_yaw_dist_error,
-        #                                             "color": fh.apply_color(max_yaw_dist_error, -1,
-        #                                                                              '==', [0, 0.2], '>=<')},
-        # }
-        # self.result.details["Additional_results"] = additional_results_dict
 
 
 @testcase_definition(
@@ -1184,43 +1023,4 @@ class FtParkingTaposd(TestCase):
     @property
     def test_steps(self):
         """Returns the test steps."""
-        return [
-            Taposd1,
-            Taposd2,
-            #
-            # Taposd3
-        ]
-
-
-def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
-    """Call to debug to set up debugging in the simplest possible way.
-
-    When calling the test case you need to provide a valid input to
-    execute the test (e.g. a BSIG file) and report the result.
-
-    This is only meant to jump start testcase debugging.
-    """
-    # test_bsigs = [data_folder / f"test_input_{k}.bsig" for k in range(3)]
-    # os.makedirs(data_folder, exist_ok=True)
-    # for b in test_bsigs:
-    #     generate_bsig(b)
-    test_bsigs = r"D:\masuratori_dana\mf_sil\mf_sil_1\mf_sil\tests\SIL\CarMaker\SimOutput\AP_AutoTestExecution\AUPSim_NUC_ParRight_ST-0201_B.erg"
-    debug(
-        FtParkingTaposd,
-        *test_bsigs,
-        temp_dir=temp_dir,
-        open_explorer=open_explorer,
-        # statistics=StatisticsExample,
-        kpi_report=False,
-        dev_report=True,
-    )
-    _log.debug("All done.")
-
-
-if __name__ == "__main__":
-    working_directory = Path(tempfile.mkdtemp("_tsf"))
-
-    data_folder = working_directory / "data"
-    out_folder = working_directory / "out"
-
-    main(data_folder=data_folder, temp_dir=out_folder, open_explorer=True)
+        return [Taposd1, Taposd2, Taposd3]

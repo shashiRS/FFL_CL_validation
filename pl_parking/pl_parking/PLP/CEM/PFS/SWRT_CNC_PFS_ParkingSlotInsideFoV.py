@@ -26,6 +26,7 @@ if TSF_BASE not in sys.path:
     sys.path.append(TSF_BASE)
 
 
+import pandas as pd
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
@@ -56,7 +57,7 @@ class TestStepFtSlotFieldOFView(TestStep):
         """Initialize the test step"""
         super().__init__()
 
-    def process(self):
+    def process(self, **kwargs):
         """
         The function processes signals data to evaluate certain conditions and generate plots and remarsk based
         on the evaluation results
@@ -65,8 +66,10 @@ class TestStepFtSlotFieldOFView(TestStep):
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
         plot_titles, plots, remarks = rep([], 3)
+        signal_summary = {}
+        evaluation = []
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         input_reader = SlotReader(reader)
         slot_data = input_reader.convert_to_class()
 
@@ -104,11 +107,33 @@ class TestStepFtSlotFieldOFView(TestStep):
                 plot_titles.append("Test Fail report")
                 plots.append(fig)
                 remarks.append("")
+                evaluation = f"""CEM output does not contains only parking slots inside the limited {ConstantsCem.AP_G_DES_MAP_RANGE_M} x {ConstantsCem.AP_G_DES_MAP_RANGE_M} field of view."""
+                signal_summary["SlotCrossing_InsideFOV"] = evaluation
             else:
                 test_result = fc.PASS
+                evaluation = f"""CEM output contains only parking slots inside the limited {ConstantsCem.AP_G_DES_MAP_RANGE_M} x {ConstantsCem.AP_G_DES_MAP_RANGE_M} field of view."""
+                signal_summary["Slots_InsideFOV"] = evaluation
 
         else:
             test_result = fc.INPUT_MISSING
+            evaluation = "Required input is missing"
+
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": f"""EnvironmentFusion checks if CEM output contains only parking slots inside the limited {ConstantsCem.AP_G_DES_MAP_RANGE_M} x {ConstantsCem.AP_G_DES_MAP_RANGE_M} field of view.""",
+                },
+                "Result": {
+                    "1": evaluation,
+                },
+                "Verdict": {
+                    "1": "PASSED" if test_result == "passed" else "FAILED",
+                },
+            }
+        )
+
+        sig_sum = fh.build_html_table(signal_summary, table_title="PFS Slot Detection ID maintenance")
+        self.result.details["Plots"].append(sig_sum)
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -142,6 +167,7 @@ class TestStepFtSlotFieldOFView(TestStep):
     name="SWRT_CNC_PFS_ParkingSlotInsideFoV",
     description=f"""This test case checks if CEM output contains only parking slots inside the limited
     {ConstantsCem.AP_G_DES_MAP_RANGE_M} x {ConstantsCem.AP_G_DES_MAP_RANGE_M} field of view.""",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_r9kfek4mEe6M5-WQsF_-tQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_tpTA4CuJEe6mrdm2_agUYg&vvc.configuration=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fcm%2Fstream%2F_tpZHhiuJEe6mrdm2_agUYg",
 )
 class FtSlotFieldOFView(TestCase):
     """Example test case."""

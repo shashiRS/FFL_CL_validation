@@ -2,14 +2,13 @@ adas-tsf>=2.4.1
 black>=23
 build
 coverage
+fiona==1.10.0
 flake8
-plotly-express
-pre-commit
+plotly-express==0.4.1
+pre-commit>=3.7.1
 pytest>=5.3.5
 pytest-cov
 pytest-xdist
 ruff>=0.3.2
-scikit-learn
-torch
 twine
 wheel

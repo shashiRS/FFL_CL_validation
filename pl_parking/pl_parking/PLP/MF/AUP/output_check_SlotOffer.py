@@ -532,7 +532,7 @@ class PMSD_STEP(TestStep):
 
 @verifies("req-001")
 @testcase_definition(name="Output Check", description="")
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class OutputCheckCase(TestCase):
     # custom_report = CustomTestcaseReport

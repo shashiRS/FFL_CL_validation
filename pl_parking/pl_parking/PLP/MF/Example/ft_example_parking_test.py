@@ -40,7 +40,7 @@ _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 # any test must have a specific and UNIQUE alias as it will contain a data frame with all the signals for a test script
-ALIAS = "MF_EXAMPLE"
+ALIAS = "MF_EXAMPLE_2"
 
 
 class Signals(SignalDefinition):
@@ -146,11 +146,8 @@ class TestStepFtExample1(TestStep):
 
         signal_summary = {}  # Initializing the dictionary with data for final evaluation table
 
-        try:
-            signals = self.readers[ALIAS].signals  # for bsig OR ergs
-        except Exception:
-            signals = self.readers[ALIAS]  # for rrec
-            signals[Signals.Columns.TIMESTAMP] = signals.index
+        signals = self.readers[ALIAS]
+        signals[Signals.Columns.TIMESTAMP] = signals.index
 
         ap_time = signals[Signals.Columns.TIME]  # the info for specific siganl are extracted from the bigger data frame
         ap_state = signals[Signals.Columns.APSTATE]  # take into consideration you need to use df methods
@@ -159,10 +156,6 @@ class TestStepFtExample1(TestStep):
         # For this example, we will take as a threshold the moment when the value of ap_stat signal it's == Active
         # use enumerate instead of 'for in range(len(x))'
 
-        # for idx, val in enumerate(ap_state):
-        #     if val == constants.GeneralConstants.AP_AVG_ACTIVE_IN:
-        #         time_threshold = idx
-        #         break
         if np.any(ap_state == constants.GeneralConstants.AP_AVG_ACTIVE_IN):
             time_threshold = np.argmax(ap_state == constants.GeneralConstants.AP_AVG_ACTIVE_IN)
         # create an evaluation text for the moment when the test is passed
@@ -187,12 +180,12 @@ class TestStepFtExample1(TestStep):
                 eval_cond = False  # set the evaluation condition as False
             # set the verdict of the test step
             if eval_cond:
-                self.test_result = fc.PASS
+                self.result.measured_result = TRUE
             else:
-                self.test_result = fc.FAIL
+                self.result.measured_result = FALSE
         else:
             # create an evaluation text for the moment when the threshold it's not found,set test_result to NOT_ASSESSED
-            self.test_result = fc.NOT_ASSESSED
+            self.result.measured_result = DATA_NOK
             evaluation = " ".join(
                 f"Evaluation not possible, the trigger value {constants.GeneralConstants.AP_AVG_ACTIVE_IN} for"
                 f" {Signals.Columns.APSTATE} was never found.".split()
@@ -207,19 +200,13 @@ class TestStepFtExample1(TestStep):
         self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
         plots.append(self.sig_sum)
 
-        if self.test_result == fc.PASS:
-            self.result.measured_result = TRUE
-        elif self.test_result == fc.FAIL:
-            self.result.measured_result = FALSE
-        else:
-            self.result.measured_result = DATA_NOK
         if self.result.measured_result in [FALSE, DATA_NOK] or bool(constants.GeneralConstants.ACTIVATE_PLOTS):
             fig = go.Figure()
             # add the needed signals in the plot
             fig.add_trace(go.Scatter(x=ap_time, y=ap_state, mode="lines", name=Signals.Columns.APSTATE))
             fig.add_trace(go.Scatter(x=ap_time, y=velocity, mode="lines", name=Signals.Columns.VELOCITY))
             fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
-            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
 
             plot_titles.append("")
             plots.append(fig)
@@ -237,8 +224,8 @@ class TestStepFtExample1(TestStep):
     step_number=2,
     name="Functional test 2",  # this would be shown as a test step name in html report
     description=(
-        "Check that after Planning control port is equal to 3, the maximum acceleration and speed does not             "
-        "    exceed accepted values."
+        "Check that after Planning control port is equal to 3, the maximum acceleration and speed does not"
+        " exceed accepted values."
     ),
     expected_result=BooleanResult(
         TRUE
@@ -279,11 +266,8 @@ class TestStepFtExample2(TestStep):
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = fh.rep([], 3)
 
-        try:
-            signals = self.readers[ALIAS].signals  # for bsig OR ergs
-        except Exception:
-            signals = self.readers[ALIAS]  # for rrec
-            signals[Signals.Columns.TIMESTAMP] = signals.index
+        signals = self.readers[ALIAS]
+        signals[Signals.Columns.TIMESTAMP] = signals.index
 
         ap_time = signals[Signals.Columns.TIME]
         ap_state = signals[Signals.Columns.APSTATE]
@@ -298,8 +282,8 @@ class TestStepFtExample2(TestStep):
         if np.any(ap_state == constants.GeneralConstants.AP_AVG_ACTIVE_IN):
             t3 = np.argmax(ap_state == constants.GeneralConstants.AP_AVG_ACTIVE_IN)
         evaluation1 = " ".join(
-            f"The evaluation of {signals_obj._properties[Signals.Columns.CARAX]} is PASSED with values <            "
-            f"                     {constants.ConstantsAupCore.LONG_ACC_EGO_MAX} m/s^2.".split()
+            f"The evaluation of {signals_obj._properties[Signals.Columns.CARAX]} is PASSED with values <"
+            f"{constants.ConstantsAupCore.LONG_ACC_EGO_MAX} m/s^2.".split()
         )
         eval_cond = True
         if t3 is not None:
@@ -310,38 +294,30 @@ class TestStepFtExample2(TestStep):
 
                 evaluation1 = " ".join(
                     f"The evaluation of {signals_obj._properties[Signals.Columns.CARAX]} is FAILED with a value"
-                    f" >=                         {constants.ConstantsAupCore.LONG_ACC_EGO_MAX} m/s^2 at timestamp "
-                    f"                       {round(ap_time.loc[idx], 3)} s.".split()
+                    f" >={constants.ConstantsAupCore.LONG_ACC_EGO_MAX} m/s^2 at timestamp "
+                    f"{round(ap_time.loc[idx], 3)} s.".split()
                 )
                 eval_cond = False
 
             if eval_cond:
-                self.test_result = fc.PASS
+                self.result.measured_result = TRUE
             else:
-                self.test_result = fc.FAIL
+                self.result.measured_result = FALSE
         else:
             evaluation1 = " ".join(
-                "Evaluation not possible, the trigger value AP_AVG_ACTIVE_IN(3) for                            "
-                f" {signals_obj._properties[Signals.Columns.APSTATE]} was never found.".split()
+                "Evaluation not possible, the trigger value AP_AVG_ACTIVE_IN(3) for "
+                f"{signals_obj._properties[Signals.Columns.APSTATE]} was never found.".split()
             )
             self.result.measured_result = DATA_NOK
-            self.test_result = fc.NOT_ASSESSED
         signal_summary[Signals.Columns.CARAX] = evaluation1
 
         remark = " ".join(
-            "Checks that after AP.planningCtrlPort.apStates == 3 (AP_AVG_ACTIVE_IN), the                 "
-            "        maximum acceleration and speed does not                                                         "
+            "Checks that after AP.planningCtrlPort.apStates == 3 (AP_AVG_ACTIVE_IN), the "
+            " maximum acceleration and speed does not "
             " exceed the accepted value".split()
         )
         self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
         plots.append(self.sig_sum)
-
-        if self.test_result == fc.PASS:
-            self.result.measured_result = TRUE
-        elif self.test_result == fc.FAIL:
-            self.result.measured_result = FALSE
-        else:
-            self.result.measured_result = DATA_NOK
 
         if self.result.measured_result in [FALSE, DATA_NOK] or bool(constants.GeneralConstants.ACTIVATE_PLOTS):
             self.fig = go.Figure()
@@ -352,9 +328,7 @@ class TestStepFtExample2(TestStep):
             )
 
             self.fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
-            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
-            # self.result.details["Plots"].append(
-            #     self.fig.to_html(full_html=False, include_plotlyjs=False))
+            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
             plots.append(self.fig)
 
         # Add the plots in html page
@@ -367,11 +341,11 @@ class TestStepFtExample2(TestStep):
 
 # Define the test case definition. This will include the name of the test case and a description of the test.
 @testcase_definition(
-    name="Test case example",
+    name="Test case example ",
     description=("This an example of test case with two test steps."),
 )
 # Define the class for test case which will inherit the TestCase class and will return the test steps.
-class TestExample(TestCase):
+class TestExampleFT(TestCase):
     """Example test case."""  # example of required docstring
 
     custom_report = MfCustomTestcaseReport

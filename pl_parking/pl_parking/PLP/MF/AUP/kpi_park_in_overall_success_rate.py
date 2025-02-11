@@ -2,6 +2,7 @@
 """KPI for park in overall success rate."""
 import logging
 import os
+import re
 import sys
 from typing import List
 
@@ -396,7 +397,7 @@ class BaseStep(TestStep):
         else:
             self.result.measured_result = NAN
             self.test_result = fc.NOT_ASSESSED
-        if self.test_result in [fc.NOT_ASSESSED, fc.FAIL]:
+        if self.test_result in [fc.NOT_ASSESSED, fc.FAIL] or True:
             fig = go.Figure()
             fig.add_trace(
                 go.Scatter(
@@ -467,6 +468,107 @@ def fetch_verdict(verdict):
 signals_obj = TestSignals()
 
 
+def get_parking_type_from_file_path(file_path):
+    """Define the dictionary mapping use case IDs to parking types"""
+    parking_type_dict = {
+        "AP_UC_001": "Parallel",
+        "AP_UC_002": "Parallel",
+        "AP_UC_011": "Parallel",
+        "AP_UC_003": "Parallel",
+        "AP_UC_004": "Parallel",
+        "AP_UC_005": "Parallel",
+        "AP_UC_006": "Parallel",
+        "AP_UC_007": "Parallel",
+        "AP_UC_008": "Parallel",
+        "AP_UC_009": "Parallel",
+        "AP_UC_010": "Parallel",
+        "AP_UC_012": "Parallel",
+        "AP_UC_013": "Parallel",
+        "AP_UC_014": "Parallel",
+        "AP_UC_015": "Parallel",
+        "AP_UC_016": "Parallel",
+        "AP_UC_017": "Parallel",
+        "AP_UC_018": "Perpendicular",
+        "AP_UC_019": "Perpendicular",
+        "AP_UC_020_01": "Perpendicular_backward",
+        "AP_UC_020_02": "Perpendicular_forward",
+        "AP_UC_021": "Perpendicular",
+        "AP_UC_022": "Perpendicular",
+        "AP_UC_023": "Perpendicular",
+        "AP_UC_059": "Perpendicular",
+        "AP_UC_024": "Perpendicular",
+        "AP_UC_025": "Perpendicular",
+        "AP_UC_026": "Perpendicular",
+        "AP_UC_027": "Perpendicular",
+        "AP_UC_028": "Perpendicular",
+        "AP_UC_029": "Perpendicular",
+        "AP_UC_031": "Perpendicular",
+        "AP_UC_032": "Perpendicular",
+        "AP_UC_033": "Perpendicular",
+        "AP_UC_034": "Perpendicular",
+        "AP_UC_035": "Perpendicular",
+        "AP_UC_036": "Perpendicular",
+        "AP_UC_037": "Perpendicular",
+        "AP_UC_068": "Perpendicular",
+        "AP_UC_069": "Perpendicular",
+        "AP_UC_038": "Angular",
+        "AP_UC_070": "Angular",
+        "AP_UC_039": "Angular",
+        "AP_UC_71": "Angular",
+        "AP_UC_040": "Angular",
+        "AP_UC_041": "Angular",
+        "AP_UC_044": "Angular",
+        "AP_UC_060": "Angular",
+        "AP_UC_061": "Angular",
+        "AP_UC_100": "Unknown",
+        "AP_UC_101": "Unknown",
+        "AP_UC_102": "Unknown",
+        "AP_UC_103": "Unknown",
+        "AP_UC_104": "Unknown",
+        "AP_UC_105": "Unknown",
+        "AP_UC_106": "Unknown",
+        "AP_UC_045": "Unknown",
+        "AP_UC_046": "Unknown",
+        "AP_UC_047": "Unknown",
+        "AP_UC_048": "Unknown",
+        "AP_UC_049": "Unknown",
+        "AP_UC_050": "Unknown",
+        "AP_UC_051": "Unknown",
+        "AP_UC_052": "Unknown",
+        "AP_UC_053": "Unknown",
+        "AP_UC_054": "Unknown",
+        "AP_UC_055": "Unknown",
+        "AP_UC_056": "Unknown",
+        "AP_UC_057": "Unknown",
+        "AP_UC_058": "Unknown",
+    }
+
+    # Use a regular expression to find the use case ID in the file path
+    match = re.search(r"AP_UC_\d+", file_path)
+    if match:
+        usecase_id = match.group()
+        if usecase_id == "AP_UC_020":
+            # Perform a supplementary search to determine if it is "AP_UC_020_01" or "AP_UC_020_02"
+            sup_match = re.search(r"AP_UC_020_\d{2}", file_path)
+            if sup_match:
+                usecase_id = sup_match.group()
+            else:
+                return "Unknown"
+    else:
+        return "Unknown"
+    # Regular expression patterns to identify backward and forward parking
+    backward_pattern = re.compile(r"AP_UC_(018|025|070|71|102|104|106)")
+    forward_pattern = re.compile(r"AP_UC_(019|026|038|039|101|103|105)")
+    park_type = parking_type_dict.get(usecase_id, "Unknown")
+    if backward_pattern.match(usecase_id):
+        park_type += "_backward"
+    elif forward_pattern.match(usecase_id):
+        park_type += "_forward"
+
+    # Return the parking type if the use case ID is found in the dictionary, else return "Unknown"
+    return park_type
+
+
 @teststep_definition(step_number=1, name="PAR", description="Parallel scenario.", expected_result="> 85 %")
 @register_signals(ALIAS, TestSignals)
 class Step1(BaseStep):
@@ -491,15 +593,15 @@ class Step1(BaseStep):
                     "Plot_titles": [],
                     "Remarks": [],
                     "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
                 }
             )
             self.test_result = fc.NOT_ASSESSED
-            usecases = {
-                key: val
-                for key, val in constants.ParkingUseCases.parking_usecase_id.items()
-                if val.lower().startswith("parallel")
-            }
-            if any(element in self.result.details["file_name"] for element in list(usecases.keys())):
+            usecase_const = False
+            parking_type = get_parking_type_from_file_path(self.result.details["file_path"])
+            if parking_type == "Parallel":
+                usecase_const = True
+            if usecase_const:
                 """Check if measurement fits the TestStep usecase"""
                 super().process()
                 additional_results_dict = {
@@ -543,26 +645,22 @@ class Step2(BaseStep):
                     "Plot_titles": [],
                     "Remarks": [],
                     "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
                 }
             )
             self.test_result = fc.NOT_ASSESSED
-            parking_types = [
-                "forwards angular",
-                "forwards perpendicular",
-                "backwards angular",
-                "backwards perpendicular",
-            ]
-            usecases = {}
-            for test in parking_types:
-                usecases.update(
-                    {
-                        key: val
-                        for key, val in constants.ParkingUseCases.parking_usecase_id.items()
-                        if val.lower().startswith(test)
-                    }
-                )
 
-            if any(element in self.result.details["file_name"] for element in list(usecases.keys())):
+            usecase_const = False
+            parking_type = get_parking_type_from_file_path(self.result.details["file_path"])
+            if (
+                parking_type == "Perpendicular_forward"
+                or parking_type == "Angular_forward"
+                or parking_type == "Perpendicular_backward"
+                or parking_type == "Angular_backward"
+            ):
+                usecase_const = True
+
+            if usecase_const:
                 """Check if measurement fits the TestStep usecase"""
                 super().process()
                 additional_results_dict = {
@@ -585,7 +683,8 @@ class Step2(BaseStep):
     description="The parking in overall success rate performance indicator considers the number of successfully finished park in maneuvers by the AP function - where both parking in maneuvering and end position performance indicators have fulfilled the criteria - in relation to the total number of repetitions",
     doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_zX-WIOhNEe2m7JKTm3pqog&oslc_config.context=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_lWHOEPvsEeqIqKySVwTVNQ%2Fcomponents%2F_u4eQYMlKEe2iKqc0KPO99Q",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+# @register_inputs("/parking")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class ParkinOverallSuccessKPI(TestCase):
     """Test case class"""

@@ -29,7 +29,7 @@ class ConstantsCem:
     AP_E_DYN_OBJ_VELOCITY_ACCURACY_5_1_MPS = 0.25  # [m/s]  Not used
     AP_E_DYN_OBJ_VELOCITY_ACCURACY_1_MPS = 0.1  # [m/s]  Not used
     AP_E_STA_OBJ_ID_REUSE_TIME_S = 3600  # [s]  Value ok
-    AP_E_STA_OBJ_ELEV_CONF_MIN_NU = 20  # Value ok
+    AP_E_STA_OBJ_ELEV_CONF_MIN_NU = 0.2  # Value ok
     AP_E_TIME_BEFORE_CURRENT_T_CONTRIBUTION_MS = 60  # ms  Value ok (tpf helper)
     AP_E_DYN_OBJ_ACC_EQUAL_RATE_NU = 90  # Value ok
     AP_E_DYN_OBJ_ACC_MAX_RATE_NU = 95  # Value ok
@@ -39,6 +39,9 @@ class ConstantsCem:
     SYNC_INPUT_OUTPUT_CYCLES = 20  # TODO: Confirm Value == MAX_CYCLE_NUM
     NUM_OF_CYCLES_FOR_OUTPUT = 15  # TODO: Confirm Value
     THRESHOLD_FOR_LATENCY = 5  # ms  Not used
+    AL_SIG_STATE_INIT = 0
+    AL_SIG_STATE_OK = 1
+    AL_SIG_STATE_INVALID = 2
 
     @staticmethod
     def AP_E_DYN_OBJ_ACC_M(dist: float) -> float:
@@ -65,9 +68,18 @@ class ConstantsCemInput:
     """Class containing input constants for CEM module."""
 
     PCLEnum = 1  # Value ok
-    WSEnum = 7  # Value ok
+    WSEnum = 0  # Value ok. It was set to 7, now changed to 0.
     WLEnum = 7  # This value needs to be reconfirmed once WL output is available.
     SLEnum = 7  # This value needs to be reconfirmed once SL output is available.
+    PEDEnum = 7  # This value needs to be reconfirmed once PED output is available.
+
+
+class CemSlotScenario(Enum):
+    """Enumeration for element slot scenario."""
+
+    SLOT_SCENARIO_PERPENDICULAR = 1
+    SLOT_SCENARIO_PARALLEL = 2
+    SLOT_SCENARIO_ANGLED = 3
 
 
 class GroundTruthCem:
@@ -102,10 +114,14 @@ class AssociationConstants:
     """Class containing association constants."""
 
     MAX_SLOT_DISTANCE = 0.5  # Value ok
+    MAX_SLOT_DISTANCE_ERG_KPI = 0.7  # Value ok
     PCL_ASSOCIATION_RADIUS = 0.4  # Value ok
     WS_ASSOCIATION_RADIUS = 0.2  # Value ok
     WL_ASSOCIATION_RADIUS = 0.2  # This values need to be re confirmed once WL output is available.
     SL_ASSOCIATION_RADIUS = 0.2  # This values need to be re confirmed once SL output is available.
+    PED_ASSOCIATION_RADIUS = 0.5  # This values need to be re confirmed once PED output is available.
+    THRESHOLD_SLOT_SCENARIO_TRUE_POSITIVE = 70.0
+    THRESHOLD_SLOT_SCENARIO_FALSE_POSITIVE = 1.0
 
 
 # https://github-am.geo.conti.de/ADAS/cem_lsm_types/blob/96249cb00d0f140bb37ea6ba9bb29100312a63ab/interface/types/aupdf/sef_output_interface_types.plantuml#L7-L16
@@ -132,3 +148,11 @@ class TpfFovConstatns:
     """Class containing constants for TPF field of view."""
 
     DISTANCE_RANGE = 7.0  # Not in reqs
+
+
+class ConstantsSGF:
+    """Class containing constant values for SGF module."""
+
+    AP_E_STA_OBJ_INFLATION_M = 0.2  # [m]  Value ok
+    AP_E_STA_OBJ_INFLATION_RATE_NU = 80  # [%]  Value ok
+    AP_E_STA_OBJ_SVC_TP_RATE_NU = 80  # [%] Value NOT OK, will be decided later

@@ -326,7 +326,7 @@ class SI_STEP(TestStep):
     name="SI Root Cause Analysis(demo CAEdge)",
     description="Verify the output checks of components for SI(demo CAEdge).",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class SIdemo(TestCase):
     # custom_report = CustomTestcaseReport

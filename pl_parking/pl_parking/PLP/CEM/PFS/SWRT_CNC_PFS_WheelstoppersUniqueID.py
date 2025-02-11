@@ -31,7 +31,6 @@ import plotly.graph_objects as go
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
 from pl_parking.common_ft_helper import CemSignals, MfCustomTestcaseReport, MfCustomTeststepReport, rep
-from pl_parking.PLP.CEM.constants import ConstantsCemInput
 from pl_parking.PLP.CEM.inputs.input_CemPclReader import PclDelimiterReader
 
 SIGNAL_DATA = "PFS_WS_Unique_ID"
@@ -57,7 +56,7 @@ class TestStepFtWSUniqueID(TestStep):
 
     def process(self, **kwargs):
         """
-        The function processes signals data to evaluate certain conditions and generate plots and remarsk based
+        The function processes signals data to evaluate certain conditions and generate plots and remarks based
         on the evaluation results
         """
         self.result.details.update(
@@ -72,9 +71,9 @@ class TestStepFtWSUniqueID(TestStep):
         # Check if there are PM in the data
         data_df = input_reader.data.as_plain_df
         data_df.columns = [f"{col[0]}_{col[1]}" if type(col) is tuple else col for col in data_df.columns]
-        pcl_type = data_df.loc[:, data_df.columns.str.startswith("delimiterType")]
+        pcl_type = data_df.loc[:, data_df.columns.str.startswith("Cem_pcl_delimiterId")]
 
-        if ConstantsCemInput.WSEnum in pcl_type.values:
+        if not pcl_type.empty:
             rows = []
             failed = 0
             for time_frame in delimiter_data:

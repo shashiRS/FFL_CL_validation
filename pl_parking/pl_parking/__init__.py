@@ -3,4 +3,4 @@
 __author__ = "A AM SB PRK IAS LAT1"
 __copyright__ = "2023-2024, Continental BA ADAS"
 __status__ = "Production"
-__version__ = "0.0.11"
+__version__ = "0.0.52"

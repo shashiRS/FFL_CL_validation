@@ -25,6 +25,7 @@ TSF_BASE = os.path.abspath(os.path.join(__file__, "", "..", "..", "..", "..", ".
 if TSF_BASE not in sys.path:
     sys.path.append(TSF_BASE)
 
+
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -55,7 +56,7 @@ class TestStepFtPFSOutputAtT7(TestStep):
         """Initialize the test step"""
         super().__init__()
 
-    def process(self):
+    def process(self, **kwargs):
         """
         The function processes signals data to evaluate certain conditions and generate plots and remarsk based
         on the evaluation results

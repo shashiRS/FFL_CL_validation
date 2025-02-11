@@ -227,7 +227,7 @@ class PMSDLineAngleTestStep(TestStep):
     name="PMSD LineAngle",
     description="",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class PMSDLineAngle(TestCase):
     """Example test case."""

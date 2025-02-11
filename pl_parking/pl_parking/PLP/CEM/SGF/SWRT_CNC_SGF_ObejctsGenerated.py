@@ -29,11 +29,12 @@ import sys
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
-from pl_parking.common_ft_helper import CemSignals, CustomTeststepReport, rep
+from pl_parking.common_ft_helper import CustomTeststepReport, rep
 from pl_parking.PLP.CEM.inputs.input_CemSgfReader import SGFReader
+from pl_parking.PLP.CEM.SGF.ft_helper import SGFSignals
 
 SIGNAL_DATA = "StaticObjectsGenerated"
-example_obj = CemSignals()
+example_obj = SGFSignals()
 
 
 @teststep_definition(
@@ -43,7 +44,7 @@ example_obj = CemSignals()
     doors_url="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, SGFSignals)
 class TestStepStaticObjectsGenerated(TestStep):
     """TestStep for evaluating the generation of static objects, utilizing a custom report."""
 

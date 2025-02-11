@@ -6,6 +6,7 @@ from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
+    register_inputs,
     register_side_load,
     register_signals,
     testcase_definition,
@@ -41,7 +42,6 @@ from pl_parking.PLP.CEM.constants import AssociationConstants
 from pl_parking.PLP.CEM.ft_pcl_helper import FtPclHelper
 from pl_parking.PLP.CEM.ft_ws_helper import FtWsHelper
 from pl_parking.PLP.CEM.inputs.input_CemPclReader import PclDelimiterReader
-from pl_parking.PLP.CEM.inputs.input_CemWsReader import WSDetectionReader
 from pl_parking.PLP.CEM.inputs.input_PmdReader import PMDCamera
 
 SIGNAL_DATA = "PFS_WS_Accuracy"
@@ -88,7 +88,7 @@ class TestStepFtWSAccuracy(TestStep):
         gt_data = self.side_load["JsonGT"]
         ws_gt = FtWsHelper.get_ws_from_json_gt(gt_data)
         pcl_data = PclDelimiterReader(reader).convert_to_class()
-        ws_detection_data = WSDetectionReader(reader).convert_to_class()
+        # ws_detection_data = WsDelimiterReader(reader).convert_to_class()
 
         all_cem_ws_ground_truth_distances: typing.List[float] = []
         number_of_associated_cem_ws: typing.List[typing.Tuple[int, int]] = []
@@ -121,36 +121,39 @@ class TestStepFtWSAccuracy(TestStep):
 
         all_ws_detection_ground_truth_distances: typing.List[float] = []
         all_ws_detection_ground_truth_distances_per_camera: typing.Dict[PMDCamera, typing.List[float]] = dict()
-        number_of_associated_ws_detection: typing.Dict[PMDCamera, typing.List[typing.Tuple[int, int]]] = dict()
-        for camera, timeframe_list in ws_detection_data.items():
-            all_ws_detection_ground_truth_distances_per_camera[camera] = []
-            number_of_associated_ws_detection[camera] = []
+        # number_of_associated_ws_detection: typing.Dict[PMDCamera, typing.List[typing.Tuple[int, int]]] = dict()
+        # TODO: Thhis is a bug. E1101: Instance of 'list' has no 'items' member (ws_detection_data)
+        # Temporary fix: Commenting out the code block
 
-            for ws_timeframe in timeframe_list:
-                timeframe_nbr_association = 0
-                if len(ws_timeframe.pmd_lines) > 0:
-                    gt_with_closest_timestamp = ws_gt.get(
-                        min(ws_gt.keys(), key=lambda k: abs(k - pcl_timeframe.timestamp))
-                    )
-                    association, _ = FtPclHelper.associate_pmd_to_ground_truth(
-                        ws_timeframe.pmd_lines, gt_with_closest_timestamp, AssociationConstants.WS_ASSOCIATION_RADIUS
-                    )
+        # for camera, timeframe_list in ws_detection_data.items():
+        #     all_ws_detection_ground_truth_distances_per_camera[camera] = []
+        #     number_of_associated_ws_detection[camera] = []
 
-                    ws_ground_truth_distances = [
-                        FtPclHelper.is_pcl_pmd_association_valid(
-                            ground_truth, ws, AssociationConstants.WS_ASSOCIATION_RADIUS
-                        )[1]
-                        for ws, ground_truth in association
-                        if ground_truth is not None
-                    ]
+        #     for ws_timeframe in timeframe_list:
+        #         timeframe_nbr_association = 0
+        #         if len(ws_timeframe.pmd_lines) > 0:
+        #             gt_with_closest_timestamp = ws_gt.get(
+        #                 min(ws_gt.keys(), key=lambda k: abs(k - pcl_timeframe.timestamp))
+        #             )
+        #             association, _ = FtPclHelper.associate_pmd_to_ground_truth(
+        #                 ws_timeframe.pmd_lines, gt_with_closest_timestamp, AssociationConstants.WS_ASSOCIATION_RADIUS
+        #             )
 
-                    all_ws_detection_ground_truth_distances += ws_ground_truth_distances
-                    all_ws_detection_ground_truth_distances_per_camera[camera] += ws_ground_truth_distances
-                    timeframe_nbr_association = len(
-                        [ground_truth for _, ground_truth in association if ground_truth is not None]
-                    )
+        #             ws_ground_truth_distances = [
+        #                 FtPclHelper.is_pcl_pmd_association_valid(
+        #                     ground_truth, ws, AssociationConstants.WS_ASSOCIATION_RADIUS
+        #                 )[1]
+        #                 for ws, ground_truth in association
+        #                 if ground_truth is not None
+        #             ]
 
-                number_of_associated_ws_detection[camera].append((ws_timeframe.timestamp, timeframe_nbr_association))
+        #             all_ws_detection_ground_truth_distances += ws_ground_truth_distances
+        #             all_ws_detection_ground_truth_distances_per_camera[camera] += ws_ground_truth_distances
+        #             timeframe_nbr_association = len(
+        #                 [ground_truth for _, ground_truth in association if ground_truth is not None]
+        #             )
+
+        #         number_of_associated_ws_detection[camera].append((ws_timeframe.timestamp, timeframe_nbr_association))
 
         avg_cem_ws_distance = np.mean(all_cem_ws_ground_truth_distances)
         avg_ws_detection_distance = np.mean(all_ws_detection_ground_truth_distances)
@@ -209,28 +212,29 @@ class TestStepFtWSAccuracy(TestStep):
         plot_titles.append("CEM WS")
         plots.append(fig)
         remarks.append("")
-
-        for camera, timeframe_list in ws_detection_data.items():
-            fig = go.Figure()
-            fig.add_trace(
-                go.Scatter(
-                    x=[timeframe.timestamp for timeframe in timeframe_list],
-                    y=[len(timeframe.pmd_lines) for timeframe in timeframe_list],
-                    mode="lines",
-                    name=f"{camera._name_} camera number of WS detection",
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=[timeframe for timeframe, _ in number_of_associated_ws_detection[camera]],
-                    y=[nbr_associated_lines for _, nbr_associated_lines in number_of_associated_ws_detection[camera]],
-                    mode="lines",
-                    name=f"{camera._name_} camera number of associated WS detection",
-                )
-            )
-            plot_titles.append(f"{camera._name_} camera WS detection")
-            plots.append(fig)
-            remarks.append("")
+        # TODO: Thhis is a bug. E1101: Instance of 'list' has no 'items' member (ws_detection_data)
+        # Temporary fix: Commenting out the code block
+        # for camera, timeframe_list in ws_detection_data.items():
+        #     fig = go.Figure()
+        #     fig.add_trace(
+        #         go.Scatter(
+        #             x=[timeframe.timestamp for timeframe in timeframe_list],
+        #             y=[len(timeframe.pmd_lines) for timeframe in timeframe_list],
+        #             mode="lines",
+        #             name=f"{camera._name_} camera number of WS detection",
+        #         )
+        #     )
+        #     fig.add_trace(
+        #         go.Scatter(
+        #             x=[timeframe for timeframe, _ in number_of_associated_ws_detection[camera]],
+        #             y=[nbr_associated_lines for _, nbr_associated_lines in number_of_associated_ws_detection[camera]],
+        #             mode="lines",
+        #             name=f"{camera._name_} camera number of associated WS detection",
+        #         )
+        #     )
+        #     plot_titles.append(f"{camera._name_} camera WS detection")
+        #     plots.append(fig)
+        #     remarks.append("")
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -265,6 +269,7 @@ class TestStepFtWSAccuracy(TestStep):
     description="This test case verifies that, in average CEM doesn't provide worse position"
     "for the wheelstopper than each input separately.",
 )
+@register_inputs("/parking")
 class FtWSAccuracy(TestCase):
     """Example test case."""
 

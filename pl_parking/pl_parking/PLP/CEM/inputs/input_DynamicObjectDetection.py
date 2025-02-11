@@ -22,6 +22,25 @@ class GrappaDetectorType(Enum):
     VEHICLE: int = 6
 
 
+class TppCuboidType(Enum):
+    """Enumeration for types of Grappa detectors."""
+
+    UNKNOWN: int = 0
+    CAR: int = 1
+    VAN: int = 2
+    TRUCK: int = 3
+
+
+class TppBoundingBoxType(Enum):
+    """Enumeration for types of Grappa detectors."""
+
+    UNKNOWN: int = 0
+    PEDESTRIAN: int = 1
+    TWOWHEELER: int = 2
+    SHOPPING_CART: int = 3
+    ANIMAL: int = 4
+
+
 class DynamicObjectCamera(Enum):
     """Enumeration for cameras used in dynamic object detection."""
 
@@ -96,40 +115,47 @@ class DynamicObjectDetectionReader:
             for camera in DynamicObjectCamera:
                 if camera not in out:
                     out[camera] = []
-                timestamp = int(row[f"{self.camera_strings[camera]}_timestamp"])
+                timestamp = int(row[f"sigTimestamp{self.camera_strings[camera]}"])
                 if timestamp == 0 or (len(out[camera]) > 0 and timestamp == out[camera][-1].timestamp):
                     continue
 
                 dynamic_objects = []
 
-                number_of_dynamic_objects = int(row[f"{self.camera_strings[camera]}_numObjects"])
-                for i in range(number_of_dynamic_objects):
-                    object_id = int(row[("objects.id", i)])
-                    grappa_class_type = GrappaDetectorType(
-                        int(row[(f"{self.camera_strings[camera]}_objects_classType", i)])
-                    )
-                    confidence = row[(f"{self.camera_strings[camera]}_objects_confidence", i)]
-                    center_x = row[(f"{self.camera_strings[camera]}_objects_centerPointWorld.x", i)]
-                    center_y = row[(f"{self.camera_strings[camera]}_objects_centerPointWorld.y", i)]
+                number_of_dynamic_cuboids = int(row[f"numCuboid{self.camera_strings[camera]}"])
+                number_of_dynamic_bboxes = int(row[f"numBBox{self.camera_strings[camera]}"])
 
-                    dynamic_object_type: ObjectClass = None
-                    if grappa_class_type == GrappaDetectorType.PED:
-                        dynamic_object_type = ObjectClass.PEDESTRIAN
-                    elif grappa_class_type == GrappaDetectorType.CAR:
+                # Convert the cuboids
+                for i in range(number_of_dynamic_cuboids):
+                    # object_id = int(row[("objects.id", i)])
+                    object_id = i
+                    confidence = row[(f"cuboidConfidence{self.camera_strings[camera]}", i)]
+                    center_x = row[(f"cuboidCenter_x{self.camera_strings[camera]}", i)]
+                    center_y = row[(f"cuboidCenter_y{self.camera_strings[camera]}", i)]
+                    dynamic_object_type = int(row[(f"cuboidClassType{self.camera_strings[camera]}", i)])
+
+                    # Map TPP class to TPF class
+                    if dynamic_object_type == TppCuboidType.CAR.value:
                         dynamic_object_type = ObjectClass.CAR
-                    elif grappa_class_type == GrappaDetectorType.MTB:
-                        dynamic_object_type = ObjectClass.MOTORCYCLE
-                    elif grappa_class_type == GrappaDetectorType.BCL:
-                        dynamic_object_type = ObjectClass.BICYCLE
+                    elif dynamic_object_type == TppCuboidType.VAN.value:
+                        dynamic_object_type = ObjectClass.VAN
+                    elif dynamic_object_type == TppCuboidType.TRUCK.value:
+                        dynamic_object_type = ObjectClass.TRUCK
                     else:
                         dynamic_object_type = ObjectClass.UNKNOWN
 
-                    if dynamic_object_type == ObjectClass.CAR or dynamic_object_type == ObjectClass.BICYCLE:
-                        length_2 = row[(f"{self.camera_strings[camera]}_objects_cuboidSizeWorld.x", i)] * 0.5
-                        width_2 = row[(f"{self.camera_strings[camera]}_objects_cuboidSizeWorld.y", i)] * 0.5
-                        cos_yaw = math.cos(row[(f"{self.camera_strings[camera]}_objects_cuboidYawWorld", i)])
-                        sin_yaw = math.sin(row[(f"{self.camera_strings[camera]}_objects_cuboidYawWorld", i)])
+                    if (
+                        dynamic_object_type == ObjectClass.CAR
+                        or dynamic_object_type == ObjectClass.VAN
+                        or dynamic_object_type == ObjectClass.TRUCK
+                    ):
+                        length = row[(f"cuboidLength{self.camera_strings[camera]}", i)]
+                        width = row[(f"cuboidWidth{self.camera_strings[camera]}", i)]
+                        yaw = row[(f"cuboidYaw{self.camera_strings[camera]}", i)]
+                        cos_yaw = math.cos(yaw)
+                        sin_yaw = math.sin(yaw)
 
+                        length_2 = length * 0.5
+                        width_2 = width * 0.5
                         pnt0_x = center_x + length_2 * cos_yaw - width_2 * sin_yaw
                         pnt0_y = center_y + length_2 * sin_yaw + width_2 * cos_yaw
                         pnt1_x = center_x - length_2 * cos_yaw - width_2 * sin_yaw
@@ -140,28 +166,57 @@ class DynamicObjectDetectionReader:
                         pnt3_y = center_y + length_2 * sin_yaw - width_2 * cos_yaw
 
                         polygon = [
-                            DynPoint(pnt0_x, pnt0_y, 0, 0),
-                            DynPoint(pnt1_x, pnt1_y, 0, 0),
-                            DynPoint(pnt2_x, pnt2_y, 0, 0),
-                            DynPoint(pnt3_x, pnt3_y, 0, 0),
+                            DynPoint(x=pnt0_x, y=pnt0_y, var_x=0, var_y=0, covar=0),
+                            DynPoint(x=pnt1_x, y=pnt1_y, var_x=0, var_y=0, covar=0),
+                            DynPoint(x=pnt2_x, y=pnt2_y, var_x=0, var_y=0, covar=0),
+                            DynPoint(x=pnt3_x, y=pnt3_y, var_x=0, var_y=0, covar=0),
                         ]
 
                         dynamic_object = CuboidDynamicObjectDetection(
-                            object_id, dynamic_object_type, confidence, center_x, center_y, polygon, length_2, width_2
+                            object_id, dynamic_object_type, confidence, center_x, center_y, polygon, length, width
                         )
                         dynamic_objects.append(dynamic_object)
-                    elif dynamic_object_type == ObjectClass.PEDESTRIAN or dynamic_object_type == ObjectClass.MOTORCYCLE:
-                        raduis = row[(f"{self.camera_strings[camera]}_objects_planeSizeWorld.x", i)] * 0.5
 
-                        nbr_points_to_sample = 50
+                # Convert the bounding boxes
+                for i in range(number_of_dynamic_bboxes):
+                    # object_id = int(row[("objects.id", i)])
+                    object_id = i
+                    confidence = row[(f"boxConfidence{self.camera_strings[camera]}", i)]
+                    center_x = row[(f"boxCenter_x{self.camera_strings[camera]}", i)]
+                    center_y = row[(f"boxCenter_y{self.camera_strings[camera]}", i)]
+                    dynamic_object_type = int(row[(f"boxClassType{self.camera_strings[camera]}", i)])
+
+                    # Map TPP class to TPF class
+                    if dynamic_object_type == TppBoundingBoxType.PEDESTRIAN.value:
+                        dynamic_object_type = ObjectClass.PEDESTRIAN
+                    elif dynamic_object_type == TppBoundingBoxType.TWOWHEELER.value:
+                        dynamic_object_type = ObjectClass.TWOWHEELER
+                    elif dynamic_object_type == TppBoundingBoxType.SHOPPING_CART.value:
+                        dynamic_object_type = ObjectClass.SHOPPING_CART
+                    elif dynamic_object_type == TppBoundingBoxType.ANIMAL.value:
+                        dynamic_object_type = ObjectClass.ANIMAL
+                    else:
+                        dynamic_object_type = ObjectClass.UNKNOWN
+
+                    if (
+                        dynamic_object_type == ObjectClass.PEDESTRIAN
+                        or dynamic_object_type == ObjectClass.TWOWHEELER
+                        or dynamic_object_type == ObjectClass.SHOPPING_CART
+                        or dynamic_object_type == ObjectClass.ANIMAL
+                    ):
+                        width = row[(f"boxWidth{self.camera_strings[camera]}", i)]
+
+                        radius = width * 0.5
+
+                        nbr_points_to_sample = 12  # Used tp be 50
                         angles = np.array(range(0, nbr_points_to_sample)) * 2 * np.pi / nbr_points_to_sample
                         polygon = [
-                            DynPoint(center_x + raduis * math.sin(angle), center_y + raduis * math.cos(angle), 0, 0)
+                            DynPoint(center_x + radius * math.sin(angle), center_y + radius * math.cos(angle), 0, 0, 0)
                             for angle in angles
                         ]
 
                         dynamic_object = CylinderDynamicObjectDetection(
-                            object_id, dynamic_object_type, confidence, center_x, center_y, polygon, raduis
+                            object_id, dynamic_object_type, confidence, center_x, center_y, polygon, radius
                         )
                         dynamic_objects.append(dynamic_object)
 

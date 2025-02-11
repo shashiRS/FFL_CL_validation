@@ -1372,7 +1372,7 @@ class AupCoreET4ET5Test(TestStep):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class FTParkingAupCore(TestCase):
     """AUP CORE test case."""

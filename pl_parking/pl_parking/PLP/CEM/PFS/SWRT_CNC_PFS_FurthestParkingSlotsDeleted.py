@@ -28,6 +28,7 @@ if TSF_BASE not in sys.path:
 
 import typing
 
+import pandas as pd
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
@@ -46,7 +47,8 @@ example_obj = CemSignals()
 @teststep_definition(
     step_number=1,
     name="CEM PFS Slot Furthest Slot",
-    description="",
+    description="This teststep checks if CEM deletes the furthest parking slots"
+    "if the number of parking slots is larger than the limit.",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(SIGNAL_DATA, CemSignals)
@@ -59,7 +61,7 @@ class TestStepFtSlotFurthestSlotDeleted(TestStep):
         """Initialize the test step"""
         super().__init__()
 
-    def process(self):
+    def process(self, **kwargs):
         """
         The function processes signals data to evaluate certain conditions and generate plots and remarsk based
         on the evaluation results
@@ -69,6 +71,7 @@ class TestStepFtSlotFurthestSlotDeleted(TestStep):
         )
         plot_titles, plots, remarks = rep([], 3)
         reader = self.readers[SIGNAL_DATA].signals
+        signal_summary = {}
         inputReader = SlotReader(reader)
         vedodo_buffer = VedodoReader(reader).convert_to_class()
         slot_data = inputReader.convert_to_class()
@@ -104,15 +107,38 @@ class TestStepFtSlotFurthestSlotDeleted(TestStep):
                 plot_titles.append("Test Fail report")
                 plots.append(fig)
                 remarks.append("")
+                evaluation = f"""The furthest parking slot is not deleted when output limit {ConstantsCem.PSD_MAX_NUM_MARKERS} was reached"""
+                signal_summary["Delete_FurthestParkingSlot"] = evaluation
             else:
                 test_result = fc.PASS
+                evaluation = f"""The furthest parking slot is deleted when output limit {ConstantsCem.PSD_MAX_NUM_MARKERS} was reached"""
+                signal_summary["Delete_FurthestParkingSlot"] = evaluation
 
         else:
             test_result = fc.INPUT_MISSING
+            evaluation = "Required input is missing"
+            signal_summary["Delete_FurthestParkingSlot"] = evaluation
+
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": f"""This test case checks if CEM deletes the furthest parking slots if the number of parking slots is larger than the {ConstantsCem.PSD_MAX_NUM_MARKERS}  limit."""
+                },
+                "Result": {
+                    "1": evaluation,
+                },
+                "Verdict": {
+                    "1": "PASSED" if test_result == "passed" else "FAILED",
+                },
+            }
+        )
+
+        sig_sum = fh.build_html_table(signal_summary, table_title="PFS Delete Furthest ParkingSlot")
+        self.result.details["Plots"].append(sig_sum)
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            fc.REQ_ID: ["1530457"],
+            fc.REQ_ID: ["1530475"],
             fc.TESTCASE_ID: ["38845"],
             fc.TEST_SAFETY_RELEVANT: [fc.NOT_AVAILABLE],
             fc.TEST_DESCRIPTION: [
@@ -137,11 +163,12 @@ class TestStepFtSlotFurthestSlotDeleted(TestStep):
         self.result.details["Additional_results"] = result_df
 
 
-@verifies("1530457")
+@verifies("1530475")
 @testcase_definition(
     name="SWRT_CNC_PFS_FurthestParkingSlotsDeleted",
     description=f"""This test case checks if CEM deletes the furthest parking slots
         if the number of parking slots is larger than the {ConstantsCem.PSD_MAX_NUM_MARKERS}  limit.""",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_r9kfeU4mEe6M5-WQsF_-tQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_tpTA4CuJEe6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F36325",
 )
 class FtSlotFurthestSlotDeleted(TestCase):
     """Example test case."""

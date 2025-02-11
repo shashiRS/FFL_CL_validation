@@ -25,7 +25,7 @@ from pl_parking.common_ft_helper import (
 from pl_parking.PLP.MF.VEDODO.ft_vedodoTest import TestStepVedodo
 
 __author__ = "A AM SB PRK IAS LAT1"
-__copyright__ = "2020-2012, Continental AG"
+__copyright__ = "2012-2024, Continental AG"
 __version__ = "0.16.1"
 __status__ = "Production"
 

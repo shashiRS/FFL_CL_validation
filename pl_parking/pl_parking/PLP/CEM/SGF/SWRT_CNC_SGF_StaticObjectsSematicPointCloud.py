@@ -26,11 +26,12 @@ if TRC_ROOT not in sys.path:
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
-from pl_parking.common_ft_helper import CemSignals, CustomTeststepReport, rep
+from pl_parking.common_ft_helper import CustomTeststepReport, rep
 from pl_parking.PLP.CEM.inputs.input_CemSgfReader import SGFReader
+from pl_parking.PLP.CEM.SGF.ft_helper import SGFSignals
 
 SIGNAL_DATA = "StaticObjectsFromSVCSemanticPointCloud"
-example_obj = CemSignals()
+example_obj = SGFSignals()
 
 
 # @specification
@@ -45,7 +46,7 @@ example_obj = CemSignals()
     description="This test case checks in case SGF has output when only SVC semantic point cloud input is received.",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, SGFSignals)
 class TestStepStaticObjectsFromSVCSemanticPointCloud(TestStep):
     """TestStep for analyzing static objects detected from SVC Semantic Point Cloud, utilizing a custom report."""
 
@@ -107,7 +108,7 @@ class TestStepStaticObjectsFromSVCSemanticPointCloud(TestStep):
     name="SWRT_CNC_SGF_StaticObjectsFromSVCSemanticPointCloud",
     description="This test case checks in case SGF has output when only SVC semantic point cloud input is received.",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class StaticObjectsFromSVCSemanticPointCloud(TestCase):
     """Example test case."""

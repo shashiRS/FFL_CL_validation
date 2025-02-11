@@ -38,7 +38,7 @@ from pl_parking.common_ft_helper import MfCustomTeststepReport, rep
 from pl_parking.PLP.MF.constants import PlotlyTemplate
 
 __author__ = "Anil A, uie64067"
-__copyright__ = "2020-2012, Continental AG"
+__copyright__ = "2012-2024, Continental AG"
 __version__ = "0.0.1"
 __status__ = "Production"
 
@@ -116,7 +116,7 @@ class VedodoYawRateThreshold(TestStep):
         )
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
+        df: pd.DataFrame = self.readers[READER_NAME]
 
         ap_time = list(df[VedodoSignals.Columns.CM_TIME])
         yawRate_gt = list(df[VedodoSignals.Columns.YAWRATE_GT])
@@ -294,7 +294,7 @@ class VedodoYawRateLimit(TestStep):
         )
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
+        df: pd.DataFrame = self.readers[READER_NAME]
 
         ap_time = list(df[VedodoSignals.Columns.CM_TIME])
         yawRate_gt = list(df[VedodoSignals.Columns.YAWRATE_GT])
@@ -448,7 +448,7 @@ class VedodoYawRateLimit(TestStep):
     "Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configuration="
     "https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class VedodoYawRateTestCase(TestCase):
     """Example test case."""

@@ -28,6 +28,7 @@ if TSF_BASE not in sys.path:
 
 import typing
 
+import pandas as pd
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
@@ -56,7 +57,7 @@ class TestStepFtSlotIDReuse(TestStep):
         """Initialize the test step"""
         super().__init__()
 
-    def process(self):
+    def process(self, **kwargs):
         """
         The function processes signals data to evaluate certain conditions and generate plots and remarsk based
         on the evaluation results
@@ -65,8 +66,10 @@ class TestStepFtSlotIDReuse(TestStep):
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
         plot_titles, plots, remarks = rep([], 3)
+        signal_summary = {}
+        evaluation = []
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         input_reader = SlotReader(reader)
         slot_data = input_reader.convert_to_class()
 
@@ -101,11 +104,33 @@ class TestStepFtSlotIDReuse(TestStep):
                 plot_titles.append("Test Fail report")
                 plots.append(fig)
                 remarks.append("")
+                evaluation = f"""When CEM stopped providing a parking slot with a particular ID, the ID is used again for a new Parking Slot for at least {ConstantsCem.AP_E_SLOT_ID_REUSE_LIMIT_NU} cycles."""
+                signal_summary["PedestrianCrossing_InsideFOV"] = evaluation
             else:
                 test_result = fc.PASS
+                evaluation = f"""When CEM stopped providing a parking slot with a particular ID, the ID is not used again for a new Parking Slot for at least {ConstantsCem.AP_E_SLOT_ID_REUSE_LIMIT_NU} cycles."""
+                signal_summary["PedestrianCrossing_InsideFOV"] = evaluation
 
         else:
             test_result = fc.INPUT_MISSING
+            evaluation = "Required input is missing"
+
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": f"""EnvironmentFusion checks that in case CEM stops providing a parking slot with a particular ID, the ID is not used again for a new Parking Slot for at least {ConstantsCem.AP_E_SLOT_ID_REUSE_LIMIT_NU} cycles.""",
+                },
+                "Result": {
+                    "1": evaluation,
+                },
+                "Verdict": {
+                    "1": "PASSED" if test_result == "passed" else "FAILED",
+                },
+            }
+        )
+
+        sig_sum = fh.build_html_table(signal_summary, table_title="PFS Pedestrian Detection ID maintenance")
+        self.result.details["Plots"].append(sig_sum)
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -113,9 +138,7 @@ class TestStepFtSlotIDReuse(TestStep):
             fc.TESTCASE_ID: ["38849"],
             fc.TEST_SAFETY_RELEVANT: [fc.NOT_AVAILABLE],
             fc.TEST_DESCRIPTION: [
-                f"""This test checks that in case CEM stops providing
-                a parking slot with a particular ID, the ID is not used again
-                for a new Parking Slot for at least {ConstantsCem.AP_E_SLOT_ID_REUSE_LIMIT_NU} cycles."""
+                f"""This test checks that in case CEM stops providing a parking slot with a particular ID, the ID is not used again for a new Parking Slot for at least {ConstantsCem.AP_E_SLOT_ID_REUSE_LIMIT_NU} cycles."""
             ],
             fc.TEST_RESULT: [test_result],
         }
@@ -141,6 +164,7 @@ class TestStepFtSlotIDReuse(TestStep):
     description=f"""This test checks that in case CEM stops providing
         a parking slot with a particular ID, the ID is not used again
         for a new Parking Slot for at least {ConstantsCem.AP_E_SLOT_ID_REUSE_LIMIT_NU} cycles.""",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_r9kff04mEe6M5-WQsF_-tQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_tpTA4CuJEe6mrdm2_agUYg&vvc.configuration=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fcm%2Fstream%2F_tpZHhiuJEe6mrdm2_agUYg",
 )
 class FtSlotIDReuse(TestCase):
     """Example test case."""

@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -145,6 +146,48 @@ class Signals(SignalDefinition):
         SOFTWARE_MAJOR = "SOFTWARE_MAJOR"
         SOFTWARE_MINOR = "SOFTWARE_MINOR"
         SOFTWARE_PATCH = "SOFTWARE_PATCH"
+        CORE_STATE = "MTA_ADC5.MF_PARKSM_CORE_DATA.parksmCoreStatusPort.parksmCoreState_nu"
+        CORE_STOP_REASON = "MTA_ADC5.MF_PARKSM_CORE_DATA.parksmCoreStatusPort.coreStopReason_nu"
+        CORE_READY = "MTA_ADC5.MF_PARKSM_CORE_DATA.parksmCoreStatusPort.parkingReady_nu"
+        CORE_EM_BRAKE_REQ = "MTA_ADC5.MF_PARKSM_CORE_DATA.trajCtrlRequestPort.emergencyBrakeRequest"
+        TRJPLA_FAILREASON = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.failReason"
+        TRJPLA_ANYPATH = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.anyPathFound"
+        TRJPLA_NUM_VALID_POSES = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.numValidPoses"
+        TRJPLA_POSEFAIL_REASON_0 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[0].poseFailReason"
+        TRJPLA_POSEFAIL_REASON_1 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[1].poseFailReason"
+        TRJPLA_POSEFAIL_REASON_2 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[2].poseFailReason"
+        TRJPLA_POSEFAIL_REASON_3 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[3].poseFailReason"
+        TRJPLA_POSEFAIL_REASON_4 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[4].poseFailReason"
+        TRJPLA_POSEFAIL_REASON_5 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[5].poseFailReason"
+        TRJPLA_POSEFAIL_REASON_6 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[6].poseFailReason"
+        TRJPLA_POSEFAIL_REASON_7 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[7].poseFailReason"
+        TRJPLA_POSE_REACHABLE_0 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[0].reachableStatus"
+        TRJPLA_POSE_REACHABLE_1 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[1].reachableStatus"
+        TRJPLA_POSE_REACHABLE_2 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[2].reachableStatus"
+        TRJPLA_POSE_REACHABLE_3 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[3].reachableStatus"
+        TRJPLA_POSE_REACHABLE_4 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[4].reachableStatus"
+        TRJPLA_POSE_REACHABLE_5 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[5].reachableStatus"
+        TRJPLA_POSE_REACHABLE_6 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[6].reachableStatus"
+        TRJPLA_POSE_REACHABLE_7 = "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[7].reachableStatus"
+        TRJPLA_TRAJPLAN_STATE = "MTA_ADC5.MF_TRJPLA_DATA.trjplaDebugPort.mTrajPlanState"
+        TRJPLA_NUM_OF_REPLAN_CALLS = "MTA_ADC5.MF_TRJPLA_DATA.trjplaDebugPort.mNumOfReplanCalls"
+        TRJPLA_REPLAN_SUCCESSFUL = "MTA_ADC5.MF_TRJPLA_DATA.trjplaDebugPort.mReplanSuccessful_nu"
+        PLANNED_TRAJ_TYPE = "MTA_ADC5.MF_TRJPLA_DATA.plannedTrajectory.trajType_nu"
+        PLANNED_TRAJ_DRIVING_FORWARD_REQ = "MTA_ADC5.MF_TRJPLA_DATA.plannedTrajectory.drivingForwardReq_nu"
+        PLANNED_TRAJ_VALID = "MTA_ADC5.MF_TRJPLA_DATA.plannedTrajectory.trajValid_nu"
+        PLANNED_TRAJ_NEW_SEGMENT_STARTED = "MTA_ADC5.MF_TRJPLA_DATA.plannedTrajectory.newSegmentStarted_nu"
+        PLANNED_TRAJ_IS_LAST_SEGMENT = "MTA_ADC5.MF_TRJPLA_DATA.plannedTrajectory.isLastSegment_nu"
+        MOCO_LODMC_SECURE = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.secureReq_nu"
+        MOCO_LODMC_DRIVING_FORWARD_REQ = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.drivingForwardReq_nu"
+        MOCO_LODMC_TRAJECTORY_RESET = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.trajectoryReset_nu"
+        MOCO_LODMC_DIST2STOP = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.distanceToStopReq_m"
+        MOCO_LODMC_VELOCITY_LIMIT = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.velocityLimitReq_mps"
+        MOCO_LODMC_ACCELERATION = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.accelerationReq_mps2"
+        MOCO_LODMC_REQUEST_SOURCE = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.loDMCCtrlRequestSource_nu"
+        MOCO_LODMC_REQUEST_INTERFACE = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.loDMCCtrlRequestInterface_nu"
+        MOCO_LODMC_REQUEST = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.loDMCCtrlRequest_nu"
+        MOCO_LODMC_HOLD_REQ = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.holdReq_nu"
+        MOCO_LODMC_EMERGENCY_HOLD_REQ = "MTA_ADC5.MF_TRJCTL_DATA.LoDMCCtrlRequestPort.emergencyHoldReq_nu"
 
     def __init__(self):
         """Initialize the signal definition."""
@@ -179,15 +222,19 @@ class Signals(SignalDefinition):
             ],
             self.Columns.NUMBER_OF_DELIMITERS: [
                 ".CEM_EM_DATA.AUPDF_ParkingDelimiters.numberOfDelimiters",
-                ".CEM200_AUPDF_DATA.ParkingDelimiters.numberOfDelimiters",
+                # ".CEM200_AUPDF_DATA.ParkingDelimiters.numberOfDelimiters",
+                "MTA_ADC5.CEM200_PFS_DATA.m_PclOutput.numberOfDelimiters",
             ],
             self.Columns.NUMBER_OF_SLOTS: [
                 ".CEM_EM_DATA.AUPDF_ParkingSlots.numberOfSlots",
-                ".CEM200_AUPDF_DATA.ParkingSlots.numberOfSlots",
+                # ".CEM200_AUPDF_DATA.ParkingSlots.numberOfSlots",
+                "MTA_ADC5.CEM200_PFS_DATA.m_PsdOutput.numberOfSlots",
             ],
             self.Columns.NUMBER_OF_OBJECTS: [
                 ".CEM_EM_DATA.AUPDF_DynamicObjects.numberOfObjects",
-                ".CEM200_AUPDF_DATA.DynamicObjects.numberOfObjects",
+                # ".CEM200_AUPDF_DATA.DynamicObjects.numberOfObjects",
+                "MTA_ADC5.CEM200_TPF2_DATA.m_tpObjectList.numberOfObjects",
+
             ],
             self.Columns.NUMBER_OF_PARKMARK: [
                 ".EM_DATA.EmApEnvModelPort.numberOfParkMarkings_u8",
@@ -211,47 +258,48 @@ class Signals(SignalDefinition):
             ],
             self.Columns.SCREEN_NU: [
                 ".EM_DATA.EmHeadUnitVisualizationPort.screen_nu",
-                ".APPDEMO_HMIH_DATA.headUnitVisualizationPort.screen_nu",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.headUnitVisualizationPort.screen_nu",
             ],
             self.Columns.sg_time_m7: [
                 ".USP_DATA.SpuOdoEstimationOutputPort.sSigHeader.uiTimeStamp",
-                ".SPU_PAR230_DATA.OdoEstimationOutputPort.sSigHeader.uiTimeStamp",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.headUnitVisualizationPort.sSigHeader.uiTimeStamp",
             ],
             self.Columns.VELOCITY: [
+                "Reference_RT3000_Ethernet.Hunter.VelocityVehicle.LongitudinalVelocity_kph",
                 ".Conti_Veh_CAN.VehVelocity.VehVelocityExt",
-                ".Conti_Veh_CAN.VehVelocity.VehVelocityExt",
+                "AP_Conti_CAN.AP_Conti_CAN_1_0_10.VehVelocity.VehVelocityExt",
             ],
             self.Columns.HMI_PS_RIGHT_0: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[0]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[0]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[0]",
             ],
             self.Columns.HMI_PS_RIGHT_1: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[1]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[1]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[1]",
             ],
             self.Columns.HMI_PS_RIGHT_2: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[2]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[2]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[2]",
             ],
             self.Columns.HMI_PS_RIGHT_3: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[3]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[3]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[3]",
             ],
             self.Columns.HMI_PS_LEFT_0: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[0]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[0]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[0]",
             ],
             self.Columns.HMI_PS_LEFT_1: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[1]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[1]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[1]",
             ],
             self.Columns.HMI_PS_LEFT_2: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[2]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[2]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[2]",
             ],
             self.Columns.HMI_PS_LEFT_3: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[3]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[3]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[3]",
             ],
             self.Columns.PATH_FOUND: [
                 ".TRJPLA_DATA.TrjPlaTargetPosesPort.anyPathFound",
@@ -261,9 +309,25 @@ class Signals(SignalDefinition):
                 ".TRJPLA_DATA.TrjPlaTargetPosesPort.failReason",
                 ".MF_TRJPLA_DATA.targetPoses.failReason",
             ],
-            # self.Columns.SOFTWARE_MAJOR: ".ApplicationReleaseInfo.softwareVersion.major",
-            # self.Columns.SOFTWARE_MINOR: ".ApplicationReleaseInfo.softwareVersion.minor",
-            # self.Columns.SOFTWARE_PATCH: ".ApplicationReleaseInfo.softwareVersion.patch",
+            self.Columns.CORE_STATE: "MTA_ADC5.MF_PARKSM_CORE_DATA.parksmCoreStatusPort.parksmCoreState_nu",
+            self.Columns.CORE_STOP_REASON: "MTA_ADC5.MF_PARKSM_CORE_DATA.parksmCoreStatusPort.coreStopReason_nu",
+            self.Columns.CORE_READY: "MTA_ADC5.MF_PARKSM_CORE_DATA.parksmCoreStatusPort.parkingReady_nu",
+            self.Columns.CORE_EM_BRAKE_REQ: "MTA_ADC5.MF_PARKSM_CORE_DATA.trajCtrlRequestPort.emergencyBrakeRequest",
+            self.Columns.TRJPLA_POSEFAIL_REASON_0: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[0].poseFailReason",
+            self.Columns.TRJPLA_POSEFAIL_REASON_1: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[1].poseFailReason",
+            self.Columns.TRJPLA_POSEFAIL_REASON_2: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[2].poseFailReason",
+            self.Columns.TRJPLA_POSEFAIL_REASON_3: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[3].poseFailReason",
+            self.Columns.TRJPLA_POSEFAIL_REASON_4: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[4].poseFailReason",
+            self.Columns.TRJPLA_POSEFAIL_REASON_5: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[5].poseFailReason",
+            self.Columns.TRJPLA_POSEFAIL_REASON_6: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[6].poseFailReason",
+            self.Columns.TRJPLA_POSEFAIL_REASON_7: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[7].poseFailReason",
+            self.Columns.TRJPLA_POSE_REACHABLE_0: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[0].reachableStatus",
+            self.Columns.TRJPLA_POSE_REACHABLE_1: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[1].reachableStatus",
+            self.Columns.TRJPLA_POSE_REACHABLE_2: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[2].reachableStatus",
+            self.Columns.TRJPLA_POSE_REACHABLE_3: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[3].reachableStatus",
+            self.Columns.TRJPLA_POSE_REACHABLE_4: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[4].reachableStatus",
+            self.Columns.TRJPLA_POSE_REACHABLE_5: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[5].reachableStatus",
+            self.Columns.TRJPLA_POSE_REACHABLE_6: "MTA_ADC5.MF_TRJPLA_DATA.targetPoses.targetPoses[6].reachableStatus",
         }
 
 
@@ -396,7 +460,11 @@ class VEDODO_STEP(TestStep):
             )
 
             fh.highlight_segments(
-                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", "SCANNING_ACTIVE"
+                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", " "
+            )
+
+            fh.highlight_segments(
+                self.fig, screen_nu, constants.RootCauseAnalysis.MANEUVER_ACTIVE, time, "RoyalBlue", " "
             )
 
             self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
@@ -562,8 +630,12 @@ class US_STEP(TestStep):
                     text=df["status"],
                 )
             )
+
             fh.highlight_segments(
-                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", "SCANNING_ACTIVE"
+                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", " "
+            )
+            fh.highlight_segments(
+                self.fig, screen_nu, constants.RootCauseAnalysis.MANEUVER_ACTIVE, time, "RoyalBlue", " "
             )
 
             self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
@@ -761,8 +833,12 @@ class PMSD_STEP(TestStep):
                     text=df["status"],
                 )
             )
+
             fh.highlight_segments(
-                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", "SCANNING_ACTIVE"
+                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", " "
+            )
+            fh.highlight_segments(
+                self.fig, screen_nu, constants.RootCauseAnalysis.MANEUVER_ACTIVE, time, "RoyalBlue", " "
             )
 
             self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
@@ -905,18 +981,21 @@ class CEM_STEP(TestStep):
             self.fig = go.Figure()
             self.fig.add_trace(go.Scatter(x=time, y=num_delim, mode="lines", name=Signals.Columns.NUMBER_OF_DELIMITERS))
             self.fig.add_trace(go.Scatter(x=time, y=num_obj, mode="lines", name=Signals.Columns.NUMBER_OF_OBJECTS))
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time,
-                    y=screen_nu,
-                    mode="lines",
-                    hovertemplate="Time: %{x}<br>Value: %{y}<br>Status: %{text}<extra></extra>",
-                    name=Signals.Columns.SCREEN_NU,
-                ),
-                text=df["status"],
-            )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time,
+            #         y=screen_nu,
+            #         mode="lines",
+            #         hovertemplate="Time: %{x}<br>Value: %{y}<br>Status: %{text}<extra></extra>",
+            #         name=Signals.Columns.SCREEN_NU,
+            #     ),
+            #     text=df["status"],
+            # )
             fh.highlight_segments(
                 self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", "SCANNING_ACTIVE"
+            )
+            fh.highlight_segments(
+                self.fig, screen_nu, constants.RootCauseAnalysis.MANEUVER_ACTIVE, time, "RoyalBlue", " "
             )
             self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
             self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
@@ -1113,8 +1192,12 @@ class SI_STEP(TestStep):
                     text=df["status"],
                 )
             )
+
             fh.highlight_segments(
-                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", "SCANNING_ACTIVE"
+                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", " "
+            )
+            fh.highlight_segments(
+                self.fig, screen_nu, constants.RootCauseAnalysis.MANEUVER_ACTIVE, time, "RoyalBlue", " "
             )
             self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
             self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
@@ -1141,7 +1224,7 @@ class SI_STEP(TestStep):
 @teststep_definition(
     step_number=6,
     name="TRJPLA",
-    description="Verify that trajectory was successfully planned and parking succeeded.",
+    description="Verify that trajectory was successfully planned.",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(EXAMPLE, Signals)
@@ -1197,6 +1280,46 @@ class TRJPLA_STEP(TestStep):
             screen_nu = df[Signals.Columns.SCREEN_NU]
             path_found = df[Signals.Columns.PATH_FOUND]
             fail_reason = df[Signals.Columns.FAIL_REASON]
+            core_state = df[Signals.Columns.CORE_STATE]
+            TRJPLA_POSEFAIL_REASON = [
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_0,
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_1,
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_2,
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_3,
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_4,
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_5,
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_6,
+                Signals.Columns.TRJPLA_POSEFAIL_REASON_7,
+            ]
+            # TRJPLA_POSE_REACHABLE = [
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_0,
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_1,
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_2,
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_3,
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_4,
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_5,
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_6,
+            #     Signals.Columns.TRJPLA_POSE_REACHABLE_7,
+            # ]
+            maneuvere_mask = screen_nu == constants.RootCauseAnalysis.MANEUVER_ACTIVE
+            TRJPLA_POSEFAIL_REASON_mask = [
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_0] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_1] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_2] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_3] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_4] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_5] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_6] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+                (df[Signals.Columns.TRJPLA_POSEFAIL_REASON_7] != constants.ConstantsTrajpla.FAIL_REASON)
+                & maneuvere_mask,
+            ]
 
             evaluation1 = " ".join(
                 f"The evaluation of {Signals.Columns.PATH_FOUND} is FAILED because the values"
@@ -1207,13 +1330,27 @@ class TRJPLA_STEP(TestStep):
                 f"The evaluation of {Signals.Columns.FAIL_REASON} is PASSED with values =="
                 f" {constants.ConstantsTrajpla.FAIL_REASON} until manuever finished.".split()
             )
-            for idx, val in enumerate(df[Signals.Columns.SCREEN_NU]):
-                if val != constants.RootCauseAnalysis.MANEUVER_FINISHED:
+            evaluation = ["" for _ in range(8)]
+            for i in range(8):
+                evaluation[i] = " ".join(
+                    f"The evaluation of {TRJPLA_POSEFAIL_REASON[i]} is PASSED with values == "
+                    f"{constants.ConstantsTrajpla.FAIL_REASON} until manuever finished.".split()
+                )
+
+            # for idx, val in enumerate(df[Signals.Columns.SCREEN_NU]):
+            #     if val != constants.RootCauseAnalysis.MANEUVER_FINISHED:
+            #         t2 = idx
+            #         break
+            # if t2 is not None:
+            #     eval_cond = [False] * 2
+            #     eval_cond[1] = True
+            for idx, val in enumerate(df[Signals.Columns.CORE_STATE]):
+                if val != constants.ParkCoreStatus.CORE_PARKING:
                     t2 = idx
                     break
             if t2 is not None:
-                eval_cond = [False] * 2
-                eval_cond[1] = True
+                eval_cond = [False] * 10
+                eval_cond[1:] = [True] * 9
 
                 for idx in range(t2, len(df[Signals.Columns.SCREEN_NU])):
                     if df[Signals.Columns.SCREEN_NU].iloc[idx] != constants.RootCauseAnalysis.MANEUVER_FINISHED:
@@ -1232,6 +1369,13 @@ class TRJPLA_STEP(TestStep):
                                 f" are != 0 until manuever finished.".split()
                             )
                             eval_cond[1] = False
+                for i in range(8):
+                    if TRJPLA_POSEFAIL_REASON_mask[i].any():
+                        evaluation[i] = " ".join(
+                            f"The evaluation of {TRJPLA_POSEFAIL_REASON[i]} is FAILED because the values"
+                            " are != 0 until manuever finished.".split()
+                        )
+                        eval_cond[i + 2] = False
 
                     if all(eval_cond):
                         self.result.measured_result = TRUE
@@ -1248,7 +1392,9 @@ class TRJPLA_STEP(TestStep):
                 self.result.details["root_cause_text"] = "not assessed"
 
             signal_summary["Trajectory successfully planned"] = evaluation1
-            signal_summary["Parking succeeded"] = evaluation2
+            signal_summary["Fail "] = evaluation2
+            for i in range(8):
+                signal_summary[f"Target Pose {i} fail"] = evaluation[i]
             self.sig_sum = convert_dict_to_pandas(signal_summary)
             plot_titles.append("")
             plots.append(self.sig_sum)
@@ -1258,6 +1404,8 @@ class TRJPLA_STEP(TestStep):
             self.fig = go.Figure()
             self.fig.add_trace(go.Scatter(x=time, y=path_found, mode="lines", name=Signals.Columns.PATH_FOUND))
             self.fig.add_trace(go.Scatter(x=time, y=fail_reason, mode="lines", name=Signals.Columns.FAIL_REASON))
+            self.fig.add_trace(go.Scatter(x=time, y=core_state, mode="lines", name=Signals.Columns.CORE_STATE))
+
             self.fig.add_trace(
                 go.Scatter(
                     x=time,
@@ -1269,14 +1417,53 @@ class TRJPLA_STEP(TestStep):
                     text=df["status"],
                 )
             )
+
             fh.highlight_segments(
-                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", "SCANNING_ACTIVE"
+                self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", " "
             )
+            fh.highlight_segments(
+                self.fig, screen_nu, constants.RootCauseAnalysis.MANEUVER_ACTIVE, time, "RoyalBlue", " "
+            )
+            # fh.highlight_segments(
+            #     self.fig, core_state, constants.ParkCoreStatus.CORE_PARKING, time, "RoyalBlue", "CORE_PARKING"
+            # )
             self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
             self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
             plot_titles.append("")
             plots.append(self.fig)
             remarks.append("")
+
+            self.fig = go.Figure()
+            for i in range(8):
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=df[TRJPLA_POSEFAIL_REASON[i]],
+                        mode="lines",
+                        name=TRJPLA_POSEFAIL_REASON[i],
+                    )
+                )
+            self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
+            plot_titles.append("")
+            plots.append(self.fig)
+            remarks.append("")
+
+            # self.fig = go.Figure()
+            # for i in range(8):
+            #     self.fig.add_trace(
+            #         go.Scatter(
+            #             x=time,
+            #             y=df[TRJPLA_POSE_REACHABLE[i]],
+            #             mode="lines",
+            #             name=TRJPLA_POSE_REACHABLE[i],
+            #         )
+            #     )
+            # self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+            # self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
+            # plot_titles.append("")
+            # plots.append(self.fig)
+            # remarks.append("")
 
             for plot in plots:
                 if "plotly.graph_objs._figure.Figure" in str(type(plot)):
@@ -1572,12 +1759,434 @@ class HMI_STEP(TestStep):
             print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
 
 
+@teststep_definition(
+    step_number=9,
+    name="PARKSM",
+    description="Verify that parking process succeeded without errors.",
+    expected_result=BooleanResult(TRUE),
+)
+@register_signals(EXAMPLE, Signals)
+class PARKSM_STEP(TestStep):
+    """testcase that can be tested by a simple pass/fail test.
+
+    Objective
+    ---------
+
+    Detail
+    ------
+
+    In case there is no signal change to 1 the testcase is failed.
+    The test ist performed for all recordings of the collection
+    """
+
+    custom_report = fh.MfCustomTeststepReport
+
+    def __init__(self):
+        """Initialize the teststep."""
+        super().__init__()
+
+    def process(self):
+        """
+        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
+        evaluation results.
+        """
+        _log.debug("Starting processing...")
+        try:
+
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "software_version_file": "",
+                    "Km_driven": 0,
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                }
+            )
+            self.result.details["root_cause_text"] = "not assessed"
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_8 = fc.INPUT_MISSING
+
+            plot_titles, plots, remarks = fh.rep([], 3)
+            signal_summary = {}
+            eval_cond = [False] * 3
+
+            df = self.readers[EXAMPLE]  # for rrec
+            df[Signals.Columns.TIMESTAMP] = df.index
+
+            core_ready = df[Signals.Columns.CORE_READY]
+            core_state = df[Signals.Columns.CORE_STATE]
+            core_stop_reason = df[Signals.Columns.CORE_STOP_REASON]
+
+            core_ready_mask = (
+                core_ready != 1
+            )  # mask for core_ready values equal with 1(parking state machine is working properly)
+            core_state_mask = (
+                core_state == 3
+            )  # mask for core_state values equal with 3(parking is successfully finished)
+            core_stop_reason_mask = (
+                core_stop_reason == 3
+            )  # mask for core_stop_reason values equal with 3(parking is successfully finished)
+            core_stop_reason_mask_0 = (
+                core_stop_reason != 0
+            )  # mask for core_stop_reason values different than 0(error during parking)
+            core_stop_reason_mask_3 = (
+                core_stop_reason != 3
+            )  # mask for core_stop_reason values different than 3(error during parking)
+            # core_stop_reason_error_mask = (core_stop_reason == 0) and core_stop_reason_mask # mask for core_stop_reason values different than 0 and 3(error during parking)
+            core_ready_mask_np = np.array(core_ready_mask)
+            first_true_index_1 = np.argmax(core_ready_mask_np)
+
+            if not core_ready_mask_np.any():
+                evaluation1 = " ".join(
+                    f"The evaluation of {Signals.Columns.CORE_READY} is FAILED because"
+                    f"during the whole measurement were not found values equals with 1, meaning parking system machine is not working properly."
+                    f" ".split()
+                )
+                eval_cond[0] = False
+            elif core_ready_mask.any():
+                evaluation1 = " ".join(
+                    f"The evaluation of {Signals.Columns.CORE_READY} is FAILED at timestamp {time.iloc[first_true_index_1]} because"
+                    f" during the whole measurement were found values different than 1, meaning parking system machine is not working properly."
+                    f" ".split()
+                )
+                eval_cond[0] = False
+            else:
+                evaluation1 = " ".join(
+                    f"The evaluation of {Signals.Columns.CORE_READY} is PASSED with values == 1 during the whole measurement,"
+                    f" meaning parking system machine is working properly.".split()
+                )
+                eval_cond[0] = True
+
+            if core_state_mask.any() and core_stop_reason_mask.any():
+                evaluation2 = " ".join(
+                    f"The evaluation of {Signals.Columns.CORE_STATE} and {Signals.Columns.CORE_STOP_REASON} is PASSED with values == 3,"
+                    f" meaning parking is successfully finished.".split()
+                )
+                eval_cond[1] = True
+            else:
+                evaluation2 = " ".join(
+                    f"The evaluation of {Signals.Columns.CORE_STATE} and {Signals.Columns.CORE_STOP_REASON} is FAILED because"
+                    f" values of CORE STATE == 3 or CORE STOP REASON == 3 were not found.".split()
+                )
+                eval_cond[1] = False
+            if core_stop_reason_mask_0.any() and core_stop_reason_mask_3.any():
+                evaluation3 = " ".join(
+                    f"The evaluation of {Signals.Columns.CORE_STOP_REASON} is FAILED because"
+                    f" values different than 0 or 3 exist, which means an error during parking occured.".split()
+                )
+                eval_cond[2] = False
+            else:
+                evaluation3 = " ".join(
+                    f"The evaluation of {Signals.Columns.CORE_STOP_REASON} is PASSED without any errors during parking, meaning only values of 3 and/or 0 were found.".split()
+                )
+                eval_cond[2] = True
+
+            if all(eval_cond):
+                self.result.measured_result = TRUE
+                self.result.details["root_cause_text"] = "passed"
+            else:
+                self.result.measured_result = FALSE
+                self.result.details["root_cause_text"] = "failed"
+
+            signal_summary["CORE READY "] = evaluation1
+            signal_summary["CORE STATE & CORE STOP REASON "] = evaluation2
+            signal_summary["CORE STOP REASON "] = evaluation3
+            self.sig_sum = convert_dict_to_pandas(signal_summary)
+            plot_titles.append("")
+            plots.append(self.sig_sum)
+            remarks.append("")
+
+            self.fig = go.Figure()
+            self.fig.add_trace(
+                go.Scatter(
+                    x=time,
+                    y=core_state,
+                    mode="lines",
+                    name=Signals.Columns.CORE_STATE,
+                )
+            )
+            self.fig.add_trace(
+                go.Scatter(
+                    x=time,
+                    y=core_ready,
+                    mode="lines",
+                    name=Signals.Columns.CORE_READY,
+                )
+            )
+            self.fig.add_trace(
+                go.Scatter(
+                    x=time,
+                    y=core_stop_reason,
+                    mode="lines",
+                    name=Signals.Columns.CORE_STOP_REASON,
+                )
+            )
+
+            fh.highlight_segments(
+                self.fig, core_state, constants.ParkCoreStatus.CORE_PAUSE, time, "LightSalmon", "PARKING FINISHED"
+            )
+            self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
+            plot_titles.append("")
+            plots.append(self.fig)
+            remarks.append("")
+
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
+
+            verdict, color = verdict_obj.check_result()
+
+            additional_results_dict = {
+                "Verdict": {"value": verdict.title(), "color": color},
+            }
+            self.result.details["Additional_results"] = additional_results_dict
+
+        except Exception:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
+
+
+@teststep_definition(
+    step_number=10,
+    name="MOCO",
+    description="Show relevant plots for MOCO component.",
+    expected_result=BooleanResult(TRUE),
+)
+@register_signals(EXAMPLE, Signals)
+class MOCO_STEP(TestStep):
+    """testcase that can be tested by a simple pass/fail test.
+
+    Objective
+    ---------
+
+    Detail
+    ------
+
+    In case there is no signal change to 1 the testcase is failed.
+    The test ist performed for all recordings of the collection
+    """
+
+    custom_report = fh.MfCustomTeststepReport
+
+    def __init__(self):
+        """Initialize the teststep."""
+        super().__init__()
+
+    def process(self):
+        """
+        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
+        evaluation results.
+        """
+        _log.debug("Starting processing...")
+        try:
+
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "software_version_file": "",
+                    "Km_driven": 0,
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                }
+            )
+            self.result.details["root_cause_text"] = "not assessed"
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_8 = fc.INPUT_MISSING
+
+            plot_titles, plots, remarks = fh.rep([], 3)
+
+            df = self.readers[EXAMPLE]  # for rrec
+            df[Signals.Columns.TIMESTAMP] = df.index
+
+            screen_nu = df[Signals.Columns.SCREEN_NU]
+            moco_lodmc_acceleration = (
+                df[Signals.Columns.MOCO_LODMC_ACCELERATION]
+                if Signals.Columns.MOCO_LODMC_ACCELERATION in df.columns
+                else None
+            )
+            moco_lodmc_dist2stop = (
+                df[Signals.Columns.MOCO_LODMC_DIST2STOP] if Signals.Columns.MOCO_LODMC_DIST2STOP in df.columns else None
+            )
+            moco_lodmc_driving_forward_req = (
+                df[Signals.Columns.MOCO_LODMC_DRIVING_FORWARD_REQ]
+                if Signals.Columns.MOCO_LODMC_DRIVING_FORWARD_REQ in df.columns
+                else None
+            )
+            moco_lodmc_emergency_hold_req = (
+                df[Signals.Columns.MOCO_LODMC_EMERGENCY_HOLD_REQ]
+                if Signals.Columns.MOCO_LODMC_EMERGENCY_HOLD_REQ in df.columns
+                else None
+            )
+            moco_lodmc_hold_req = (
+                df[Signals.Columns.MOCO_LODMC_HOLD_REQ] if Signals.Columns.MOCO_LODMC_HOLD_REQ in df.columns else None
+            )
+            moco_lodmc_request = (
+                df[Signals.Columns.MOCO_LODMC_REQUEST] if Signals.Columns.MOCO_LODMC_REQUEST in df.columns else None
+            )
+            moco_lodmc_request_interface = (
+                df[Signals.Columns.MOCO_LODMC_REQUEST_INTERFACE]
+                if Signals.Columns.MOCO_LODMC_REQUEST_INTERFACE in df.columns
+                else None
+            )
+            moco_lodmc_request_source = (
+                df[Signals.Columns.MOCO_LODMC_REQUEST_SOURCE]
+                if Signals.Columns.MOCO_LODMC_REQUEST_SOURCE in df.columns
+                else None
+            )
+            moco_lodmc_secure = (
+                df[Signals.Columns.MOCO_LODMC_SECURE] if Signals.Columns.MOCO_LODMC_SECURE in df.columns else None
+            )
+            moco_lodmc_trajectory_reset = (
+                df[Signals.Columns.MOCO_LODMC_TRAJECTORY_RESET]
+                if Signals.Columns.MOCO_LODMC_TRAJECTORY_RESET in df.columns
+                else None
+            )
+            moco_lodmc_velocity_limit = (
+                df[Signals.Columns.MOCO_LODMC_VELOCITY_LIMIT]
+                if Signals.Columns.MOCO_LODMC_VELOCITY_LIMIT in df.columns
+                else None
+            )
+
+            df["status"] = screen_nu.apply(lambda x: fh.get_status_label(x, constants.RootCauseAnalysis))
+
+            self.fig = go.Figure()
+
+            if moco_lodmc_acceleration is not None:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time, y=moco_lodmc_acceleration, mode="lines", name=Signals.Columns.MOCO_LODMC_ACCELERATION
+                    )
+                )
+
+            if moco_lodmc_dist2stop is not None:
+                self.fig.add_trace(
+                    go.Scatter(x=time, y=moco_lodmc_dist2stop, mode="lines", name=Signals.Columns.MOCO_LODMC_DIST2STOP)
+                )
+
+            if moco_lodmc_driving_forward_req is not None:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=moco_lodmc_driving_forward_req,
+                        mode="lines",
+                        name=Signals.Columns.MOCO_LODMC_DRIVING_FORWARD_REQ,
+                    )
+                )
+
+            if moco_lodmc_emergency_hold_req is not None:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=moco_lodmc_emergency_hold_req,
+                        mode="lines",
+                        name=Signals.Columns.MOCO_LODMC_EMERGENCY_HOLD_REQ,
+                    )
+                )
+
+            if moco_lodmc_hold_req is not None:
+                self.fig.add_trace(
+                    go.Scatter(x=time, y=moco_lodmc_hold_req, mode="lines", name=Signals.Columns.MOCO_LODMC_HOLD_REQ)
+                )
+
+            if moco_lodmc_request is not None:
+                self.fig.add_trace(
+                    go.Scatter(x=time, y=moco_lodmc_request, mode="lines", name=Signals.Columns.MOCO_LODMC_REQUEST)
+                )
+
+            if moco_lodmc_request_interface is not None:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=moco_lodmc_request_interface,
+                        mode="lines",
+                        name=Signals.Columns.MOCO_LODMC_REQUEST_INTERFACE,
+                    )
+                )
+
+            if moco_lodmc_request_source is not None:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=moco_lodmc_request_source,
+                        mode="lines",
+                        name=Signals.Columns.MOCO_LODMC_REQUEST_SOURCE,
+                    )
+                )
+
+            if moco_lodmc_secure is not None:
+                self.fig.add_trace(
+                    go.Scatter(x=time, y=moco_lodmc_secure, mode="lines", name=Signals.Columns.MOCO_LODMC_SECURE)
+                )
+
+            if moco_lodmc_trajectory_reset is not None:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=moco_lodmc_trajectory_reset,
+                        mode="lines",
+                        name=Signals.Columns.MOCO_LODMC_TRAJECTORY_RESET,
+                    )
+                )
+
+            if moco_lodmc_velocity_limit is not None:
+                self.fig.add_trace(
+                    go.Scatter(
+                        x=time,
+                        y=moco_lodmc_velocity_limit,
+                        mode="lines",
+                        name=Signals.Columns.MOCO_LODMC_VELOCITY_LIMIT,
+                    )
+                )
+            self.fig.add_trace(go.Scatter(x=time, y=screen_nu, mode="lines", name=Signals.Columns.SCREEN_NU))
+
+            fh.highlight_segments(
+                self.fig, screen_nu, constants.RootCauseAnalysis.MANEUVER_ACTIVE, time, "LightSalmon", "MANEUVER ACTIVE"
+            )
+            self.fig.update_layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
+            plot_titles.append("")
+            plots.append(self.fig)
+            remarks.append("")
+
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
+
+            verdict, color = verdict_obj.check_result()
+
+            additional_results_dict = {
+                "Verdict": {"value": verdict.title(), "color": color},
+            }
+            self.result.details["Additional_results"] = additional_results_dict
+
+        except Exception:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
+
+
 @verifies("req-001")
 @testcase_definition(
     name="Manuever Root Cause Analysis",
     description="Verify the output checks of components for manuever(to be ignored if slot offering checks failed for the measurement).",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class ManueverRootCause(TestCase):
     # custom_report = CustomTestcaseReport
@@ -1598,6 +2207,8 @@ class ManueverRootCause(TestCase):
             TRJPLA_STEP,
             TAPOSD_STEP,
             HMI_STEP,
+            PARKSM_STEP,
+            MOCO_STEP,
         ]
 
 

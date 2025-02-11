@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""This is the test case to validate the relative Lateral position error during normal driving conditions"""
+"""This is the test case to validate the relative Lateral position error during difficult driving conditions"""
 
 import logging
 import os
@@ -39,7 +39,7 @@ if TSF_BASE not in sys.path:
 
 
 __author__ = "Anil A, Uie64067"
-__copyright__ = "2020-2012, Continental AG"
+__copyright__ = "2012-2024, Continental AG"
 __version__ = "0.0.1"
 __status__ = "Production"
 
@@ -47,7 +47,7 @@ __status__ = "Production"
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-READER_NAME = "VedodoRelativeLateralPositionErrorInNormalDrivingConditions"
+READER_NAME = "VedodoRelativeLateralPositionErrorInDifficultDrivingConditions"
 
 
 class VedodoSignals(SignalDefinition):
@@ -81,24 +81,24 @@ class VedodoSignals(SignalDefinition):
 
 @teststep_definition(
     step_number=1,
-    name="The relative Lateral position error shall not exceed 0.03m per driven meter in normal driving conditions",
-    description="The relative Lateral position error shall not exceed 0.03m per driven meter in normal "
-    "driving conditions",
+    name="The relative Lateral position error shall not exceed 0.2m per driven meter in difficult driving conditions",
+    description="The relative Lateral position error shall not exceed 0.2m per driven meter in difficult driving"
+    " conditions",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(READER_NAME, VedodoSignals)
 class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
-    """Test case for driven distance at normal driving conditions.
+    """Test case for driven distance at difficult driving conditions.
 
     Objective
     ---------
 
-    The relative Lateral position error shall not exceed 0.03m per driven meter during normal driving conditions.
+    The relative Lateral position error shall not exceed 0.2m per driven meter during difficult driving conditions.
 
     Detail
     ------
 
-    Check the relative Lateral position error should not exceed 0.03m per driven meter during normal
+    Check the relative Lateral position error should not exceed 0.2m per driven meter during normal
     driving conditions.
     """
 
@@ -115,8 +115,8 @@ class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
-        max_expected_lat_relative_error: float = 0.03
+        df: pd.DataFrame = self.readers[READER_NAME]
+        max_expected_lat_relative_error: float = 0.2
         signal_summary = dict()
         test_result_list = list()
 
@@ -128,21 +128,23 @@ class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
         psi_gt = list(df[VedodoSignals.Columns.ODO_CM_REF_YAWANG_EGO_RA_CUR])
         psi_estimated = list(df[VedodoSignals.Columns.YAW_ANGLE])
 
-        relative_lat_per_meter_list = get_relative_positional_error_per_meter(gt_y, y_estimated)
+        relative_lat_per_meter = get_relative_positional_error_per_meter(gt_y, y_estimated, ap_time)
 
-        max_lat_error = max(relative_lat_per_meter_list)
+        max_lat_error = max(relative_lat_per_meter["error"])
         if max_lat_error > max_expected_lat_relative_error:
             evaluation_longi = " ".join(
-                f"Evaluation for Lateral position error during normal driving conditions is FAILED and "
-                f"the maximum expected error threshold is {max_expected_lat_relative_error}m is above the "
-                f"threshold and maximum estimated relative error is {max_lat_error}m".split()
+                f"Evaluation for Lateral position error at difficult driving conditions, error "
+                f"deviation for every 1m chunk is {max_lat_error}m and the max expected threshold value is "
+                f"{max_expected_lat_relative_error}m. The deviation error is above the threshold. "
+                f"Hence the result is FAILED".split()
             )
             test_result_list.append(False)
         else:
             evaluation_longi = " ".join(
-                f"Evaluation for Lateral position error during normal driving conditions is PASSED and "
-                f"the maximum expected error threshold is {max_expected_lat_relative_error}m is within the "
-                f"threshold and maximum estimated relative error is {max_lat_error}m".split()
+                f"Evaluation for Lateral position error at difficult driving condition, error "
+                f"deviation for every 1m chunk is {max_lat_error}m and the max expected threshold value is "
+                f"{max_expected_lat_relative_error}m. The deviation error is below the threshold. "
+                f"Hence the result is PASSED".split()
             )
             test_result_list.append(True)
 
@@ -153,16 +155,18 @@ class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
         max_relative_lat_error = max(relative_lat)
         if max_relative_lat_error > max_expected_lat_relative_error:
             evaluation_relative_longi = " ".join(
-                f"Evaluation for Relative Lateral position error during normal driving conditions is FAILED and "
-                f"the maximum expected relative error threshold is {max_expected_lat_relative_error}m is above the "
-                f"threshold and maximum estimated relative error is {max_relative_lat_error}m".split()
+                f"Evaluation for Relative Lateral position error at difficult driving conditions,"
+                f"estimated relative error is {round(max_relative_lat_error, 3)}m and relative threshold is "
+                f"{max_expected_lat_relative_error}m. The deviation error is above threshold value. Hence the result "
+                f"is FAILED".split()
             )
             test_result_list.append(False)
         else:
             evaluation_relative_longi = " ".join(
-                f"Evaluation for Relative Lateral position error during normal driving conditions is PASSED and "
-                f"the maximum expected relative error threshold is {max_expected_lat_relative_error}m is within the "
-                f"threshold and maximum estimated relative error is {max_relative_lat_error}m".split()
+                f"Evaluation for Relative Lateral position error at difficult driving conditions,"
+                f"estimated relative error is {round(max_relative_lat_error, 3)}m and relative threshold is "
+                f"{max_expected_lat_relative_error}m. The deviation error is below threshold value. Hence the result "
+                f"is PASSED".split()
             )
             test_result_list.append(True)
 
@@ -180,7 +184,7 @@ class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
         plots.append(self.sig_summary)
         remarks.append("")
 
-        # Position error of Lateral w.r.to threshold
+        # Position error of Lateral w.r.t threshold
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(
@@ -198,8 +202,8 @@ class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
         )
         fig.add_trace(
             go.Scatter(
-                x=ap_time,
-                y=relative_lat_per_meter_list,
+                x=relative_lat_per_meter["time"],
+                y=relative_lat_per_meter["error"],
                 mode="lines",
                 name="Lateral position per meter",
             )
@@ -222,7 +226,7 @@ class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
         plots.append(fig)
         remarks.append("")
 
-        # Relative Position error of Lateral w.r.to threshold
+        # Relative Position error of Lateral w.r.t threshold
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(
@@ -321,17 +325,17 @@ class VedodoRelativeLateralPositionErrorNormalDrivingConditions(TestStep):
         self.result.details["Additional_results"] = additional_results_dict
 
 
-@verifies("ReqId-2104439")
+@verifies("ReqId-1850070")
 @testcase_definition(
-    name="Check the lateral position error in normal driving conditions",
-    description="The relative Lateral position error shall not exceed 0.03 m per driven meter during normal "
+    name="Check the lateral position error in difficult driving conditions",
+    description="The relative Lateral position error shall not exceed 0.2 m per driven meter during normal "
     "driving conditions",
-    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2F"
-    "jazz.conti.de%2Frm4%2Fresources%2FBI_x7Zm0gDCEe-JmbR7EsJ0UA&componentURI=https%3A%2F%2Fjazz.conti.de%2"
-    "Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configuration"
-    "=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2"
+    "Fjazz.conti.de%2Frm4%2Fresources%2FBI_mnNr4LxdEe6Sn6sUDJb62g&componentURI=https%3A%2F%2Fjazz.conti.de"
+    "%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configurat"
+    "ion=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F30013",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class VedodoRelativeLateralPositionErrorNormalDrivingConditionsTestCase(TestCase):
     """VedodoRelativeLateralPositionErrorNormalDrivingConditionsTestCase test case."""

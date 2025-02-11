@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Defining input CemSlReader testcases"""
+"""Defining input PMDSlReader testcases"""
 # SL SVC
 import typing
 
@@ -27,22 +27,22 @@ class SLDetectionReader:
             timeframes = []
 
             for _, row in self.data.iterrows():
-                timestamp = row[f"CemSl_{self.camera_strings[camera]}_timestamp"]
-                number_of_lines = int(row[f"CemSl_{self.camera_strings[camera]}_numberOfLines"])
+                timestamp = row[f"PMDSl_{self.camera_strings[camera]}_timestamp"]
+                number_of_lines = int(row[f"PMDSl_{self.camera_strings[camera]}_numberOfLines"])
                 pmd_lines = []
 
                 for i in range(number_of_lines):
+
                     line = PMDLine(
-                        row[(f"CemSl_{self.camera_strings[camera]}_parkingLines_lineId", i)],
                         PMDLinePoint(
-                            row[(f"CemSl_{self.camera_strings[camera]}_parkingLines_lineStartX", i)] * -1,
-                            row[(f"CemSl_{self.camera_strings[camera]}_parkingLines_lineStartY", i)] * -1,
+                            row[(f"PMDSl_{self.camera_strings[camera]}_StopLines_lineStartX", i)] * -1,
+                            row[(f"PMDSl_{self.camera_strings[camera]}_StopLines_lineStartY", i)] * -1,
                         ),
                         PMDLinePoint(
-                            row[(f"CemSl_{self.camera_strings[camera]}_parkingLines_lineEndX", i)] * -1,
-                            row[(f"CemSl_{self.camera_strings[camera]}_parkingLines_lineEndY", i)] * -1,
+                            row[(f"PMDSl_{self.camera_strings[camera]}_StopLines_lineEndX", i)] * -1,
+                            row[(f"PMDSl_{self.camera_strings[camera]}_StopLines_lineEndY", i)] * -1,
                         ),
-                        row[(f"CemSl_{self.camera_strings[camera]}_parkingLines_lineConfidence", i)],
+                        row[(f"PMDSl_{self.camera_strings[camera]}_lineConfidence", i)],
                     )
 
                     pmd_lines.append(line)

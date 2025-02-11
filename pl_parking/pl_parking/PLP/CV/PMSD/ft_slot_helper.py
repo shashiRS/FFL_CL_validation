@@ -6,10 +6,15 @@ import typing
 
 import numpy as np
 
-from pl_parking.PLP.CV.PMSD.constants import AssociationConstants
+from pl_parking.PLP.CV.PMSD.constants import AssociationConstants, SlotScenario
 from pl_parking.PLP.CV.PMSD.inputs.input_PmdReader import PMDCamera, PMDReader
 from pl_parking.PLP.CV.PMSD.inputs.input_PmsdSlotReader import Slot, SlotPoint, SlotScenarioConfidences, SlotTimeFrame
-from pl_parking.PLP.CV.PMSD.inputs.input_PsdPmsdSlotReader import PSDSlot, PSDSlotPoint, PSDTimeFrame
+from pl_parking.PLP.CV.PMSD.inputs.input_PsdPmsdSlotReader import (
+    PSDSlot,
+    PSDSlotPoint,
+    PSDSlotScenarioConfidences,
+    PSDTimeFrame,
+)
 
 
 class FtSlotHelper:
@@ -169,13 +174,30 @@ class FtSlotHelper:
         angle: typing.List[float] = []
         for i in range(4):
             angle.append(
-                FtSlotHelper.get_point_angle(slot.slot_corners[i] - slot_center, gt.slot_corners[i] - gt_center))
+                FtSlotHelper.get_point_angle(slot.slot_corners[i] - slot_center, gt.slot_corners[i] - gt_center)
+            )
         return np.mean(angle)
 
     @staticmethod
     def rotate_left_slot_corners(slot: Slot, n: int):
         """Rotate left the slot corner point list"""
         slot.slot_corners = slot.slot_corners[n:] + slot.slot_corners[:n]
+
+    @staticmethod
+    def get_slot_scenario(slot: typing.Union[Slot, PSDSlot]):
+        """
+        Adjust the slot corner point list by rotation.
+        The list is correct when the corner distance is minimal between the detected and the gt slot
+        """
+        if slot.scenario_confidence.angled >= slot.scenario_confidence.parallel and \
+                slot.scenario_confidence.angled >= slot.scenario_confidence.perpendicular:
+            return SlotScenario.SLOT_SCENARIO_ANGLED
+        if slot.scenario_confidence.parallel >= slot.scenario_confidence.angled and \
+                slot.scenario_confidence.parallel >= slot.scenario_confidence.perpendicular:
+            return SlotScenario.SLOT_SCENARIO_PARALLEL
+        if slot.scenario_confidence.perpendicular >= slot.scenario_confidence.angled and \
+                slot.scenario_confidence.perpendicular >= slot.scenario_confidence.parallel:
+            return SlotScenario.SLOT_SCENARIO_PERPENDICULAR
 
     @staticmethod
     def adjust_slot_distance(slot: typing.Union[Slot, PSDSlot], gt: Slot):
@@ -221,8 +243,7 @@ class FtSlotHelper:
         return math.sqrt(xd * xd + yd * yd)
 
     @staticmethod
-    def get_point_angle(v: typing.Union[SlotPoint, PSDSlotPoint],
-                        v_ref: typing.Union[SlotPoint, PSDSlotPoint]):
+    def get_point_angle(v: typing.Union[SlotPoint, PSDSlotPoint], v_ref: typing.Union[SlotPoint, PSDSlotPoint]):
         """Calculate the angle [deg] between two vectors."""
         deg = (math.atan2(v.x, v.y) - math.atan2(v_ref.x, v_ref.y)) * 180 / math.pi
         return deg
@@ -284,7 +305,8 @@ class FtSlotHelper:
 
     # Return a dictionary 1 to 1 where the key is a prev index and the value is a current index
     @staticmethod
-    def associate_slot_list(detected_list: typing.List[Slot], gt_list: typing.List[Slot]) -> typing.Dict[int, int]:
+    def associate_slot_list(detected_list: typing.List[typing.Union[Slot, PSDSlot]], gt_list: typing.List[Slot]) -> \
+            typing.Dict[int, int]:
         """Associate slots between current and previous timeframes."""
         for gt_slot in gt_list:
             FtSlotHelper.order_points_counter_clockwise(gt_slot)
@@ -307,8 +329,9 @@ class FtSlotHelper:
                 rev_association[gt_index] = det_index
             else:
                 distance_1 = FtSlotHelper.adjust_slot_distance(gt_list[gt_index], detected_list[det_index])
-                distance_2 = FtSlotHelper.adjust_slot_distance(gt_list[gt_index],
-                                                               detected_list[rev_association[gt_index]])
+                distance_2 = FtSlotHelper.adjust_slot_distance(
+                    gt_list[gt_index], detected_list[rev_association[gt_index]]
+                )
                 if distance_1 < distance_2:
                     rev_association[gt_index] = det_index
 
@@ -334,12 +357,41 @@ class FtSlotHelper:
                         corners.append(p)
 
                     slot_out = Slot(
-                        ts_slots,  # id
-                        float(slot["existenceProbability"]),
-                        corners,
-                        SlotScenarioConfidences(0, 0, 0)
+                        ts_slots, float(slot["existenceProbability"]), corners, SlotScenarioConfidences(0, 0, 0)  # id
                     )
                     slot_gt_output[ts_slots].append(slot_out)
             out[camera] = slot_gt_output
+
+        return out
+
+    @staticmethod
+    def get_slot_from_json_gt_new(gt_data):
+        """Get Slot from JSON (PlantUml based) ground truth data."""
+        out: typing.Dict[PMDCamera, dict] = {}
+        for camera in PMDCamera:
+            slot_gt_output = dict()
+            current_cam = PMDReader.get_camera_strings()[camera]
+            slots_cam_ts = gt_data[f"{current_cam}SlotsCamFoV"]
+
+            for _, slots in enumerate(slots_cam_ts):
+                ts_slots = int(slots["sSigHeader"]["uiTimeStamp"])
+                slot_gt_output[ts_slots] = list()
+
+                for slot in slots["parkingSlots"]:
+                    corners = []
+                    for k in range(4):
+                        p = PSDSlotPoint(float(slot[f"corner{k}"]["x"]), float(slot[f"corner{k}"]["y"]))
+                        corners.append(p)
+
+                    scenario_confidences: PSDSlotScenarioConfidences
+                    scenario_confidences = PSDSlotScenarioConfidences(0.0, 0.0, 0.0)
+                    scenario_confidences.perpendicular = float(slot["parkingScenarioConfidence"]["perpendicular"])
+                    scenario_confidences.parallel = float(slot["parkingScenarioConfidence"]["parallel"])
+                    scenario_confidences.angled = float(slot["parkingScenarioConfidence"]["angled"])
+                    slot_out = PSDSlot(
+                        ts_slots, float(slot["existenceProbability"]), corners, scenario_confidences
+                    )
+                    slot_gt_output[ts_slots].append(slot_out)
+            out[camera] = dict(sorted(slot_gt_output.items()))
 
         return out

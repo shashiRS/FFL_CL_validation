@@ -33,7 +33,7 @@ if TSF_BASE not in sys.path:
 
 
 __author__ = "Anil A, uie64067"
-__copyright__ = "2020-2012, Continental AG"
+__copyright__ = "2012-2024, Continental AG"
 __version__ = "0.0.1"
 __status__ = "Production"
 
@@ -102,7 +102,7 @@ class VedodoVelocityRelativeError(TestStep):
         )
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
+        df: pd.DataFrame = self.readers[READER_NAME]
 
         ap_time = list(df[VedodoSignals.Columns.CM_TIME])
         cm_ego_velocity = list(df[VedodoSignals.Columns.CM_VELOCITY_X])
@@ -250,7 +250,7 @@ class VedodoVelocityRelativeError(TestStep):
     "de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configura"
     "tion=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class VedodoVehicleVelocityRelativeErrorTestCase(TestCase):
     """Example test case."""

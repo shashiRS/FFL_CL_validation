@@ -3,12 +3,11 @@
 import logging
 import os
 
-import plotly.graph_objects as go
-
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
+import pandas as pd
 from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
@@ -56,7 +55,6 @@ class PmsdSlotConfidenceLevelTestStep(TestStep):
 
         test_result = fc.INPUT_MISSING  # Result
         plot_titles, plots, remarks = rep([], 3)
-        signal_summary = {}
 
         reader = self.readers[SIGNAL_DATA].signals
 
@@ -64,24 +62,24 @@ class PmsdSlotConfidenceLevelTestStep(TestStep):
         df.columns = [f"{col[0]}_{col[1]}" if type(col) is tuple else col for col in df.columns]
 
         # Front Camera Parking slots
-        FC_Conf_Ang = df.loc[:, df.columns.str.contains("PsdSlot_Front_parkingLines_sc_angled")]
-        FC_Conf_Par = df.loc[:, df.columns.str.contains("PsdSlot_Front_parkingLines_sc_parallel")]
-        FC_Conf_Per = df.loc[:, df.columns.str.contains("PsdSlot_Front_parkingLines_sc_perpendicular")]
+        FC_Conf_Ang = df.loc[:, df.columns.str.contains("PmsdSlot_Front_sc_angled")]
+        FC_Conf_Par = df.loc[:, df.columns.str.contains("PmsdSlot_Front_sc_parallel")]
+        FC_Conf_Per = df.loc[:, df.columns.str.contains("PmsdSlot_Front_sc_perpendicular")]
 
         # Rear Camera Parking slots
-        RC_Conf_Ang = df.loc[:, df.columns.str.contains("PsdSlot_Rear_parkingLines_sc_angled")]
-        RC_Conf_Par = df.loc[:, df.columns.str.contains("PsdSlot_Rear_parkingLines_sc_parallel")]
-        RC_Conf_Per = df.loc[:, df.columns.str.contains("PsdSlot_Rear_parkingLines_sc_perpendicular")]
+        RC_Conf_Ang = df.loc[:, df.columns.str.contains("PmsdSlot_Rear_sc_angled")]
+        RC_Conf_Par = df.loc[:, df.columns.str.contains("PmsdSlot_Rear_sc_parallel")]
+        RC_Conf_Per = df.loc[:, df.columns.str.contains("PmsdSlot_Rear_sc_perpendicular")]
 
         # Left Camera Parking slots
-        LSC_Conf_Ang = df.loc[:, df.columns.str.contains("PsdSlot_Left_parkingLines_sc_angled")]
-        LSC_Conf_Par = df.loc[:, df.columns.str.contains("PsdSlot_Left_parkingLines_sc_parallel")]
-        LSC_Conf_Per = df.loc[:, df.columns.str.contains("PsdSlot_Left_parkingLines_sc_perpendicular")]
+        LSC_Conf_Ang = df.loc[:, df.columns.str.contains("PmsdSlot_Left_sc_angled")]
+        LSC_Conf_Par = df.loc[:, df.columns.str.contains("PmsdSlot_Left_sc_parallel")]
+        LSC_Conf_Per = df.loc[:, df.columns.str.contains("PmsdSlot_Left_sc_perpendicular")]
 
         # Right Camera Parking slots
-        RSC_Conf_Ang = df.loc[:, df.columns.str.contains("PsdSlot_Right_parkingLines_sc_angled")]
-        RSC_Conf_Par = df.loc[:, df.columns.str.contains("PsdSlot_Right_parkingLines_sc_parallel")]
-        RSC_Conf_Per = df.loc[:, df.columns.str.contains("PsdSlot_Right_parkingLines_sc_perpendicular")]
+        RSC_Conf_Ang = df.loc[:, df.columns.str.contains("PmsdSlot_Right_sc_angled")]
+        RSC_Conf_Par = df.loc[:, df.columns.str.contains("PmsdSlot_Right_sc_parallel")]
+        RSC_Conf_Per = df.loc[:, df.columns.str.contains("PmsdSlot_Right_sc_perpendicular")]
 
         evaluation = ["", "", "", "", "", "", "", "", "", "", "", ""]
         if not FC_Conf_Ang.empty:
@@ -187,31 +185,56 @@ class PmsdSlotConfidenceLevelTestStep(TestStep):
         ]
 
         test_result = fc.PASS if all(cond_bool) else fc.FAIL
-        signal_summary["FC_confidence_angled"] = evaluation[0]
-        signal_summary["FC_confidence_parallel"] = evaluation[1]
-        signal_summary["FC_confidence_perpendicular"] = evaluation[2]
-        signal_summary["RC_confidence_angled"] = evaluation[3]
-        signal_summary["RC_confidence_parallel"] = evaluation[4]
-        signal_summary["RC_confidence_perpendicular"] = evaluation[5]
-        signal_summary["LSC_confidence_angled"] = evaluation[6]
-        signal_summary["LSC_confidence_parallel"] = evaluation[7]
-        signal_summary["LSC_confidence_perpendicular"] = evaluation[8]
-        signal_summary["RSC_confidence_angled"] = evaluation[9]
-        signal_summary["RSC_confidence_parallel"] = evaluation[10]
-        signal_summary["RSC_confidence_perpendicular"] = evaluation[11]
 
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(values=["Signal Evaluation", "Summary"]),
-                    cells=dict(values=[list(signal_summary.keys()), list(signal_summary.values())]),
-                )
-            ]
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": "Front Camera Confidence of the detected angular parking slot is present",
+                    "2": "Front Camera Confidence of the detected parallel parking slot is present",
+                    "3": "Front Camera Confidence of the detected perpendicular parking slot is present",
+                    "4": "Rear Camera Confidence of the detected angular parking slot is present",
+                    "5": "Rear Camera Confidence of the detected parallel parking slot is present",
+                    "6": "Rear Camera Confidence of the detected perpendicular parking slot is present",
+                    "7": "Left Camera Confidence of the detected angular parking slot is present",
+                    "8": "Left Camera Confidence of the detected parallel parking slot is present",
+                    "9": "Left Camera Confidence of the detected perpendicular parking slot is present",
+                    "10": "Right Camera Confidence of the detected angular parking slot is present",
+                    "11": "Right Camera Confidence of the detected parallel parking slot is present",
+                    "12": "Right Camera Confidence of the detected perpendicular parking slot is present",
+                },
+                "Result": {
+                    "1": evaluation[0],
+                    "2": evaluation[1],
+                    "3": evaluation[2],
+                    "4": evaluation[3],
+                    "5": evaluation[4],
+                    "6": evaluation[5],
+                    "7": evaluation[6],
+                    "8": evaluation[7],
+                    "9": evaluation[8],
+                    "10": evaluation[9],
+                    "11": evaluation[10],
+                    "12": evaluation[11],
+                },
+                "Verdict": {
+                    "1": "PASSED" if cond_bool[0] else "FAILED",
+                    "2": "PASSED" if cond_bool[1] else "FAILED",
+                    "3": "PASSED" if cond_bool[2] else "FAILED",
+                    "4": "PASSED" if cond_bool[3] else "FAILED",
+                    "5": "PASSED" if cond_bool[4] else "FAILED",
+                    "6": "PASSED" if cond_bool[5] else "FAILED",
+                    "7": "PASSED" if cond_bool[6] else "FAILED",
+                    "8": "PASSED" if cond_bool[7] else "FAILED",
+                    "9": "PASSED" if cond_bool[8] else "FAILED",
+                    "10": "PASSED" if cond_bool[9] else "FAILED",
+                    "11": "PASSED" if cond_bool[10] else "FAILED",
+                    "12": "PASSED" if cond_bool[11] else "FAILED",
+                },
+            }
         )
 
-        plot_titles.append("Signal Evaluation")
-        plots.append(fig)
-        remarks.append("PMSD Evaluation")
+        sig_sum = fh.build_html_table(signal_summary, table_title="PMSD Slot Confidence")
+        self.result.details["Plots"].append(sig_sum)
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -241,8 +264,8 @@ class PmsdSlotConfidenceLevelTestStep(TestStep):
     name="SWRT_CNC_PMSD_ParkingSlotConfidence",
     description="Verify Parking Slots Confidence",
 )
-@register_inputs("/Playground_2/TSF-Debug")
-# @register_inputs("/TSF_DEBUG/")
+@register_inputs("/parking")
+# @register_inputs("/parking")
 class PmsdSlotConfidenceLevel(TestCase):
     """Slot ConfidenceLevel test case."""
 

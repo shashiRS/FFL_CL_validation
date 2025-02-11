@@ -1,10 +1,16 @@
-"""SWRT CNC TRAJPLA TestCases"""
+"""SWRT CNC TRAJPLA TestCases
+SWRT_CNC_TRJPLA_PerpendicularMaxTargetPose.py
+Test Scenario: ParkIn maneuver and ParkOut maneuver to/from a Parking box of scenarioType PERPENDICULAR_PARKING.
+(Script expects scenarioType PERPENDICULAR_PARKING for Parking slot 0. Test scenario Single or all PERPENDICULAR parking slots of PERPENDICULAR_PARKING can be used.)
+"""
 
 import logging
 import os
 
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
-from tsf.core.results import FALSE, TRUE, BooleanResult
+from tsf.core.results import DATA_NOK, FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -17,6 +23,7 @@ from tsf.core.testcase import (
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
+import pl_parking.PLP.MF.constants as constants
 from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport, MfSignals, rep
 from pl_parking.PLP.MF.constants import ConstantsTrajpla
 
@@ -30,12 +37,12 @@ example_obj = MfSignals()
 
 @teststep_definition(
     step_number=1,
-    name="Maximum target pose",
+    name="Maximum target pose perpendicular scenario",
     description="TRJPLA shall provide maximum 2 target pose per perpendicular parking box",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(SIGNAL_DATA, MfSignals)
-class TrjplaParpendicularParkingScan(TestStep):
+class TrjplaPerpendicularParkingScan(TestStep):
     """Defining teststep"""
 
     custom_report = MfCustomTeststepReport
@@ -47,216 +54,266 @@ class TrjplaParpendicularParkingScan(TestStep):
     def process(self, **kwargs):
         """Process the test result."""
         _log.debug("Starting processing...")
-        t2 = None
-        par_pose = None
-        evaluation = ""
-        read_data = self.readers[SIGNAL_DATA].signals
-
+        # Update the details from the results page with the needed information
+        # All the information from self.result.details is transferred to
+        # report maker(MfCustomTeststepReport in our case)
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
+        # Create empty lists for titles, plots and remarks,if they are needed,
+        # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        # Create a dictionary for containing overall test result summary
-        signal_summary = {}
-        signal_name = example_obj._properties
-        # Create a dictionary which will contain test status for each timestamp
-        # based on test condition.
-        frame_data_dict = {}
-        test_result_dict = {}
+        try:
+            t2 = None
+            par_pose = None
+            evaluation = ""
+            read_data = self.readers[SIGNAL_DATA]
 
-        ap_state = read_data["ApState"].tolist()
-        parking_scenario_0 = read_data["parkingScenario_nu0"].tolist()
-        num_valid_poses = read_data["numValidPoses"].tolist()
+            # Create a dictionary for containing overall test result summary
+            signal_summary = {}
+            signal_name = example_obj._properties
 
-        for idx, val in enumerate(ap_state):
-            if val == ConstantsTrajpla.AP_SCAN_IN or val == ConstantsTrajpla.AP_SCAN_OUT:
-                t2 = idx
-                break
-            frame_data_dict[idx] = "apState != AP_SCAN_IN or AP_SCAN_OUT"
+            self.result.measured_result = DATA_NOK  # Initializing the result with data nok
+            # Create a lists which will contain test status  and test result for each frame
+            # based on test condition.
+            frame_test_status = []
+            frame_test_result = []
 
-        for idx, val in enumerate(parking_scenario_0):
-            if val == ConstantsTrajpla.PERPENDICULAR_PARKING:
-                par_pose = idx
-                break
+            ap_state = read_data["ApState"]
+            parking_scenario_0 = read_data["parkingScenario_nu0"]
+            parking_box_id_0 = read_data["parkingBox0"]
+            num_valid_poses = read_data["numValidPoses"]
 
-        if t2 is not None:
-            if par_pose is not None:
-                for idx in range(t2, len(ap_state)):
-                    if parking_scenario_0[idx] == ConstantsTrajpla.PERPENDICULAR_PARKING and (
-                        ap_state[idx] == ConstantsTrajpla.AP_SCAN_IN or ap_state[idx] == ConstantsTrajpla.AP_SCAN_OUT
-                    ):
-                        if num_valid_poses[idx] <= ConstantsTrajpla.PERP_PARK_MAX_TARGET_POSE:
-                            evaluation = " ".join(
-                                f"The evaluation of {signal_name['parkingScenario_nu0']} and "
-                                f"{signal_name['numValidPoses']} is PASSED".split()
-                            )
-                            test_result_dict[idx] = True
-                            frame_data_dict[idx] = "Pass"
-                        else:
-                            evaluation = " ".join(
-                                f"The evaluation of {signal_name['parkingScenario_nu0']} and "
-                                f"{signal_name['numValidPoses']} is FAILED with more than 1 target pose per "
-                                "parallel parking box"
-                                "".split()
-                            )
-                            test_result_dict[idx] = False
-                            frame_data_dict[idx] = "More than 2 target pose/parallel parking box"
-                    else:
-                        frame_data_dict[idx] = "Input conditions not met"
-            else:
-                test_result_dict[0] = False
-                evaluation = " ".join(
-                    "Evaluation not possible, the value of signal "
-                    f"{signal_name['parkingScenario_nu0']} was never equal to {ConstantsTrajpla.PERPENDICULAR_PARKING}".split()
-                )
-        else:
-            test_result_dict[0] = False
-            evaluation = " ".join(
-                "Evaluation not possible, the trigger value for                             "
-                f" {signal_name['ApState']} was never found.".split()
+            related_parking_box_id = {}
+            for idx in range(8):
+                related_parking_box_id[idx] = read_data[f"relatedParkingBoxID_{idx}"]
+
+            signal_map = dict()
+            signal_map["ApState"] = ap_state.apply(lambda x: fh.get_status_label(x, ConstantsTrajpla.ApStates))
+            signal_map["parkingScenario_nu0"] = parking_scenario_0.apply(
+                lambda x: fh.get_status_label(x, ConstantsTrajpla.ScenarioType)
             )
 
-        if all(test_result_dict.values()):
-            test_result = fc.PASS
-        else:
-            test_result = fc.FAIL
+            for idx, val in enumerate(ap_state):
+                if val == ConstantsTrajpla.ApStates.AP_SCAN_IN or val == ConstantsTrajpla.ApStates.AP_SCAN_OUT:
+                    t2 = idx
+                    break
+                frame_test_status.append("apState not relevant")
+                frame_test_result.append(None)
 
-        signal_summary[f"{signal_name['numValidPoses']} and {signal_name['parkingScenario_nu0']}"] = evaluation
+            for idx, val in enumerate(parking_scenario_0):
+                if val == ConstantsTrajpla.ScenarioType.PERPENDICULAR_PARKING:
+                    par_pose = idx
+                    break
 
-        # Create an overall summary table
-        colors = "yellowgreen" if test_result != "failed" else "red"
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(
-                        values=["Signal Evaluation", "Summary"],
-                        fill_color="paleturquoise",
-                        align=["left", "center"],
-                        height=40,
-                    ),
-                    cells=dict(
-                        values=[list(signal_summary.keys()), list(signal_summary.values())],
-                        fill_color=[colors, colors],
-                        align=["left", "center"],
-                        font_size=12,
-                        height=30,
-                    ),
+            if t2 is not None:
+                if par_pose is not None:
+                    for idx in range(t2, len(ap_state)):
+                        if parking_scenario_0.iloc[idx] == ConstantsTrajpla.ScenarioType.PERPENDICULAR_PARKING and (
+                            ap_state.iloc[idx] == ConstantsTrajpla.ApStates.AP_SCAN_IN
+                            or ap_state.iloc[idx] == ConstantsTrajpla.ApStates.AP_SCAN_OUT
+                        ):
+                            if num_valid_poses.iloc[idx] > 0:
+                                pose_count = 0
+                                for i in range(int(num_valid_poses.iloc[idx])):
+                                    if related_parking_box_id[i].iloc[idx] == parking_box_id_0.iloc[idx]:
+                                        pose_count += 1
+                                if pose_count <= ConstantsTrajpla.Parameter.PERP_PARK_MAX_TARGET_POSE:
+                                    frame_test_result.append(True)
+                                    frame_test_status.append(f"Pass: Target Poses Count = {pose_count}")
+                                else:
+                                    if not evaluation:
+                                        evaluation = (
+                                            "FAILED : Number of target poses for Parking box0 of ScenarioType: "
+                                            "PERPENDICULAR_PARKING"
+                                            f" = {pose_count} at frame {idx}"
+                                        )
+
+                                    frame_test_result.append(False)
+                                    frame_test_status.append(f"Fail: Target Poses Count = {pose_count}")
+                            else:
+                                frame_test_status.append("NA: Valid Poses not available")
+                                frame_test_result.append(None)
+                        else:
+                            frame_test_status.append("NA: apState or scenario type not relevant")
+                            frame_test_result.append(None)
+                else:
+                    frame_test_result.append(None)
+                    evaluation = " ".join(
+                        "Evaluation not possible, the value of signal "
+                        f"{signal_name['parkingScenario_nu0']} was never equal to PERPENDICULAR_PARKING"
+                        f"({ConstantsTrajpla.ScenarioType.PERPENDICULAR_PARKING})".split()
+                    )
+            else:
+                frame_test_result.append(None)
+                evaluation = " ".join(
+                    "Evaluation not possible, the trigger value for "
+                    f" {signal_name['ApState']} == AP_SCAN_IN({ConstantsTrajpla.ApStates.AP_SCAN_IN}) or "
+                    f"<br>{signal_name['ApState']} ==  AP_SCAN_OUT({ConstantsTrajpla.ApStates.AP_SCAN_OUT})never found.".split()
                 )
-            ]
-        )
-        plot_titles.append("Signal Evaluation")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
 
-        # Create a table containing all signals and their status for each frame
-        # for the purpose of analysis.
-        frame_number_list = list(range(0, len(ap_state)))
-        frame_data_list = list(frame_data_dict.values())
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(
-                        values=["Frames", "apState", "ParkingScenario", "NumValidPoses", "Status"],
-                        fill_color="paleturquoise",
-                    ),
-                    cells=dict(
-                        values=[
-                            frame_number_list,
-                            ap_state,
-                            parking_scenario_0,
-                            num_valid_poses,
-                            frame_data_list,
-                        ],
-                        fill=dict(
-                            color=[
-                                "rgb(245, 245, 245)",
-                                "white",
-                                "white",
-                                "white",
-                                [
-                                    "rgba(250, 0, 0, 0.8)" if "More than 2 target" in val else "white"
-                                    for val in frame_data_list
-                                ],
-                            ]
-                        ),
-                    ),
+            if False in frame_test_result:
+                verdict = fc.FAIL
+                self.result.measured_result = FALSE
+            elif frame_test_result == [None] * len(frame_test_result):
+                verdict = fc.FAIL
+                self.result.measured_result = FALSE
+                if not evaluation:
+                    evaluation = (
+                        f"Evaluation not possible, check if trigger conditions for "
+                        f"{signal_name['ApState']} or {signal_name['parkingScenario_nu0']}"
+                        f" are met in the recording"
+                    )
+            else:
+                verdict = fc.PASS
+                self.result.measured_result = TRUE
+                evaluation = "Passed"
+
+            expected_val = (
+                f"Number of target poses per Parking box of ScenarioType PERPENDICULAR_PARKING"
+                f"({ConstantsTrajpla.ScenarioType.PERPENDICULAR_PARKING}) "
+                f"<= {ConstantsTrajpla.Parameter.PERP_PARK_MAX_TARGET_POSE}"
+            )
+
+            signal_summary["Number of target poses per parking box of type PERPENDICULAR_PARKING"] = [
+                expected_val,
+                evaluation,
+                verdict,
+            ]
+
+            remark = (
+                f"Check if Number of target poses per parking box of type PERPENDICULAR_PARKING "
+                f"<= {ConstantsTrajpla.Parameter.PERP_PARK_MAX_TARGET_POSE}"
+            )
+            self.sig_sum = convert_dict_to_pandas(signal_summary, remark)
+            plots.append(self.sig_sum)
+
+            frame_number_list = list(range(0, len(ap_state)))
+
+            # add plots
+            fig = go.Figure()
+            for i in range(int(max(num_valid_poses))):
+                fig.add_trace(
+                    go.Scatter(
+                        x=frame_number_list,
+                        y=related_parking_box_id[i],
+                        mode="lines",  # 'lines' or 'markers'
+                        name=f"targetPoses_{i}.relatedParkingBoxID",
+                    )
                 )
-            ]
-        )
-        plot_titles.append("Signals Summary")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
 
-        # Create a table which contains all constants and their values.
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(values=["Constants", "Values"], fill_color="paleturquoise", align="left"),
-                    cells=dict(
-                        values=[
-                            [
-                                "AP_INACTIVE",
-                                "AP_SCAN_IN",
-                                "AP_SCAN_OUT",
-                                "AP_AVG_ACTIVE_IN",
-                                "AP_AVG_ACTIVE_OUT",
-                                "PARALLEL_PARKING",
-                                "PERPENDICULAR_PARKING",
-                                "ANGLED_PARKING_OPENING_TOWARDS_BACK",
-                                "ANGLED_PARKING_OPENING_TOWARDS_FRONT",
-                                "MAX_NUM_PLANNED_TRAJ_TYPES",
-                            ],
-                            [0, 1, 2, 3, 4, 0, 1, 2, 3, 10],
-                        ],
-                        align="left",
-                    ),
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=ap_state,
+                    mode="lines",  # 'lines' or 'markers'
+                    name="apState",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<br>apState: %{text}<extra></extra>",
+                    text=signal_map["ApState"],
                 )
-            ]
-        )
+            )
 
-        plot_titles.append("Abbreviations")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=parking_box_id_0,
+                    mode="lines",  # 'lines' or 'markers'
+                    name=".parkingBoxes_0.parkingBoxID_nu",
+                )
+            )
 
-        result_df = {
-            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            fc.REQ_ID: ["1612322"],
-            fc.TESTCASE_ID: ["42026"],
-            fc.TEST_SAFETY_RELEVANT: [fc.NOT_AVAILABLE],
-            fc.TEST_DESCRIPTION: [
-                "This testcase will verify that If one of the following conditions is fullfilled:"
-                "<SlotCtrlPort.planningCtrlPort.apState> == AP_SCAN_IN "
-                "<SlotCtrlPort.planningCtrlPort.apState> == AP_SCAN_OUT TRJPLA shall provide maximum 2"
-                "target pose per perpendicular parking box (<ApParkingBoxPort.parkingBoxes.parkingScenario"
-                "_nu == PERPENDICULAR_PARKING) in <TargetPosesPort.targetPoses>"
-            ],
-            fc.TEST_RESULT: [test_result],
-        }
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=parking_scenario_0,
+                    mode="lines",  # 'lines' or 'markers'
+                    name="parkingBoxes_0.parkingScenario_nu",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<br>parkingScenario_nu0: %{text}<extra></extra>",
+                    text=signal_map["parkingScenario_nu0"],
+                )
+            )
+            if True in frame_test_result or False in frame_test_result:
+                fig.add_trace(
+                    go.Scatter(
+                        x=frame_number_list,
+                        y=[0] * len(frame_number_list),
+                        mode="lines",  # 'lines' or 'markers'
+                        name="Test Status",
+                        hovertemplate="Frame: %{x}<br><br>status: %{text}<extra></extra>",
+                        text=frame_test_status,
+                    )
+                )
 
-        if test_result == fc.PASS:
-            self.result.measured_result = TRUE
-        else:
-            self.result.measured_result = FALSE
+            fig.layout = go.Layout(
+                yaxis=dict(tickformat="14"),
+                xaxis=dict(tickformat="14"),
+                xaxis_title="Frames",
+                showlegend=True,
+                title="Graphical Overview of Evaluated signals",
+            )
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
+
+            res_valid = (np.array(frame_test_result)) != np.array(None)
+            res_valid_int = [int(elem) for elem in res_valid]
+            res_valid_int.insert(0, 0)
+            eval_start = [i - 1 for i in range(1, len(res_valid_int)) if res_valid_int[i] - res_valid_int[i - 1] == 1]
+            eval_stop = [i - 1 for i in range(1, len(res_valid_int)) if res_valid_int[i] - res_valid_int[i - 1] == -1]
+            if len(eval_start) > 0:
+                for i in range(len(eval_start)):
+                    fig.add_vline(
+                        x=eval_start[i],
+                        line_width=1,
+                        line_dash="dash",
+                        line_color="darkslategray",
+                        annotation_text=f"t{i + 1}Start",
+                    )
+            if len(eval_stop) > 0:
+                for i in range(len(eval_stop)):
+                    fig.add_vline(
+                        x=eval_stop[i],
+                        line_width=1,
+                        line_dash="dash",
+                        line_color="darkslategray",
+                        annotation_text=f"t{i + 1}Stop",
+                    )
+
+            plots.append(fig)
+            result_df = {
+                "Verdict": {"value": verdict.title(), "color": fh.get_color(verdict)},
+                fc.REQ_ID: ["1612322"],
+                fc.TESTCASE_ID: ["42026"],
+                fc.TEST_SAFETY_RELEVANT: [fc.SAFETY_RELEVANT_QM],
+                fc.TEST_RESULT: [verdict],
+            }
+            self.result.details["Additional_results"] = result_df
+
+        except Exception as e:
+            _log.error(f"Error processing signals: {e}")
+            self.result.measured_result = DATA_NOK
+            self.sig_sum = f"<p>Error processing signals : {e}</p>"
+            plots.append(self.sig_sum)
+
+        # Add the plots in html page
         for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-
-        self.result.details["Additional_results"] = result_df
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+            else:
+                self.result.details["Plots"].append(plot)
 
 
 @verifies("1612322")
 @testcase_definition(
     name="SWRT_CNC_TRJPLA_PerpendicularMaxTargetPose",
-    description=(
-        "This testcase will verify that TRJPLA shall provide maximum 2 target pose per perpendicular parking box"
-    ),
+    description="If one of the following conditions is fulfilled:"
+    "<br>SlotCtrlPort.planningCtrlPort.apState == AP_SCAN_IN"
+    "<br>SlotCtrlPort.planningCtrlPort.apState == AP_SCAN_OUT, "
+    "<br>TRJPLA shall provide maximum 2 target pose per perpendicular parking box "
+    "<br> (ApParkingBoxPort.parkingBoxes.parkingScenario_nu == PERPENDICULAR_PARKING) in TargetPosesPort.targetPoses.",
+    doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_TxC8QHPREe6YqIugsJ-rgQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_p9KzlDK_Ee6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F36324",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
-class TrjplaParpendicularParkingScanTC(TestCase):
+class TrjplaPerpendicularParkingScanTC(TestCase):
     """Example test case."""
 
     custom_report = MfCustomTestcaseReport
@@ -265,5 +322,25 @@ class TrjplaParpendicularParkingScanTC(TestCase):
     def test_steps(self):
         """Define the test steps."""
         return [
-            TrjplaParpendicularParkingScan,
+            TrjplaPerpendicularParkingScan,
         ]
+
+
+def convert_dict_to_pandas(
+    signal_summary: dict,
+    table_remark="",
+    table_title="",
+):
+    """Converts a dictionary to a Pandas DataFrame and creates an HTML table."""
+    # Create a DataFrame from the dictionary
+    evaluation_summary = pd.DataFrame(
+        {
+            "Signal Summary": {key: key for key, val in signal_summary.items()},
+            "Expected Values": {key: val[0] for key, val in signal_summary.items()},
+            "Summary": {key: val[1] for key, val in signal_summary.items()},
+            "Verdict": {key: val[2] for key, val in signal_summary.items()},
+        }
+    )
+
+    # Generate HTML table using build_html_table function
+    return fh.build_html_table(evaluation_summary, table_remark, table_title)

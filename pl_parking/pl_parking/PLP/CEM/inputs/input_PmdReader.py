@@ -13,15 +13,27 @@ class PMDLinePoint:
     x: float
     y: float
 
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
 
 @dataclass
 class PMDLine:
-    """Dataclass representing a PMD line with attributes: line_id, line_start, line_end, and line_confidence."""
+    """Dataclass representing a PMD line with attributes: line_id, PMDCamera.FRONT, line_end, and line_confidence."""
 
-    line_id: int
-    line_start: PMDLinePoint
-    line_end: PMDLinePoint
-    line_confidence: float
+    line_start: typing.List[PMDLinePoint]
+    line_end: typing.List[PMDLinePoint]
+    line_confidence: typing.List[float]
+
+    def __eq__(self, other):
+        return (
+            self.line_start == other.line_start
+            and self.line_end == other.line_end
+            and self.line_confidence == other.line_confidence
+        )
+
+    def __hash__(self):
+        return id(self)
 
 
 class PMDCamera(IntEnum):
@@ -78,7 +90,6 @@ class PMDReader:
 
                 for i in range(number_of_lines):
                     line = PMDLine(
-                        row[(f"PMDCamera_{self.camera_strings[camera]}_parkingLines_lineId", i)],
                         PMDLinePoint(
                             row[(f"PMDCamera_{self.camera_strings[camera]}_parkingLines_lineStartX", i)] * -1,
                             row[(f"PMDCamera_{self.camera_strings[camera]}_parkingLines_lineStartY", i)] * -1,

@@ -1,7 +1,4 @@
-"""SWRT CNC SGF OutputInitAerReset testcases"""
-
-# from tsf.io.signals import SignalDefinition
-# from tsf.core.results import FALSE, TRUE, BooleanResult
+"""SGF Output Reset TestCase."""
 
 import logging
 
@@ -21,37 +18,41 @@ logging.basicConfig(level=logging.DEBUG)
 import os
 import sys
 
-TRC_ROOT = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
+import pandas as pd
+
+TRC_ROOT = os.path.abspath(os.path.join(__file__, "", "..", ".."))
 if TRC_ROOT not in sys.path:
     sys.path.append(TRC_ROOT)
+TSF_BASE = os.path.abspath(os.path.join(__file__, "", "..", "..", "..", "..", ".."))
+if TSF_BASE not in sys.path:
+    sys.path.append(TSF_BASE)
 
-import sys
 
 import numpy as np
-import plotly.express as px
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
-from pl_parking.common_ft_helper import CemSignals, CustomTeststepReport, rep
-from pl_parking.PLP.CEM.inputs.input_CemSgfReader import SGFReader
+from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport, rep
+from pl_parking.PLP.CEM.SGF.ft_helper import SGFSignals
 
-SIGNAL_DATA = "OutputInitAfterReset"
-example_obj = CemSignals()
+SIGNAL_DATA = "SGF_Output_Reset"
+
+example_obj = SGFSignals()
 
 
 @teststep_definition(
     step_number=1,
-    name="SWRT_CNC_SGF_OutputInitAfterReset",
-    description="This test case checks if after an Init request received, SGF resets its outputs to the default initialized values and states.",
+    name="CEM-SGF Output reset",
+    description="This test case checks if an Init request received,SGF shall reset its outputs to the default",
     doors_url="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
-class TestStepOutputInitAfterReset(TestStep):
-    """TestStep for initializing output after a reset operation, employing a custom report."""
+@register_signals(SIGNAL_DATA, SGFSignals)
+class TestStepFtSGFReset(TestStep):
+    """TestStep for resetting SGF module, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -64,63 +65,86 @@ class TestStepOutputInitAfterReset(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        # Define variables
-        test_result = fc.NOT_ASSESSED
-        # data = pd.DataFrame()
         plot_titles, plots, remarks = rep([], 3)
+        signal_summary = {}
 
-        # Load signals
-        reader = self.readers[SIGNAL_DATA].signals
-        input_reader = SGFReader(reader)
-        static_object_df = input_reader.data  # noqa: F841
+        reader = self.readers[SIGNAL_DATA]
+        data_df = reader.as_plain_df
 
-        # (init request received)
-        # if output values = default values
-        #     test_result = fc.PASS
-        # else
-        #     test_result = fc.FAIL
+        data_df = data_df.drop_duplicates()
+        data_df["SGF_sig_status"] = data_df["SGF_sig_status"].astype(float)
 
-        # NOTE: The TESTSTEP requires updating/modification to ensure relevance. Temporarily added noqa statements
-        #               to prevent Jenkins issues for other users.
-        # Find ts where signal state changes from ok to init
-        motion_data = motion_data.drop_duplicates()  # noqa: F821
-        motion_data["EgoMotionPort_eSigStatus"] = motion_data["EgoMotionPort_eSigStatus"].astype(float)
-        reset_ts = motion_data.loc[
-            motion_data["EgoMotionPort_eSigStatus"].diff() == -1, "EgoMotionPort_uiTimeStamp"
-        ].min()
+        # Check when the state changes from OK(1) to init(0) state
+        reset_ts = data_df.loc[data_df["SGF_sig_status"].diff() == -1, "SGF_timestamp"].min()
+
         if np.isnan(reset_ts):
-            _log.error("No reset found in data")
             test_result = fc.NOT_ASSESSED
-
+            evaluation = ["No reset data found"]
+            signal_summary["InitReset_result"] = evaluation
         else:
             # Verify if signal output is in state init after reset
-            motion_data.set_index("EgoMotionPort_uiTimeStamp", inplace=True)
-            reset_section = motion_data[motion_data.index == reset_ts]
-            result_columns = (reset_section == 0).all()
+            data_df.set_index("SGF_timestamp", inplace=True)
+            reset_section = data_df[data_df.index == reset_ts]
+            result_columns = (reset_section["numPolygons"] == 0).all()
 
             if result_columns.all():
                 test_result = fc.PASS
+                evaluation = "SGF reset values to default, if init request is received"
+                signal_summary["InitReset_result"] = evaluation
             else:
                 test_result = fc.FAIL
-                fig = go.Figure(
-                    data=[
-                        go.Table(
-                            header=dict(values=result_columns.index.str.split("_").str[1]),
-                            cells=dict(values=result_columns.values.tolist()),
-                        )
-                    ]
-                )
-                plot_titles.append("Test Fail report Output Signal in Init state")
-                plots.append(fig)
-                remarks.append("")
+                evaluation = "SGF doesn't reset values to default, if init request is received"
+                signal_summary["InitReset_result"] = evaluation
 
-            # Plot data
-            motion_data = motion_data.loc[(motion_data.index != 0)].drop_duplicates()
-            fig = px.line(motion_data, x=motion_data.index, y=motion_data.columns)
-            fig.add_vrect(x0=reset_ts, x1=motion_data.index.max(), fillcolor="#F5F5F5", layer="below")
-            plots.append(fig)
-            plot_titles.append("Output signal values")
-            remarks.append("")
+        # Set table dataframe
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {"1": "If init request received[1-0], SGF shall reset its output values to default[0]"},
+                "Result": {"1": evaluation},
+                "Verdict": {"1": test_result},
+            }
+        )
+
+        sig_sum = fh.build_html_table(signal_summary, table_title="SGF Init Reset Output Values State")
+        self.result.details["Plots"].append(sig_sum)
+
+        # Plot eSig state data
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=[*range(len(data_df))],
+                y=data_df["SGF_sig_status"].values.tolist(),
+                mode="lines",
+                name="sSigHeader.eSigStatus",
+                line=dict(color="darkblue"),
+            )
+        )
+        fig.layout = go.Layout(
+            yaxis=dict(tickformat="14"),
+            xaxis=dict(tickformat="14"),
+            xaxis_title="Frames",
+            yaxis_title="SGF_Output_eSigStatus",
+        )
+        plots.append(fig)
+
+        # Plot numberOfObjects data
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=[*range(len(data_df))],
+                y=data_df["numPolygons"].values.tolist(),
+                mode="lines",
+                name="staticObjectOutput.numberOfObjects",
+                line=dict(color="darkblue"),
+            )
+        )
+        fig.layout = go.Layout(
+            yaxis=dict(tickformat="14"),
+            xaxis=dict(tickformat="14"),
+            xaxis_title="Frames",
+            yaxis_title="SGF_Output_numberOfObjects",
+        )
+        plots.append(fig)
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -128,11 +152,11 @@ class TestStepOutputInitAfterReset(TestStep):
             fc.TESTCASE_ID: ["42381"],
             fc.TEST_SAFETY_RELEVANT: [fc.NOT_AVAILABLE],
             fc.TEST_DESCRIPTION: [
-                "This test case checks if after an Init request received, SGF resets its outputs to the default initialized values and states."
+                "Verify if an Init request is received, SGF shall reset its internal state and determine its output based on sensor information received only after the Init request."
             ],
             fc.TEST_RESULT: [test_result],
         }
-        # Mandatory for creating the plot:
+
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
         else:
@@ -151,17 +175,15 @@ class TestStepOutputInitAfterReset(TestStep):
 @verifies("1522102")
 @testcase_definition(
     name="SWRT_CNC_SGF_OutputInitAfterReset",
-    description=(
-        "This test case checks if after an Init request received, SGF resets its outputs to the default initialized values and states."
-    ),
-    doors_url="",
+    description="This test case checks  if after an Init request received, SGF sets all output signals to state AL_SIG_STATE_INIT and sets all other values on the output to 0.",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_8OI51kxLEe6M5-WQsF_-tQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_tpTA4CuJEe6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F36325",
 )
-class OutputInitAfterReset(TestCase):
-    """Output Init After Reset test case."""
+class FtSGFReset(TestCase):
+    """CEM-SGF Output reset Test Case"""
+
+    custom_report = MfCustomTestcaseReport
 
     @property
     def test_steps(self):
         """Define the test steps."""
-        return [
-            TestStepOutputInitAfterReset,
-        ]
+        return [TestStepFtSGFReset]

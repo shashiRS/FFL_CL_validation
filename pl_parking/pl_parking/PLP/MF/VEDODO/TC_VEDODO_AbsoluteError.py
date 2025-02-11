@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Calculating the Absolute error for position of longitudinal and lateral w.r.to GT"""
+"""Calculating the Absolute error for position of longitudinal and lateral w.r.t GT"""
 
 import logging
 import os
@@ -36,7 +36,7 @@ if TSF_BASE not in sys.path:
 
 
 __author__ = "Anil A, uie64067"
-__copyright__ = "2020-2012, Continental AG"
+__copyright__ = "2012-2024, Continental AG"
 __version__ = "0.0.1"
 __status__ = "Production"
 
@@ -82,23 +82,23 @@ class VedodoSignals(SignalDefinition):
 
 @teststep_definition(
     step_number=1,
-    name="Verify the longitudinal deviate error w.r.to GT position",
-    description="Verify the longitudinal deviation error w.r.to GT and the deviate threshold should not more than 0.2m",
+    name="Verify the longitudinal deviate error w.r.t GT position",
+    description="Verify the longitudinal deviation error w.r.t GT and the deviate threshold should not more than 0.2m",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(READER_NAME, VedodoSignals)
 class VedodoLongitudinalPosition(TestStep):
-    """Test case for position of longitudinal w.r.to GT
+    """Test case for position of longitudinal w.r.t GT
 
     Objective
     ---------
 
-    The position of longitudinal w.r.to GT position should not deviate more than the 0.2m threshold value.
+    The position of longitudinal w.r.t GT position should not deviate more than the 0.2m threshold value.
 
     Detail
     ------
 
-    The position of longitudinal w.r.to GT position should not deviate more than the 0.2m threshold value
+    The position of longitudinal w.r.t GT position should not deviate more than the 0.2m threshold value
     """
 
     custom_report = MfCustomTeststepReport
@@ -114,7 +114,7 @@ class VedodoLongitudinalPosition(TestStep):
         )
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
+        df: pd.DataFrame = self.readers[READER_NAME]
 
         ap_time = list(df[VedodoSignals.Columns.CM_TIME])
         x_gt = list(df[VedodoSignals.Columns.ODO_CM_REF_X])
@@ -253,23 +253,23 @@ class VedodoLongitudinalPosition(TestStep):
 
 @teststep_definition(
     step_number=2,
-    name="Verify the lateral deviate error w.r.to GT position",
-    description="Verify the lateral deviation error w.r.to GT and the deviate threshold should not more than 0.2m",
+    name="Verify the lateral deviate error w.r.t GT position",
+    description="Verify the lateral deviation error w.r.t GT and the deviate threshold should not more than 0.2m",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(READER_NAME, VedodoSignals)
 class VedodoLateralPosition(TestStep):
-    """Test case for position of lateral w.r.to GT
+    """Test case for position of lateral w.r.t GT
 
     Objective
     ---------
 
-    The position of lateral w.r.to GT position should not deviate more than the 0.2m threshold value.
+    The position of lateral w.r.t GT position should not deviate more than the 0.2m threshold value.
 
     Detail
     ------
 
-    The position of lateral w.r.to GT position should not deviate more than the 0.2m threshold value
+    The position of lateral w.r.t GT position should not deviate more than the 0.2m threshold value
     """
 
     custom_report = MfCustomTeststepReport
@@ -285,7 +285,7 @@ class VedodoLateralPosition(TestStep):
         )
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
+        df: pd.DataFrame = self.readers[READER_NAME]
 
         ap_time = list(df[VedodoSignals.Columns.CM_TIME])
         x_gt = list(df[VedodoSignals.Columns.ODO_CM_REF_X])
@@ -431,7 +431,7 @@ class VedodoLateralPosition(TestStep):
     "Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configuration="
     "https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 class VedodoAbsoluteTestCase(TestCase):
     """Example test case."""
 

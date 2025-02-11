@@ -1,10 +1,14 @@
-"""SWRT CNC TRAJPLA TestCases"""
+"""SWRT CNC TRAJPLA TestCases
+SWRT_CNC_TRJPLA_NewSegmentStarted.py
+Test Scenario: Can be tested with any Scenario where a valid trajectory is available
+"""
 
 import logging
 import os
 
+import pandas as pd
 import plotly.graph_objects as go
-from tsf.core.results import FALSE, TRUE, BooleanResult
+from tsf.core.results import DATA_NOK, FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -17,6 +21,7 @@ from tsf.core.testcase import (
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
+import pl_parking.PLP.MF.constants as constants
 from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport, MfSignals, rep
 from pl_parking.PLP.MF.constants import ConstantsTrajpla
 
@@ -32,7 +37,7 @@ example_obj = MfSignals()
 @teststep_definition(
     step_number=1,
     name="New Segment Started",
-    description="If a valid path is available, TRJPLA shall send <PlannedTrajPort.newSegmentStarted_nu> = true",
+    description="If a valid path is available, TRJPLA shall send PlannedTrajPort.newSegmentStarted_nu = true",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(SIGNAL_DATA, MfSignals)
@@ -47,179 +52,150 @@ class TrjplaNewStrokeStarted(TestStep):
 
     def process(self, **kwargs):
         """Process the test result."""
-        t2 = None
-        evaluation = ""
         _log.debug("Starting processing...")
-
-        read_data = self.readers[SIGNAL_DATA].signals
-
+        # Update the details from the results page with the needed information
+        # All the information from self.result.details is transferred to
+        # report maker(MfCustomTeststepReport in our case)
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
+        # Create empty lists for titles, plots and remarks,if they are needed,
+        # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        signal_summary = {}
-        signal_name = example_obj._properties
+        try:
+            t2 = None
+            evaluation = ""
+            read_data = self.readers[SIGNAL_DATA]
+            signal_summary = {}
+            signal_name = example_obj._properties
+            frame_data_dict = {}
 
-        traj_valid = read_data["trajValid_nu"].tolist()
-        new_segment = read_data["newSegmentStarted_nu"].tolist()
+            traj_valid = read_data["trajValid_nu"]
+            new_segment = read_data["newSegmentStarted_nu"]
 
-        for idx, val in enumerate(traj_valid):
-            if val == ConstantsTrajpla.TRAJ_VALID:
-                t2 = idx
-                break
-
-        if t2 is not None:
-            for idx in range(t2, len(traj_valid)):
-                if traj_valid[idx] == 1 and new_segment[idx] == 1:
-                    evaluation = " ".join(
-                        f"The evaluation of {signal_name['newSegmentStarted_nu']} and is PASSED, with values = True"
-                        f" when {signal_name['trajValid_nu']} == "
-                        f"{ConstantsTrajpla.TRAJ_VALID} at frame  {idx}".split()
-                    )
-                    eval_cond = True
+            for idx, val in enumerate(traj_valid):
+                if val == ConstantsTrajpla.TRAJ_VALID:
+                    t2 = idx
                     break
-                else:
-                    evaluation = " ".join(
-                        f"The evaluation of {signal_name['newSegmentStarted_nu']} and is FAILED, with values = False"
-                        f" when {ConstantsTrajpla.TRAJ_VALID} == "
-                        f"{ConstantsTrajpla.TRAJ_VALID} at frame  {idx} .".split()
-                    )
-                    eval_cond = False
-                    break
-        else:
-            eval_cond = False
-            evaluation = " ".join(
-                "Evaluation not possible, the valid trajectory for                            "
-                f" {signal_name['trajValid_nu']} was never found.".split()
-            )
+                frame_data_dict[idx] = "trajValid_nu not true"
 
-        if eval_cond:
-            test_result = fc.PASS
-        else:
-            test_result = fc.FAIL
-
-        signal_summary[f"{signal_name['newSegmentStarted_nu']}"] = evaluation
-
-        colors = "yellowgreen" if test_result != "failed" else "red"
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(values=["Signal Evaluation", "Summary"]),
-                    cells=dict(
-                        values=[list(signal_summary.keys()), list(signal_summary.values())], fill_color=[colors, colors]
-                    ),
+            eval_cond = None
+            if t2 is not None:
+                for idx in range(t2, len(traj_valid)):
+                    if traj_valid.iloc[idx] == 1 and new_segment.iloc[idx] == 1:
+                        evaluation = " ".join(
+                            f"The evaluation of {signal_name['newSegmentStarted_nu']} and is PASSED, with values = {new_segment.iloc[idx]}"
+                            f" when {signal_name['trajValid_nu']} == "
+                            f"{ConstantsTrajpla.TRAJ_VALID} at frame  {idx}".split()
+                        )
+                        eval_cond = True
+                        frame_data_dict[idx] = "Pass"
+                        break
+                    else:
+                        evaluation = " ".join(
+                            f"Failed:  at frame  {idx}, with values {signal_name['newSegmentStarted_nu']} "
+                            f"= {new_segment.iloc[idx]}"
+                            f" and {signal_name['trajValid_nu']} = "
+                            f"{traj_valid.iloc[idx]}.".split()
+                        )
+                        eval_cond = False
+                        frame_data_dict[idx] = "Fail"
+                        break
+            else:
+                eval_cond = None
+                evaluation = " ".join(
+                    "Evaluation not possible, the valid trajectory                            "
+                    f" {signal_name['trajValid_nu']} == True(1) was never found.".split()
                 )
-            ]
-        )
 
-        plot_titles.append("Signal Evaluation")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
+            if eval_cond is True:
+                test_result = fc.PASS
+                self.result.measured_result = TRUE
+            elif eval_cond is False:
+                test_result = fc.FAIL
+                self.result.measured_result = FALSE
+            else:
+                test_result = fc.FAIL
+                self.result.measured_result = FALSE
+                if not evaluation:
+                    evaluation = "Evaluation not possible, check if valid trajectory is available"
 
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=list(range(0, len(traj_valid))),
-                y=traj_valid,
-                mode="lines",
+            expected_val = f"{signal_name['newSegmentStarted_nu']} = True(1)"
+            signal_summary[
+                f"{signal_name['newSegmentStarted_nu']} = True(1), when {signal_name['trajValid_nu']} becomes True({ConstantsTrajpla.TRAJ_VALID})"
+            ] = [expected_val, evaluation, test_result]
+            remark = (
+                f"Check if {signal_name['newSegmentStarted_nu']} = True(1), when {signal_name['trajValid_nu']} "
+                f"becomes True({ConstantsTrajpla.TRAJ_VALID}) (at rising edge in {signal_name['trajValid_nu']})"
             )
-        )
+            self.sig_sum = convert_dict_to_pandas(signal_summary, remark)
+            plots.append(self.sig_sum)
 
-        fig.layout = go.Layout(
-            yaxis=dict(tickformat="14"),
-            xaxis=dict(tickformat="14"),
-            xaxis_title="Frames",
-            yaxis_title="trajValid_nu",
-        )
-        fig.update_traces(showlegend=False, line=dict(width=1), selector=dict(type="scatter"))
-        plot_titles.append("Graphical Overview of <PlannedTrajPort.trajValid_nu>")
-        plots.append(fig)
-        remarks.append("newSegmentStarted_nu")
-
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=list(range(0, len(new_segment))),
-                y=new_segment,
-                mode="lines",
-                line=dict(color="tomato"),
+            # Add plot for  trajValid_nu
+            frame_number_list = list(range(0, len(traj_valid)))
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=frame_number_list, y=traj_valid, mode="lines", name="trajValid_nu"))
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=new_segment,
+                    mode="lines",
+                    name="newSegmentStarted_nu",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<extra></extra>",
+                ),
             )
-        )
-
-        fig.layout = go.Layout(
-            yaxis=dict(tickformat="14"),
-            xaxis=dict(tickformat="14"),
-            xaxis_title="Frames",
-            yaxis_title="newSegmentStarted_nu",
-        )
-        fig.update_traces(showlegend=False, line=dict(width=1), selector=dict(type="scatter"))
-        plot_titles.append("Graphical Overview of <PlannedTrajPort.newSegmentStarted_nu>")
-        plots.append(fig)
-        remarks.append("newSegmentStarted_nu")
-
-        # Create a table containing all signals and their status for each frame
-        # for the purpose of analysis.
-        frame_number_list = list(range(0, len(traj_valid)))
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(
-                        values=["Frames", "trajValid_nu", "newSegmentStarted_nu"],
-                        fill_color="paleturquoise",
-                    ),
-                    cells=dict(
-                        values=[
-                            frame_number_list,
-                            traj_valid,
-                            new_segment,
-                        ],
-                        fill=dict(
-                            color=[
-                                "rgb(245, 245, 245)",
-                                "white",
-                                "white",
-                            ]
-                        ),
-                    ),
+            fig.layout = go.Layout(
+                yaxis=dict(tickformat="14"),
+                xaxis=dict(tickformat="14"),
+                xaxis_title="Frames",
+                showlegend=True,
+                title="Graphical Overview of Evaluated signals",
+            )
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
+            if eval_cond is not None:
+                fig.add_vline(
+                    x=t2,
+                    line_width=1,
+                    line_dash="dash",
+                    line_color="darkslategray",
+                    annotation_text=f"Eval:{test_result}",
                 )
-            ]
-        )
-        plot_titles.append("Signals Summary")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
 
-        result_df = {
-            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            fc.REQ_ID: ["1671345"],
-            fc.TESTCASE_ID: ["42016"],
-            fc.TEST_SAFETY_RELEVANT: [fc.NOT_AVAILABLE],
-            fc.TEST_DESCRIPTION: [
-                "This testcase will verify that If a valid path is output at the beginning of the "
-                "parking maneuver TRJPLA shall send <PlannedTrajPort.newSegmentStarted_nu> = true."
-            ],
-            fc.TEST_RESULT: [test_result],
-        }
+            plots.append(fig)
 
-        if test_result == fc.PASS:
-            self.result.measured_result = TRUE
-        else:
-            self.result.measured_result = FALSE
+            result_df = {
+                "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+                fc.REQ_ID: ["1671345"],
+                fc.TESTCASE_ID: ["42016"],
+                fc.TEST_SAFETY_RELEVANT: [fc.SAFETY_RELEVANT_QM],
+                fc.TEST_RESULT: [test_result],
+            }
+            self.result.details["Additional_results"] = result_df
+
+        except Exception as e:
+            _log.error(f"Error processing signals: {e}")
+            self.result.measured_result = DATA_NOK
+            self.sig_sum = f"<p>Error processing signals : {e}</p>"
+            plots.append(self.sig_sum)
+
+        # Add the plots in html page
         for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-
-        self.result.details["Additional_results"] = result_df
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+            else:
+                self.result.details["Plots"].append(plot)
 
 
 @verifies("1671345")
 @testcase_definition(
     name="SWRT_CNC_TRJPLA_NewSegmentStarted",
-    description="Verify new segment started",
+    description="This testcase will verify that If a valid path is output at the beginning of the parking maneuver "
+    "(rising edge in PlannedTrajPort.trajValid_nu) for the given environmental model "
+    "provided by ApParkingBoxPort and ApEnvModelPort. "
+    "TRJPLA shall send PlannedTrajPort.newSegmentStarted_nu = true.",
+    doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_ZtSAMHluEe6n7Ow9oWyCxw&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_p9KzlDK_Ee6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F36324",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class TrjplaNewStrokeStartedTC(TestCase):
     """Example test case."""
@@ -232,3 +208,23 @@ class TrjplaNewStrokeStartedTC(TestCase):
         return [
             TrjplaNewStrokeStarted,
         ]
+
+
+def convert_dict_to_pandas(
+    signal_summary: dict,
+    table_remark="",
+    table_title="",
+):
+    """Converts a dictionary to a Pandas DataFrame and creates an HTML table."""
+    # Create a DataFrame from the dictionary
+    evaluation_summary = pd.DataFrame(
+        {
+            "Signal Summary": {key: key for key, val in signal_summary.items()},
+            "Expected Values": {key: val[0] for key, val in signal_summary.items()},
+            "Summary": {key: val[1] for key, val in signal_summary.items()},
+            "Verdict": {key: val[2] for key, val in signal_summary.items()},
+        }
+    )
+
+    # Generate HTML table using build_html_table function
+    return fh.build_html_table(evaluation_summary, table_remark, table_title)

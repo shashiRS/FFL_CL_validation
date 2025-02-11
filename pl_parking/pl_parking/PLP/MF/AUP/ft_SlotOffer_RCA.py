@@ -177,15 +177,19 @@ class Signals(SignalDefinition):
             ],
             self.Columns.NUMBER_OF_DELIMITERS: [
                 ".CEM_EM_DATA.AUPDF_ParkingDelimiters.numberOfDelimiters",
-                ".CEM200_AUPDF_DATA.ParkingDelimiters.numberOfDelimiters",
+                # ".CEM200_AUPDF_DATA.ParkingDelimiters.numberOfDelimiters",
+                "MTA_ADC5.CEM200_PFS_DATA.m_PclOutput.numberOfDelimiters",
             ],
             self.Columns.NUMBER_OF_SLOTS: [
                 ".CEM_EM_DATA.AUPDF_ParkingSlots.numberOfSlots",
-                ".CEM200_AUPDF_DATA.ParkingSlots.numberOfSlots",
+                # ".CEM200_AUPDF_DATA.ParkingSlots.numberOfSlots",
+                "MTA_ADC5.CEM200_PFS_DATA.m_PsdOutput.numberOfSlots",
             ],
             self.Columns.NUMBER_OF_OBJECTS: [
                 ".CEM_EM_DATA.AUPDF_DynamicObjects.numberOfObjects",
-                ".CEM200_AUPDF_DATA.DynamicObjects.numberOfObjects",
+                # ".CEM200_AUPDF_DATA.DynamicObjects.numberOfObjects",
+                "MTA_ADC5.CEM200_TPF2_DATA.m_tpObjectList.numberOfObjects",
+
             ],
             self.Columns.NUMBER_OF_PARKMARK: [
                 ".EM_DATA.EmApEnvModelPort.numberOfParkMarkings_u8",
@@ -209,47 +213,48 @@ class Signals(SignalDefinition):
             ],
             self.Columns.SCREEN_NU: [
                 ".EM_DATA.EmHeadUnitVisualizationPort.screen_nu",
-                ".APPDEMO_HMIH_DATA.headUnitVisualizationPort.screen_nu",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.headUnitVisualizationPort.screen_nu",
             ],
             self.Columns.sg_time: [
                 ".USP_DATA.SpuOdoEstimationOutputPort.sSigHeader.uiTimeStamp",
-                ".SPU_PAR230_DATA.OdoEstimationOutputPort.sSigHeader.uiTimeStamp",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.headUnitVisualizationPort.sSigHeader.uiTimeStamp",
             ],
             self.Columns.VELOCITY: [
+                "Reference_RT3000_Ethernet.Hunter.VelocityVehicle.LongitudinalVelocity_kph",
                 ".Conti_Veh_CAN.VehVelocity.VehVelocityExt",
-                ".Conti_Veh_CAN.VehVelocity.VehVelocityExt",
+                "AP_Conti_CAN.AP_Conti_CAN_1_0_10.VehVelocity.VehVelocityExt",
             ],
             self.Columns.HMI_PS_RIGHT_0: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[0]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[0]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[0]",
             ],
             self.Columns.HMI_PS_RIGHT_1: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[1]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[1]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[1]",
             ],
             self.Columns.HMI_PS_RIGHT_2: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[2]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[2]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[2]",
             ],
             self.Columns.HMI_PS_RIGHT_3: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.right.scanned_nu[3]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.right.scanned_nu[3]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.right.scanned_nu[3]",
             ],
             self.Columns.HMI_PS_LEFT_0: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[0]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[0]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[0]",
             ],
             self.Columns.HMI_PS_LEFT_1: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[1]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[1]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[1]",
             ],
             self.Columns.HMI_PS_LEFT_2: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[2]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[2]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[2]",
             ],
             self.Columns.HMI_PS_LEFT_3: [
                 ".EM_DATA.EmHMIGeneralInputPort.parkingSpaces.left.scanned_nu[3]",
-                ".IU_PAR230_DATA.HmiGeneralInputPort.parkingSpaces.left.scanned_nu[3]",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.parkingSpaces.left.scanned_nu[3]",
             ],
             # self.Columns.PATH_FOUND: [".TRJPLA_DATA.TrjPlaTargetPosesPort.anyPathFound",".MF_TRJPLA_DATA.targetPoses.anyPathFound"],
             # self.Columns.FAIL_REASON: [".TRJPLA_DATA.TrjPlaTargetPosesPort.failReason",".MF_TRJPLA_DATA.targetPoses.failReason"],
@@ -1403,25 +1408,25 @@ class HMI_STEP(TestStep):
             df = self.readers[EXAMPLE]  # for rrec
             df[Signals.Columns.TIMESTAMP] = df.index
 
-            parkspace_right0 = []
-            parkspace_right1 = []
-            parkspace_right2 = []
-            parkspace_right3 = []
-            parkspace_left0 = []
-            parkspace_left1 = []
-            parkspace_left2 = []
-            parkspace_left3 = []
+            # parkspace_right0 = []
+            # parkspace_right1 = []
+            # parkspace_right2 = []
+            # parkspace_right3 = []
+            # parkspace_left0 = []
+            # parkspace_left1 = []
+            # parkspace_left2 = []
+            # parkspace_left3 = []
 
             screen_nu = df[Signals.Columns.SCREEN_NU]
-            for idx in range(0, len(df[Signals.Columns.SCREEN_NU])):
-                parkspace_right0.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][0])
-                parkspace_right1.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][1])
-                parkspace_right2.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][2])
-                parkspace_right3.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][3])
-                parkspace_left0.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][0])
-                parkspace_left1.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][1])
-                parkspace_left2.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][2])
-                parkspace_left3.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][3])
+            # for idx in range(0, len(df[Signals.Columns.SCREEN_NU])):
+            #     parkspace_right0.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][0])
+            #     parkspace_right1.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][1])
+            #     parkspace_right2.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][2])
+            #     parkspace_right3.append(df[Signals.Columns.HMI_PS_RIGHT_0].iloc[idx][3])
+            #     parkspace_left0.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][0])
+            #     parkspace_left1.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][1])
+            #     parkspace_left2.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][2])
+            #     parkspace_left3.append(df[Signals.Columns.HMI_PS_LEFT_0].iloc[idx][3])
 
             evaluation1 = " ".join(
                 f"The evaluation of {Signals.Columns.SCREEN_NU} is FAILED because"
@@ -1471,52 +1476,52 @@ class HMI_STEP(TestStep):
             self.fig.add_trace(
                 go.Scatter(x=time, y=screen_nu, mode="lines", name=Signals.Columns.SCREEN_NU, text=df["status"])
             )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_right0, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_0, visible="legendonly"
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_right1, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_1, visible="legendonly"
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_right2, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_2, visible="legendonly"
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_right3, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_3, visible="legendonly"
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_left0, mode="lines", name=Signals.Columns.HMI_PS_LEFT_0, visible="legendonly"
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_left1, mode="lines", name=Signals.Columns.HMI_PS_LEFT_1, visible="legendonly"
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_left2, mode="lines", name=Signals.Columns.HMI_PS_LEFT_2, visible="legendonly"
-                )
-            )
-            self.fig.add_trace(
-                go.Scatter(
-                    x=time, y=parkspace_left3, mode="lines", name=Signals.Columns.HMI_PS_LEFT_3, visible="legendonly"
-                )
-            )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_right0, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_0, visible="legendonly"
+            #     )
+            # )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_right1, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_1, visible="legendonly"
+            #     )
+            # )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_right2, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_2, visible="legendonly"
+            #     )
+            # )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_right3, mode="lines", name=Signals.Columns.HMI_PS_RIGHT_3, visible="legendonly"
+            #     )
+            # )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_left0, mode="lines", name=Signals.Columns.HMI_PS_LEFT_0, visible="legendonly"
+            #     )
+            # )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_left1, mode="lines", name=Signals.Columns.HMI_PS_LEFT_1, visible="legendonly"
+            #     )
+            # )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_left2, mode="lines", name=Signals.Columns.HMI_PS_LEFT_2, visible="legendonly"
+            #     )
+            # )
+            # self.fig.add_trace(
+            #     go.Scatter(
+            #         x=time, y=parkspace_left3, mode="lines", name=Signals.Columns.HMI_PS_LEFT_3, visible="legendonly"
+            #     )
+            # )
 
             self.fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
             fh.highlight_segments(
                 self.fig, screen_nu, constants.RootCauseAnalysis.SCANNING_ACTIVE, time, "LightSalmon", "SCANNING_ACTIVE"
             )
-            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
             plot_titles.append("")
             plots.append(self.fig)
             remarks.append("")
@@ -1548,7 +1553,7 @@ class HMI_STEP(TestStep):
 @testcase_definition(
     name="Slot offering Root Cause Analysis", description="Verify the output checks of components for slot offering."
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class SlotOfferRootCause(TestCase):
     # custom_report = CustomTestcaseReport

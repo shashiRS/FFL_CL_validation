@@ -6,6 +6,7 @@ from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
+    register_inputs,
     register_signals,
     testcase_definition,
     teststep_definition,
@@ -39,7 +40,7 @@ from pl_parking.PLP.CEM.ground_truth.kml_parser import CemGroundTruthHelper
 from pl_parking.PLP.CEM.ground_truth.vehicle_coordinates_helper import VehicleCoordinateHelper
 from pl_parking.PLP.CEM.inputs.input_CemSlotReader import SlotReader
 from pl_parking.PLP.CEM.inputs.input_DGPSReader import DGPSReader
-from pl_parking.PLP.CEM.inputs.input_PsdSlotReader import PSDSlotReader
+from pl_parking.PLP.CEM.inputs.input_PmdSlotReader import PMDSlotReader
 
 SIGNAL_DATA = "PFS_Slot_Scenario_Confidence_Special"
 
@@ -89,7 +90,7 @@ class TestStepFtScenarioConfidence(TestStep):
         )
         slot_reader = SlotReader(reader)
         slot_data = slot_reader.convert_to_class()
-        psd_reader = PSDSlotReader(reader)
+        psd_reader = PMDSlotReader(reader)
         psd_data = psd_reader.convert_to_class()
 
         # Perform comparison of Ground truth against PFS data
@@ -241,6 +242,7 @@ class TestStepFtScenarioConfidence(TestStep):
     description="This test case checks that, in average PFS doesn't provide worse scenario confidence estimation "
     "for the parking scenarios than each input separately.",
 )
+@register_inputs("/parking")
 class FtScenarioConfidence(TestCase):
     """Example test case."""
 

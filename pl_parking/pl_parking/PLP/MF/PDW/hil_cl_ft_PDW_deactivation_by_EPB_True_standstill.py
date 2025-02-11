@@ -32,7 +32,7 @@ TSF_BASE = os.path.abspath(os.path.join(__file__, "..", ".."))
 if TSF_BASE not in sys.path:
     sys.path.append(TSF_BASE)
 
-SIGNAL_DATA = "PDW_DEACTIVATION_BY_EPB"
+SIGNAL_DATA = "PDW_DEACTIVATION_BY_EPB_STD"
 
 
 class ValidationSignals(MDFSignalDefinition):
@@ -79,7 +79,7 @@ class ValidationSignals(MDFSignalDefinition):
         super().__init__()
 
         self._properties = {
-            self.Columns.SPEED: "MTS.ADC5xx_Device.EM_DATA.EmEgoMotionPort.vel_mps",
+            self.Columns.SPEED: "MTS.MTA_ADC5.EM_DATA.EmEgoMotionPort.vel_mps",
             self.Columns.PARK_BRAKE: "MTS.ADAS_CAN.Conti_Veh_CAN.Brake.ParkBrake",
             self.Columns.PARK_BRAKE_STATE: "MTS.ADAS_CAN.Conti_Veh_CAN.Brake.StateParkBrake",
             self.Columns.GEAR_MAN: "MTS.ADAS_CAN.Conti_Veh_CAN.Gear.ActualGear",
@@ -90,8 +90,8 @@ class ValidationSignals(MDFSignalDefinition):
             self.Columns.VEH_VELOCITY: "MTS.ADAS_CAN.Conti_Veh_CAN.VehVelocity.VehVelocityExt",
             self.Columns.PED_BRAKE: "MTS.ADAS_CAN.Conti_Veh_CAN.Brake.DriverBraking",
             self.Columns.IGNITION: "MTS.ADAS_CAN.Conti_Veh_CAN.VehInput05.IgnitionOn",
-            self.Columns.PDW_STANDSTILL_AUTOACTIVATION: "MTS.ADC5xx_Device.CFG_DATA.MF_DWF_APP_Parameter.PDW_L_AUTOM_ACTIV_STANDSTILL_NU",
-            self.Columns.PDW_DEACTV_BY_EPB: "MTS.ADC5xx_Device.CFG_DATA.MF_DWF_APP_Parameter.PDW_L_DEACTIV_BY_EPB_NU",
+            self.Columns.PDW_STANDSTILL_AUTOACTIVATION: "MTS.MTA_ADC5.CFG_DATA.MF_DWF_APP_Parameter.PDW_L_AUTOM_ACTIV_STANDSTILL_NU",
+            self.Columns.PDW_DEACTV_BY_EPB: "MTS.MTA_ADC5.CFG_DATA.MF_DWF_APP_Parameter.PDW_L_DEACTIV_BY_EPB_NU",
             self.Columns.PDW_BUTTON: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIOut1.APHMIOutUserActionHU",
             self.Columns.FRONT1_CRITICAL_LEVEL: "MTS.AP_Private_CAN.AP_Private_CAN.PDCFrontAndLeft.PDCFront1CriticalLevel",
             self.Columns.FRONT2_CRITICAL_LEVEL: "MTS.AP_Private_CAN.AP_Private_CAN.PDCFrontAndLeft.PDCFront2CriticalLevel",
@@ -296,7 +296,7 @@ class PDW_deactivation_by_EPB_standstill(TestStep):
             else:
                 # FTTI time delay
                 FTTI_time += time_signal[frame] - time_signal[frame - 1]
-                if FTTI_time >= constants.HilCl.PDW.FTTI.SYSTEM:  # 600ms - system FTTI
+                if FTTI_time >= constants.HilCl.PDW.FTTI.SYSTEM_WO_OBJECTS:  # 200ms - system FTTI
                     start_waiting = 0
         """Check if preconditions were ok"""
         if trigger1 is False:

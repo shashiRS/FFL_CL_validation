@@ -4,11 +4,12 @@ import math
 import sys
 import typing
 
-from pl_parking.PLP.CEM.constants import AssociationConstants
+from pl_parking.PLP.CEM.constants import AssociationConstants, CemSlotScenario
 from pl_parking.PLP.CEM.ft_pose_helper import FtPoseHelper
-from pl_parking.PLP.CEM.inputs.input_CemSlotReader import Slot, SlotPoint, SlotTimeFrame
-from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import RelativeMotion
-from pl_parking.PLP.CEM.inputs.input_PsdSlotReader import PSDSlot, PSDSlotPoint, PSDTimeFrame
+from pl_parking.PLP.CEM.ground_truth.vehicle_coordinates_helper import VehicleCoordinateHelper
+from pl_parking.PLP.CEM.inputs.input_CemSlotReader import Slot, SlotPoint, SlotScenarioConfidences, SlotTimeFrame
+from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import RelativeMotion, VedodoTimeframe
+from pl_parking.PLP.CEM.inputs.input_PmdSlotReader import PMDSlot, PMDSlotPoint, PMDTimeFrame
 
 
 class FtSlotHelper:
@@ -78,11 +79,13 @@ class FtSlotHelper:
         """Transform a slot using relative motion."""
         transformed_corner = [FtPoseHelper.transform_point([s.x, s.y], relative_motion) for s in slot.slot_corners]
         transformed_point = [SlotPoint(c[0], c[1]) for c in transformed_corner]
-        return Slot(slot.slot_id, slot.existence_probability, transformed_point, slot.scenario_confidence)
+        return Slot(
+            slot.slot_timestamp, slot.slot_id, slot.existence_probability, transformed_point, slot.scenario_confidence
+        )
 
     @staticmethod
     def calculate_scenario_confidence_correctness(
-        measurements: typing.List[typing.Union[Slot, PSDSlot]], ground_truth: typing.List[Slot]
+        measurements: typing.List[typing.Union[Slot, PMDSlot]], ground_truth: typing.List[Slot]
     ) -> typing.Tuple[float, int]:
         """Calculate the correctness of scenario confidence."""
         sum_confidence = 0.0
@@ -96,13 +99,13 @@ class FtSlotHelper:
 
     @staticmethod
     def calculate_accuracy_correctness(
-        measurements: typing.List[typing.Union[Slot, PSDSlot]], ground_truth: typing.List[Slot]
+        measurements: typing.List[typing.Union[Slot, PMDSlot]], ground_truth: typing.List[Slot]
     ) -> typing.Tuple[float, int]:
         """
         Calculate the correctness of accuracy.
 
         Args:
-            measurements (List[Union[Slot, PSDSlot]]): The list of measured slots.
+            measurements (List[Union[Slot, PMDSlot]]): The list of measured slots.
             ground_truth (List[Slot]): The list of ground truth slots.
 
         Returns:
@@ -118,13 +121,13 @@ class FtSlotHelper:
     # slots should be in the same coordinate systems
     @staticmethod
     def associate_slot_ground_truth(
-        measurements: typing.List[typing.Union[Slot, PSDSlot]], ground_truth: typing.List[Slot]
+        measurements: typing.List[typing.Union[Slot, PMDSlot]], ground_truth: typing.List[Slot]
     ) -> typing.Dict[int, int]:
         """
         Associate measured slots with ground truth slots.
 
         Args:
-            measurements (List[Union[Slot, PSDSlot]]): The list of measured slots.
+            measurements (List[Union[Slot, PMDSlot]]): The list of measured slots.
             ground_truth (List[Slot]): The list of ground truth slots.
 
         Returns:
@@ -137,7 +140,7 @@ class FtSlotHelper:
             for slot_ixd, slot in enumerate(measurements):
                 FtSlotHelper.order_points_counter_clockwise(slot)
                 distance = FtSlotHelper.get_slot_distance(slot, gt)
-                if distance < AssociationConstants.MAX_SLOT_DISTANCE:
+                if distance < AssociationConstants.MAX_SLOT_DISTANCE_ERG_KPI:
                     if (
                         gt_ixd not in association
                         or FtSlotHelper.get_slot_distance(measurements[association[gt_ixd]], gt) > distance
@@ -148,12 +151,12 @@ class FtSlotHelper:
 
     # Slot corners need to be ordered the in same way
     @staticmethod
-    def get_slot_distance(slot: typing.Union[Slot, PSDSlot], gt: Slot):
+    def get_slot_distance(slot: typing.Union[Slot, PMDSlot], gt: Slot):
         """
         Calculate the distance between a measured slot and a ground truth slot.
 
         Args:
-            slot (Union[Slot, PSDSlot]): The measured slot.
+            slot (Union[Slot, PMDSlot]): The measured slot.
             gt (Slot): The ground truth slot.
 
         Returns:
@@ -168,27 +171,27 @@ class FtSlotHelper:
         return distance / 5
 
     @staticmethod
-    def order_points_counter_clockwise(slot: typing.Union[Slot, PSDSlot]) -> None:
+    def order_points_counter_clockwise(slot: typing.Union[Slot, PMDSlot]) -> None:
         """Order the corner points of a slot counter-clockwise."""
         center = FtSlotHelper.get_center_point(slot)
         slot.slot_corners.sort(key=lambda p: math.atan2(p.x - center.x, p.y - center.y), reverse=True)
 
     @staticmethod
-    def get_center_point(slot: typing.Union[Slot, PSDSlot]) -> SlotPoint:
+    def get_center_point(slot: typing.Union[Slot, PMDSlot]) -> SlotPoint:
         """Calculate the center point of a slot."""
         return SlotPoint(
             sum([corner.x for corner in slot.slot_corners]) / 4, sum([corner.y for corner in slot.slot_corners]) / 4
         )
 
     @staticmethod
-    def get_point_distance(p1: typing.Union[SlotPoint, PSDSlotPoint], p2: typing.Union[SlotPoint, PSDSlotPoint]):
+    def get_point_distance(p1: typing.Union[SlotPoint, PMDSlotPoint], p2: typing.Union[SlotPoint, PMDSlotPoint]):
         """Calculate the distance between two points."""
         xd = p1.x - p2.x
         yd = p1.y - p2.y
         return math.sqrt(xd * xd + yd * yd)
 
     @staticmethod
-    def calculate_pair_scenario_confidence(slot: typing.Union[Slot, PSDSlot], gt: Slot) -> typing.Tuple[float, bool]:
+    def calculate_pair_scenario_confidence(slot: typing.Union[Slot, PMDSlot], gt: Slot) -> typing.Tuple[float, bool]:
         """Calculate the scenario confidence for a pair of slots."""
         if (
             gt.scenario_confidence.angled > 0
@@ -207,7 +210,7 @@ class FtSlotHelper:
 
     @staticmethod
     def get_PSD_timeframe_index(
-        timestamp_before: int, timestamp_after: int, PSDs: typing.List[PSDTimeFrame], start_index: int = 0
+        timestamp_before: int, timestamp_after: int, PSDs: typing.List[PMDTimeFrame], start_index: int = 0
     ):
         """Get the index of a PSD timeframe."""
         for index, tf in enumerate(PSDs[start_index:]):
@@ -219,7 +222,7 @@ class FtSlotHelper:
 
     @staticmethod
     def get_solts_with_associated_input(
-        CEM: typing.List[Slot], PSD_timeframes: typing.List[PSDTimeFrame]
+        CEM: typing.List[Slot], PSD_timeframes: typing.List[PMDTimeFrame]
     ) -> typing.List[Slot]:
         """Get slots associated with input PSDs."""
         output: typing.List[Slot] = []
@@ -245,7 +248,10 @@ class FtSlotHelper:
     # Return a dictionary 1 to 1 where the key is a prev index and the value is a current index
     @staticmethod
     def associate_slot_list(current: typing.List[Slot], prev: typing.List[Slot]) -> typing.Dict[int, int]:
-        """Associate slots between current and previous timeframes."""
+        """Associate slots between current and previous timeframes.
+        Returns: GT slots paired to detected slots
+             # if return value is {1,0}, then GT slot[1] is paired to Detected slot[0]
+        """
         for prev_slot in prev:
             FtSlotHelper.order_points_counter_clockwise(prev_slot)
         association = {}
@@ -272,3 +278,107 @@ class FtSlotHelper:
                     rev_association[prev_ixd] = cur_index
 
         return rev_association
+
+    @staticmethod
+    def scenario_to_vehicle_coord(point_x, point_y, ego_pose_x, ego_pose_y, heading_rad):
+        """
+        :param point_x: x location (in utm coordinate)
+        :param point_y: y location (in utm coordinate)
+        :param ego_pose_x: x vehicle location (in utm coordinate)
+        :param ego_pose_y: y vehicle location (in utm coordinate)
+        :param heading_rad: vehicle orientation from north axis in radian (clockwise)
+        :return: vehicle_coord_point_x and vehicle_coord_point_y that are ground truth points in vehicle coordinates
+        """
+        rotated_vehicle_coord_x = point_x - ego_pose_x
+        rotated_vehicle_coord_y = point_y - ego_pose_y
+
+        cos_heading_from_north = math.cos(heading_rad)
+        sin_heading_from_north = math.sin(heading_rad)
+
+        vehicle_coord_point_x = (
+            cos_heading_from_north * rotated_vehicle_coord_x + sin_heading_from_north * rotated_vehicle_coord_y
+        )
+        vehicle_coord_point_y = (
+            -sin_heading_from_north * rotated_vehicle_coord_x + cos_heading_from_north * rotated_vehicle_coord_y
+        )
+
+        return vehicle_coord_point_x, vehicle_coord_point_y
+
+    @staticmethod
+    def slot_to_vehicle(slot_gt: typing.List[Slot], ego_pos: VedodoTimeframe) -> typing.List[Slot]:
+        """Converts slot ground truth points from UTM to vehicle coordinates."""
+        out: typing.List[Slot] = []
+
+        for slot in slot_gt:
+            ok = False
+            vertices_vehicle: typing.List[SlotPoint] = []
+
+            for vertex in slot.slot_corners:
+                vertex_vehicle = FtSlotHelper.scenario_to_vehicle_coord(
+                    vertex.x, vertex.y, ego_pos.x, ego_pos.y, ego_pos.yaw
+                )
+
+                ok |= VehicleCoordinateHelper.is_point_relevent(vertex_vehicle[0], vertex_vehicle[1])
+                vertices_vehicle.append(SlotPoint(vertex_vehicle[0], vertex_vehicle[1]))
+
+            if ok:
+                slot_vehicle = Slot(
+                    slot.slot_id, slot.existence_probability, vertices_vehicle, slot.scenario_confidence
+                )
+                out.append(slot_vehicle)
+
+        return out
+
+    @staticmethod
+    def get_slot_from_json_gt(gt_data):
+        """Get PCL from JSON ground truth data."""
+        slot_gt_output = dict()
+        slots_all_ts = gt_data["PfsParkingSlots"]
+
+        for _, slots in enumerate(slots_all_ts):
+            ts_slots = slots["sSigHeader"]["uiTimeStamp"]
+            slot_gt_output[ts_slots] = list()
+
+            for slot in slots["parkingSlots"]:
+                corners = []
+                for k in range(4):
+                    p = SlotPoint(float(slot["slotCorners"][k]["x"]), float(slot["slotCorners"][k]["y"]))
+                    corners.append(p)
+
+                slot_out = Slot(
+                    ts_slots,
+                    float(slot["slotId"]),
+                    float(slot["existenceProbability"]),
+                    corners,
+                    SlotScenarioConfidences(
+                        slot["parkingScenarioConfidence"]["angled"],
+                        slot["parkingScenarioConfidence"]["parallel"],
+                        slot["parkingScenarioConfidence"]["perpendicular"],
+                    ),
+                )
+
+                slot_gt_output[ts_slots].append(slot_out)
+
+        return slot_gt_output
+
+    @staticmethod
+    def get_slot_scenario(slot: typing.Union[Slot, PMDSlot]):
+        """
+        Adjust the slot corner point list by rotation.
+        The list is correct when the corner distance is minimal between the detected and the gt slot
+        """
+        if (
+            slot.scenario_confidence.angled >= slot.scenario_confidence.parallel
+            and slot.scenario_confidence.angled >= slot.scenario_confidence.perpendicular
+        ):
+            return CemSlotScenario.SLOT_SCENARIO_ANGLED
+        if (
+            slot.scenario_confidence.parallel >= slot.scenario_confidence.angled
+            and slot.scenario_confidence.parallel >= slot.scenario_confidence.perpendicular
+        ):
+            return CemSlotScenario.SLOT_SCENARIO_PARALLEL
+        if (
+            slot.scenario_confidence.perpendicular >= slot.scenario_confidence.angled
+            and slot.scenario_confidence.perpendicular >= slot.scenario_confidence.parallel
+        ):
+            return CemSlotScenario.SLOT_SCENARIO_PERPENDICULAR

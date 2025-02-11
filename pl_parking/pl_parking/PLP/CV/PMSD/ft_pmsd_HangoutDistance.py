@@ -226,7 +226,7 @@ class PMSDHangoutDistanceTestStep(TestStep):
     name="PMSD Hangout Distance",
     description="",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class PMSDHangoutDistance(TestCase):
     """Example test case."""

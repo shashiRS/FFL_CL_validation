@@ -84,7 +84,7 @@ class AupRevErrEbdCheck(TestStep):
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
 
-        read_data = self.readers[SIGNAL_DATA].signals
+        read_data = self.readers[SIGNAL_DATA]
         test_result = fc.INPUT_MISSING  # Result
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = fh.rep([], 3)
@@ -98,92 +98,129 @@ class AupRevErrEbdCheck(TestStep):
         state_on_hmi_sig = read_data["State_on_HMI"].tolist()
         ebd_state_sig = read_data["EBD_state"].tolist()
 
-        act_idx = []
-        deact_idx = []
-        act_time = []
-        t1_idx = None
+        t_act_idx = None
+        t_deact_idx = None
+        t_parking_idx = None
+        ebd_time = None
         evaluation1 = " ".join(
-            f"The evaluation is PASSED, reversibel error is detected and it is presented in {signal_name['State_on_HMI']}."
+            f"The evaluation of {signal_name['State_on_HMI']} signal is PASSED, state of signal swithces to"
+            f" PPC_REVERSIBLE_ERROR ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR}) if reversible error is detected."
             " Reversible error is an EBD intervention and it is longer than"
             f" {constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S} s".split()
         )
 
         """Evaluation part"""
-        # Find where EBD get active
-        act_idx = HilClFuntions.RisingEdge(ebd_state_sig, 0)
-        deact_idx = HilClFuntions.FallingEdge(ebd_state_sig, 0)
-
-        # Find when AP state switch to Maneuvering
-        for cnt in range(0, len(state_on_hmi_sig)):
-            if state_on_hmi_sig[cnt] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
-                t1_idx = cnt
+        # Find parking
+        for cnt, item in enumerate(state_on_hmi_sig):
+            if item == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
+                t_parking_idx = cnt
                 break
 
-        # Check conditions of TestRun
-        # Condition 1: At least one EBD activation
-        # Condition 2: Number of activations and number of deactivations are the same
-        # Condition 3: AP function switched into Maneuvering mode before EBD intervention
-        if len(act_idx) != 0 and len(act_idx) == len(deact_idx) and t1_idx is not None:
-            eval_cond = [True] * 1
+        if t_parking_idx is not None:
+            # Find EBD activation and deactivation
+            for cnt in range(t_parking_idx, len(ebd_state_sig)):
+                if ebd_state_sig[cnt] == constants.HilCl.FunctionActivate.EBD_ACTIVE:
+                    t_act_idx = cnt
+                    break
 
-            if t1_idx > act_idx[0]:
-                eval_cond[0] = False
-                evaluation1 = " ".join(
-                    "The evaluation is FAILED, EBD activated before AP function switched into Maneuvereing mode.".split()
-                )
-            else:
-                # Check all EBD activity
-                for cnt in range(0, len(act_idx)):
-                    act_time = time_signal[deact_idx[cnt]] - time_signal[act_idx[cnt]]
-                    act_time = round(act_time * 1e-6, 4)
+            if t_act_idx is not None:
 
-                    # Collect AP state between actual EBD activity
-                    for index in range(act_idx[cnt], deact_idx[cnt] + 1):
-                        if (
-                            state_on_hmi_sig[index]
-                            == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR
-                        ):
-                            # Check system reaction time
-                            delta_time = time_signal[index] - time_signal[act_idx[cnt]]
-                            delta_time *= 1e-6
-                            if delta_time < constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S:
-                                evaluation1 = " ".join(
-                                    f"The evaluation is FAILED, AP system detectes reversible error earliier than"
-                                    f" AP_G_EBD_TIME_THRESH_S ({constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S} s)."
-                                    f" Detection time is {delta_time}".split()
+                # Find EBD deact
+                for cnt in range(t_act_idx, len(ebd_state_sig)):
+                    if ebd_state_sig[cnt] != constants.HilCl.FunctionActivate.EBD_ACTIVE:
+                        t_deact_idx = cnt
+                        break
+
+                if t_deact_idx is not None:
+                    # Calculate lenght of EBD
+                    ebd_time = time_signal[t_deact_idx] - time_signal[t_act_idx]
+                    # Set time to sec
+                    ebd_time = ebd_time * 1e-6
+
+                    # Compare with limit
+                    if ebd_time > constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S:
+                        eval_cond = [True] * 1
+
+                        states_dict = HilClFuntions.States(state_on_hmi_sig, t_act_idx, len(state_on_hmi_sig), 1)
+
+                        counter = 0
+
+                        # Keys contains the idx
+                        for key in states_dict:
+                            if counter == 1:
+                                actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
+                                    states_dict[key]
                                 )
-                                eval_cond[0] = False
-                                break
+                                actual_number = int(states_dict[key])
+
+                                reaction_time = time_signal[key] - time_signal[t_act_idx]
+                                reaction_time = reaction_time * 1e-6  # Set to sec
+
+                                if (
+                                    reaction_time < constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S
+                                    and states_dict[key]
+                                    == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR
+                                ):
+                                    test_result = fc.FAIL
+                                    eval_cond = [False] * 1
+                                    evaluation1 = " ".join(
+                                        f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal"
+                                        f" switches to PPC_REVERSIBLE_ERROR ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR})."
+                                        f" Reaction time of the system is {reaction_time} sec. This values is less then AP_G_EBD_TIME_THRESH_S"
+                                        f" ({constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S}) sec. System shall not detect reversible error in this case.".split()
+                                    )
+
+                                if (
+                                    states_dict[key]
+                                    != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR
+                                ):
+                                    evaluation1 = " ".join(
+                                        f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} ({actual_number}) mode."
+                                        f" Lenght of EBD intervetion is {ebd_time} sec."
+                                        f" Requiered state is PPC_REVERSIBLE_ERROR ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR})".split()
+                                    )
+                                    eval_cond[0] = False
+                                    break
+                                counter += 1
+
                             else:
-                                # Test PASSED: Reversible error detected, Issue detected after AP_G_EBD_TIME_THRESH_S
+                                counter += 1
+                    else:
+                        eval_cond = [True] * 1
+                        # Check reversible error in whole measurement after activation
+                        for cnt in range(t_act_idx, len(state_on_hmi_sig)):
+                            if (
+                                state_on_hmi_sig[cnt]
+                                == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR
+                            ):
+                                eval_cond[0] = False
+                                evaluation1 = " ".join(
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal switches to PPC_REVERSIBLE_ERROR"
+                                    f" ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR}) at {time_signal[cnt]} us but EBD intervention is"
+                                    f" less then AP_G_EBD_TIME_THRESH_S ({constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S}) sec.".split()
+                                )
                                 break
-
-                        # There was no isse detection by AP functionality
-                        if index == deact_idx[cnt]:
-                            evaluation1 = " ".join(
-                                "The evaluation is FAILED, AP system does not detect reversible error,"
-                                f" but EBD intervention is {act_time} s and this value is greater"
-                                f" than {constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S} s.".split()
-                            )
-                            eval_cond[0] = False
-                            break
-
-        elif len(act_idx) != 0 and len(act_idx) == len(deact_idx) and t1_idx is None:
-            test_result = fc.FAIL
-            eval_cond = [False] * 1
-            evaluation1 = " ".join(
-                "The evaluation is FAILED, AP funtion never switched into Maneuvering mod in TestRun.".split()
-            )
-
-        elif len(act_idx) == 0 and len(act_idx) == len(deact_idx) and t1_idx is not None:
-            test_result = fc.FAIL
-            eval_cond = [False] * 1
-            evaluation1 = " ".join("The evaluation is FAILED, no EBD intervention in TestRun.".split())
-
+                else:
+                    test_result = fc.FAIL
+                    eval_cond = [False] * 1
+                    evaluation1 = " ".join(
+                        f"The evaluation of {signal_name['EBD_state']} signal is FAILED, value of signal never switched out from EBD_ACTIVE ({constants.HilCl.FunctionActivate.EBD_ACTIVE})."
+                        " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
+                    )
+            else:
+                test_result = fc.FAIL
+                eval_cond = [False] * 1
+                evaluation1 = " ".join(
+                    f"The evaluation of {signal_name['EBD_state']} signal is FAILED, value of signal never switched to EBD_ACTIVE ({constants.HilCl.FunctionActivate.EBD_ACTIVE})."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
+                )
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
-            evaluation1 = " ".join("The evaluation is FAILED, invalide TestRun.".split())
+            evaluation1 = " ".join(
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal never switched to PPC_PERFORM_PARKING ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING})."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
+            )
 
         if all(eval_cond):
             test_result = fc.PASS
@@ -217,14 +254,10 @@ class AupRevErrEbdCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:
@@ -247,7 +280,7 @@ class AupRevErrEbdCheck(TestStep):
         f" {constants.HilCl.ApThreshold.AP_G_EBD_TIME_THRESH_S} s."
     ),
 )
-class FtCommon(TestCase):
+class AupRevErrEbd(TestCase):
     """AupRevErrEbd Test Case."""
 
     custom_report = MfHilClCustomTestcaseReport

@@ -2,6 +2,7 @@
 
 import plotly.graph_objects as go
 
+import pl_parking.PLP.MF.constants as constants
 from pl_parking.PLP.MF.constants import PlotlyTemplate
 
 x_coords_front = [
@@ -263,11 +264,162 @@ sector_dict_rear = {
 }
 
 
-def plotter_helper(time, signals, columns):
+def plotter_helper(time, signals, columns, signal_paths):
     """Add traces to a figure in order to plot it."""
     fig = go.Figure()
     for column in columns:
-        fig.add_trace(go.Scatter(x=time, y=signals[column], mode="lines", name=column))
+        fig.add_trace(go.Scatter(x=time, y=signals[column], mode="lines", name=signal_paths[column]))
     fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[us]")
     fig.update_layout(PlotlyTemplate.lgt_tmplt)
     return fig
+
+
+pdw_sector_length = constants.SilCl.PDWConstants.PDWSectorLength
+
+
+class PDWSectorDistance:
+    """Helper for PDW measurements"""
+
+    def sector_evaluation(smallest_dist_f: list, critical_level_f: list, type_of_sector: list):
+        """
+        This function evaluate_signals takes smallest_dist_f (an array with 4 signals of smallest_distance for each front)
+        and critical_level_f (an array with 4 signals of critical for each front) as parameters. It then iterates over each front,
+        checks if the critical level (a mask that checks if an object was detected) is non-zero, and evaluates accordingly.
+        Finally, it returns a dictionary signal_summary where each segment of front is associated with its evaluation string.
+        """
+        signal_summary = {}
+        verdict = []
+
+        for idx, (smallest_dist, critical_level) in enumerate(zip(smallest_dist_f, critical_level_f)):
+            critical_level_mask = any(critical_level)  # Checking if any value in the array is non-zero
+            if critical_level_mask:
+                smallest_dist_front1 = min(smallest_dist)
+                for i, element in enumerate(smallest_dist):
+                    if element == smallest_dist_front1:
+                        idx_crit = i
+                        break
+                verdict.append(True)
+                sector_slice = 0
+                smallest_dist_front = round(min(smallest_dist), 3)
+                if smallest_dist_front <= pdw_sector_length.SLICE_LENGTH:
+                    sector_slice = 1
+                elif (
+                    smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 2)
+                    and smallest_dist_front >= pdw_sector_length.SLICE_LENGTH
+                ):
+                    sector_slice = 2
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 3) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 2
+                ):
+                    sector_slice = 3
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 4) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 3
+                ):
+                    sector_slice = 4
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 5) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 4
+                ):
+                    sector_slice = 5
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 6) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 5
+                ):
+                    sector_slice = 6
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 7) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 6
+                ):
+                    sector_slice = 7
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 8) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 7
+                ):
+                    sector_slice = 8
+                elif smallest_dist_front <= pdw_sector_length.PDW_SECTOR_LENGTH and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 8
+                ):
+                    sector_slice = 9
+                evaluation = f"The criticality level = {critical_level_f[idx].iat[idx_crit]} in slice {sector_slice} with smallest distance detected towards object {smallest_dist_front} m."
+            else:
+                verdict.append(False)
+                evaluation = "No object detected."
+
+            signal_summary[f"{type_of_sector[idx]}"] = evaluation
+        return signal_summary, verdict
+
+    def all_sector_evaluation(
+        smallest_dist_f: list,
+        critical_level_f: list,
+        type_of_sector: list,
+        obstacle_dist_f: list,
+        obstacle_signals_f: list,
+    ):
+        """
+        This function evaluate_signals takes smallest_dist_f (an array with 4 signals of smallest_distance for each front)
+        and critical_level_f (an array with 4 signals of critical for each front) as parameters. It then iterates over each front,
+        checks if the critical level (a mask that checks if an object was detected) is non-zero, and evaluates accordingly.
+        Finally, it returns a dictionary signal_summary where each segment of front is associated with its evaluation string.
+        """
+        signal_summary = {}
+        verdict = []
+
+        for idx, (smallest_dist, critical_level, obstacle_dist) in enumerate(
+            zip(smallest_dist_f, critical_level_f, obstacle_dist_f)
+        ):
+            critical_level_mask = any(critical_level)  # Checking if any value in the array is non-zero
+            if critical_level_mask:
+                smallest_dist_front1 = min(smallest_dist)
+                for i, element in enumerate(smallest_dist):
+                    if element == smallest_dist_front1:
+                        idx_crit = i
+                        break
+                verdict.append(True)
+                smallest_dist_front = round(min(smallest_dist), 3)
+                obstacle_dist_front = round(min(obstacle_dist), 3)
+                sector_slice = 0
+                if smallest_dist_front <= pdw_sector_length.SLICE_LENGTH:
+                    sector_slice = 1
+                elif (
+                    smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 2)
+                    and smallest_dist_front >= pdw_sector_length.SLICE_LENGTH
+                ):
+                    sector_slice = 2
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 3) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 2
+                ):
+                    sector_slice = 3
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 4) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 3
+                ):
+                    sector_slice = 4
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 5) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 4
+                ):
+                    sector_slice = 5
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 6) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 5
+                ):
+                    sector_slice = 6
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 7) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 6
+                ):
+                    sector_slice = 7
+                elif smallest_dist_front <= (pdw_sector_length.SLICE_LENGTH * 8) and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 7
+                ):
+                    sector_slice = 8
+                elif smallest_dist_front <= pdw_sector_length.PDW_SECTOR_LENGTH and smallest_dist_front >= (
+                    pdw_sector_length.SLICE_LENGTH * 8
+                ):
+                    sector_slice = 9
+                evaluation1 = f"The criticality level = {critical_level_f[idx].iat[idx_crit]} in SLICE {sector_slice} with smallest distance detected towards object {smallest_dist_front} m."
+                evaluation2 = f"The criticality level = {critical_level_f[idx].iat[idx_crit]} in SLICE {sector_slice} with smallest distance detected towards object {obstacle_dist_front} m."
+            else:
+                verdict.append(False)
+                evaluation1 = "No object detected."
+                evaluation2 = "No object detected."
+
+            signal_summary[f"{type_of_sector[idx]}"] = evaluation1
+            signal_summary[f"{obstacle_signals_f[idx]}"] = evaluation2
+        return signal_summary, verdict
+
+
+all_sector_evaluation = PDWSectorDistance.all_sector_evaluation
+sector_evaluation = PDWSectorDistance.sector_evaluation

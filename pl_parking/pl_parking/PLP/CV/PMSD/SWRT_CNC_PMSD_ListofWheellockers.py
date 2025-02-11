@@ -9,6 +9,7 @@ _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
+import pandas as pd
 from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
@@ -58,7 +59,6 @@ class PmsdListWheellockersTestStep(TestStep):
 
         test_result = fc.INPUT_MISSING  # Result
         plot_titles, plots, remarks = rep([], 3)
-        signal_summary = {}
 
         reader = self.readers[SIGNAL_DATA].signals
         df = reader.as_plain_df
@@ -127,23 +127,31 @@ class PmsdListWheellockersTestStep(TestStep):
 
         test_result = fc.PASS if all(cond_bool) else fc.FAIL
 
-        signal_summary["FC_Detected_Wheellockers"] = evaluation[0]
-        signal_summary["RC_Detected_Wheellockers"] = evaluation[1]
-        signal_summary["LSC_Detected_Wheellockers"] = evaluation[2]
-        signal_summary["RSC_Detected_Wheellockers"] = evaluation[3]
-
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(values=["Signal Evaluation", "Summary"]),
-                    cells=dict(values=[list(signal_summary.keys()), list(signal_summary.values())]),
-                )
-            ]
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": "Front Camera Wheellockers Detections should be present",
+                    "2": "Rear Camera Wheellockers Detections should be present",
+                    "3": "Left Camera Wheellockers Detections should be present",
+                    "4": "Right Camera Wheellockers Detections should be present",
+                },
+                "Result": {
+                    "1": evaluation[0],
+                    "2": evaluation[1],
+                    "3": evaluation[2],
+                    "4": evaluation[3],
+                },
+                "Verdict": {
+                    "1": "PASSED" if cond_bool[0] else "FAILED",
+                    "2": "PASSED" if cond_bool[1] else "FAILED",
+                    "3": "PASSED" if cond_bool[2] else "FAILED",
+                    "4": "PASSED" if cond_bool[3] else "FAILED",
+                },
+            }
         )
 
-        plot_titles.append("Signal Evaluation")
-        plots.append(fig)
-        remarks.append("PMSD Evaluation")
+        sig_sum = fh.build_html_table(signal_summary, table_title="PMSD List of WheelLockers")
+        self.result.details["Plots"].append(sig_sum)
 
         if len(pmd_data) != 0:
             for camera, _ in pmd_data.items():
@@ -209,8 +217,8 @@ class PmsdListWheellockersTestStep(TestStep):
     name="SWRT_CNC_PMSD_ListofWheellockers",
     description="Verify Detected Wheellockers",
 )
-@register_inputs("/Playground_2/TSF-Debug")
-# @register_inputs("/TSF_DEBUG/")
+@register_inputs("/parking")
+# @register_inputs("/parking")
 class PmsdListofWheellockers(TestCase):
     """ListofWheellockers test case."""
 

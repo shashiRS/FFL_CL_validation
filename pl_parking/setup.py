@@ -18,6 +18,9 @@ __status__ = "Production"
 with open(ROOT / "requirements.txt", "r") as f:
     install_requires = [line.rstrip() for line in f]
 
+# Check if local build or cloud
+if "Jenkins" not in str(ROOT) and "workspace" in str(ROOT):
+    install_requires.append("mtspy")
 packages = setuptools.find_packages(include=["pl_parking*"])
 
 setuptools.setup(

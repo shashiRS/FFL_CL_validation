@@ -14,6 +14,10 @@ from pl_parking.PLP.CEM.inputs.input_DGPSReader import DgpsTimeframe
 class VehicleCoordinateHelper:
     """Provides helper functions for vehicle coordinates."""
 
+    parking_markers = []
+    wheelstoppers = []
+    parking_slots = []
+
     @staticmethod
     def is_point_relevent(x_vehicle: float, y_vehicle: float):
         """Check if a point is relevant based on its distance from the vehicle.

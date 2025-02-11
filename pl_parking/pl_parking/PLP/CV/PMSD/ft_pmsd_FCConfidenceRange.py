@@ -270,7 +270,7 @@ class PmsdLineConfTestStep(TestStep):
     name="PMSD LineConf",
     description="",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class PmsdLineConf(TestCase):
     """Example test case."""

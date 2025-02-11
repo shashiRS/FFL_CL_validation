@@ -1,7 +1,11 @@
 """helper module for pl_parking"""
 
+import json
+import logging
 import os
 import sys
+
+_log = logging.getLogger(__name__)
 
 sys_path = os.path.abspath(os.path.join(__file__, ".."))
 if sys_path not in sys.path:
@@ -11,6 +15,67 @@ from typing import Any, Union
 from tsf.io.signals import SignalDefinition
 
 from pl_parking.PLP.MF.constants import Platforms
+
+
+def hex_to_rgba(h, alpha):
+    """Converts color value in hex format to rgba format with alpha transparency"""
+    return "rgba" + str(tuple([int(h.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4)] + [alpha]))
+
+
+def load_json(path: str):
+    """
+    Load JSON data from a file.
+
+    Parameters:
+    - filepath: str, the path to the JSON file.
+
+    Returns:
+    - data: dictionary, the parsed JSON data.
+    """
+    try:
+        with open(path) as file:
+            data = json.load(file)
+    except FileNotFoundError:
+        _log.error("Ground truth file not found.")
+        data = "Ground truth file not found."
+    return data
+
+
+def generate_html_fraction(kpi_name: str, numerator: list, denominator: list) -> str:
+    """
+    Generate HTML code for KPI formula. Will output kpi_name = sum(numerator) / sum(denominator).
+    :param kpi_name: The name of the KPI.
+    :param numerator: A list with the variables contained by the nominator.
+    :param denominator: A list with the variables contained by the denominator.
+    :return: HTML string containing math ml for drawing the fraction.
+    """
+    html_string = '<math display="block">'
+    html_string += f"<mi>{kpi_name}</mi> <mo>=</mo>"  # Define KPI =
+
+    # Define the fraction
+    html_string += "<mrow><mfrac>"
+
+    # Define the numerator
+    html_string += "<mrow>"
+    for val in numerator:
+        html_string += f"<mi>{val}</mi>"
+        if val != numerator[-1]:
+            html_string += "<mo>+</mo>"
+    html_string += "</mrow>"
+
+    # Define the denominator
+    html_string += "<mrow>"
+    for val in denominator:
+        html_string += f"<mi>{val}</mi>"
+        if val != denominator[-1]:
+            html_string += "<mo>+</mo>"
+    html_string += "</mrow>"
+
+    # Close the tags
+    html_string += "</mfrac></mrow>"
+    html_string += "</math><p></p>"
+
+    return html_string
 
 
 class Parking:

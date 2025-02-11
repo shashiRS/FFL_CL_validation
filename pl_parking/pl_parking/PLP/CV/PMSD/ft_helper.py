@@ -10,6 +10,11 @@ from pl_parking.PLP.CV.PMSD.association import VehicleLine, VehiclePoint
 from pl_parking.PLP.CV.PMSD.constants import Platforms
 
 
+def hex_to_rgba(h, alpha):
+    """Converts color value in hex format to rgba format with alpha transparency"""
+    return 'rgba' + str(tuple([int(h.lstrip('#')[i:i + 2], 16) for i in (0, 2, 4)] + [alpha]))
+
+
 class Parking:
     """Stores sensor data calculated in TRC coordinate system if the memory threshold is satisfied"""
 
@@ -281,6 +286,22 @@ class PMSDSignals(SignalDefinition):
         PMSDSLOT_LEFT_EXISTENCEPROBABILITY = "PmsdSlot_Left_existenceProbability"
         PMSDSLOT_REAR_EXISTENCEPROBABILITY = "PmsdSlot_Rear_existenceProbability"
         PMSDSLOT_RIGHT_EXISTENCEPROBABILITY = "PmsdSlot_Right_existenceProbability"
+        PMSDSLOT_FRONT_SCENARIO_CONFIDENCE = "PmsdSlot_Front_ScenarioConfidence"
+        PMSDSLOT_LEFT_SCENARIO_CONFIDENCE = "PmsdSlot_Left_ScenarioConfidence"
+        PMSDSLOT_REAR_SCENARIO_CONFIDENCE = "PmsdSlot_Rear_ScenarioConfidence"
+        PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE = "PmsdSlot_Right_ScenarioConfidence"
+        PMSDSLOT_FRONT_SCENARIO_CONFIDENCE_PARALLEL = "PmsdSlot_Front_ScenarioConfidence_Parallel"
+        PMSDSLOT_LEFT_SCENARIO_CONFIDENCE_PARALLEL = "PmsdSlot_Left_ScenarioConfidence_Parallel"
+        PMSDSLOT_REAR_SCENARIO_CONFIDENCE_PARALLEL = "PmsdSlot_Rear_ScenarioConfidence_Parallel"
+        PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE_PARALLEL = "PmsdSlot_Right_ScenarioConfidence_Parallel"
+        PMSDSLOT_FRONT_SCENARIO_CONFIDENCE_PERPENDICULAR = "PmsdSlot_Front_ScenarioConfidence_Perpendicular"
+        PMSDSLOT_LEFT_SCENARIO_CONFIDENCE_PERPENDICULAR = "PmsdSlot_Left_ScenarioConfidence_Perpendicular"
+        PMSDSLOT_REAR_SCENARIO_CONFIDENCE_PERPENDICULAR = "PmsdSlot_Rear_ScenarioConfidence_Perpendicular"
+        PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE_PERPENDICULAR = "PmsdSlot_Right_ScenarioConfidence_Perpendicular"
+        PMSDSLOT_FRONT_SCENARIO_CONFIDENCE_ANGLED = "PmsdSlot_Front_ScenarioConfidence_Angled"
+        PMSDSLOT_LEFT_SCENARIO_CONFIDENCE_ANGLED = "PmsdSlot_Left_ScenarioConfidence_Angled"
+        PMSDSLOT_REAR_SCENARIO_CONFIDENCE_ANGLED = "PmsdSlot_Rear_ScenarioConfidence_Angled"
+        PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE_ANGLED = "PmsdSlot_Right_ScenarioConfidence_Angled"
 
         CAM_FRONT_ISO_POSX = "CamFrontIsoPosX"
         CAM_FRONT_ISO_POSY = "CamFrontIsoPosY"
@@ -774,6 +795,102 @@ class PMSDSignals(SignalDefinition):
                 self.Columns.PMSDSLOT_RIGHT_EXISTENCEPROBABILITY,
                 [
                     "MTA_ADC5.PMSD_RSC_DATA.Slots.parkingSlots[%].existenceProbability",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_FRONT_SCENARIO_CONFIDENCE_PARALLEL,
+                [
+                    "MTA_ADC5.PMSD_FC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.parallel",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_LEFT_SCENARIO_CONFIDENCE_PARALLEL,
+                [
+                    "MTA_ADC5.PMSD_LSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.parallel",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_REAR_SCENARIO_CONFIDENCE_PARALLEL,
+                [
+                    "MTA_ADC5.PMSD_RC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.parallel",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE_PARALLEL,
+                [
+                    "MTA_ADC5.PMSD_RSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.parallel",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_FRONT_SCENARIO_CONFIDENCE,
+                [
+                    "MTA_ADC5.PMSD_FC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_LEFT_SCENARIO_CONFIDENCE,
+                [
+                    "MTA_ADC5.PMSD_LSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_REAR_SCENARIO_CONFIDENCE,
+                [
+                    "MTA_ADC5.PMSD_RC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE,
+                [
+                    "MTA_ADC5.PMSD_RSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_FRONT_SCENARIO_CONFIDENCE_PERPENDICULAR,
+                [
+                    "MTA_ADC5.PMSD_FC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.perpendicular",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_LEFT_SCENARIO_CONFIDENCE_PERPENDICULAR,
+                [
+                    "MTA_ADC5.PMSD_LSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.perpendicular",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_REAR_SCENARIO_CONFIDENCE_PERPENDICULAR,
+                [
+                    "MTA_ADC5.PMSD_RC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.perpendicular",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE_PERPENDICULAR,
+                [
+                    "MTA_ADC5.PMSD_RSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.perpendicular",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_FRONT_SCENARIO_CONFIDENCE_ANGLED,
+                [
+                    "MTA_ADC5.PMSD_FC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.angled",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_LEFT_SCENARIO_CONFIDENCE_ANGLED,
+                [
+                    "MTA_ADC5.PMSD_LSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.angled",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_REAR_SCENARIO_CONFIDENCE_ANGLED,
+                [
+                    "MTA_ADC5.PMSD_RC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.angled",
+                ],
+            ),
+            (
+                self.Columns.PMSDSLOT_RIGHT_SCENARIO_CONFIDENCE_ANGLED,
+                [
+                    "MTA_ADC5.PMSD_RSC_DATA.Slots.parkingSlots[%].parkingScenarioConfidence.angled",
                 ],
             ),
             (

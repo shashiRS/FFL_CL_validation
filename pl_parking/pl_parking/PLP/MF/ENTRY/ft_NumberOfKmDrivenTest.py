@@ -114,7 +114,7 @@ class TestStepFtParkingSlotTypeBase(TestStep):
             wrap_number = np.count_nonzero(diff_array < 0)
 
             try:
-                distance_driven = km_array[-1] - km_array[0] + wrap_number * constants.ConstantsNumberKmDriven.KM_TO_M
+                distance_driven = km_array[-1] - km_array[0] + wrap_number * constants.GeneralConstants.KM_TO_M
                 distance_driven /= constants.GeneralConstants.KM_TO_M
             except IndexError:
                 distance_driven = 0

@@ -155,9 +155,11 @@ class AupManTermInterCheck(TestStep):
                                 states_dict[key]
                             )
 
+                            actual_number = int(states_dict[key])
+
                             if key < t2_idx:
                                 evaluation1 = " ".join(
-                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} at {time_signal[key]} us before interruption.".split()
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} ({actual_number}) at {time_signal[key]} us before interruption.".split()
                                 )
                                 eval_cond[0] = False
                                 break
@@ -166,31 +168,35 @@ class AupManTermInterCheck(TestStep):
                                 evaluation1 = " ".join(
                                     f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, time of interruption is {calc_interruption} s."
                                     f" This value is {relation_string} than {constants.HilCl.ApThreshold.AP_G_MAX_INTERRUPT_TIME_S} s."
-                                    f" State of signal is {actual_value} at {time_signal[key]} us but requiered mode is {requiered_sate}.".split()
+                                    f" State of signal is {actual_value} ({actual_number}) at {time_signal[key]} us but requiered mode is {requiered_sate}.".split()
                                 )
                                 eval_cond[0] = False
                                 break
+                            counter += 1
                         else:
                             counter += 1
                 else:
                     test_result = fc.FAIL
                     eval_cond = [False] * 1
                     evaluation1 = " ".join(
-                        f"The evaluation of {signal_name['User_action']} signal is FAILED, driver never try to continue parking.".split()
+                        f"The evaluation of {signal_name['User_action']} signal is FAILED, driver never tried to continue parking."
+                        " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                     )
 
             else:
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    f"The evaluation of {signal_name['User_action']} signal is FAILED, parking maneuver was never interrupted by driver.".split()
+                    f"The evaluation of {signal_name['User_action']} signal is FAILED, parking maneuver never interrupted by driver."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
 
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Maneuvering mode.".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to PPC_PERFORM_PARKING ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING}) mode."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -228,14 +234,10 @@ class AupManTermInterCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:
@@ -255,7 +257,7 @@ class AupManTermInterCheck(TestStep):
     name="Mode transition: Maneuvering to Terminate",
     description=f"The maneuver is interrupted for longer than {constants.HilCl.ApThreshold.AP_G_MAX_INTERRUPT_TIME_S} s (tunable).",
 )
-class FtCommon(TestCase):
+class AupManTermInter(TestCase):
     """AupManTermInter Test Case."""
 
     custom_report = MfHilClCustomTestcaseReport

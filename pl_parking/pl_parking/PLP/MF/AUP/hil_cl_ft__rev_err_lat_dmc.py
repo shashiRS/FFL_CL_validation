@@ -95,9 +95,9 @@ class AupRevErrLatDmcCheck(TestStep):
         lat_dmc_state_sig = read_data["Lat_DMC"].tolist()
         state_on_hmi_sig = read_data["State_on_HMI"].tolist()
 
-        t1_idx = None
-        t2_idx = None
-        t3_idx = None
+        t_parking_idx = None
+        t_act_error_idx = None
+        t_detection_idx = None
 
         evaluation1 = " ".join(
             f"The evaluation is PASSED, reversibel error is detected and it is presented in {signal_name['State_on_HMI']}."
@@ -108,66 +108,79 @@ class AupRevErrLatDmcCheck(TestStep):
         # Find when AP switches to Maneuvering
         for cnt in range(0, len(state_on_hmi_sig)):
             if state_on_hmi_sig[cnt] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
-                t1_idx = cnt
+                t_parking_idx = cnt
                 break
-        if t1_idx is not None:
-            # Find when LatDMC report error
-            for cnt in range(t1_idx, len(lat_dmc_state_sig)):
-                if lat_dmc_state_sig[cnt] == constants.HilCl.DmcState.SYSTEM_ERROR:
-                    t2_idx = cnt
+
+        if t_parking_idx is not None:
+            # Find issue detection
+            for cnt in range(t_parking_idx, len(state_on_hmi_sig)):
+                if state_on_hmi_sig[cnt] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR:
+                    t_detection_idx = cnt
                     break
 
-            if t2_idx is not None:
-                # Find when LatDMC error solved
-                for cnt in range(t2_idx, len(lat_dmc_state_sig)):
-                    if lat_dmc_state_sig[cnt] != constants.HilCl.DmcState.SYSTEM_ERROR:
-                        t3_idx = cnt
-                        break
-                    # If error not solved until end of measure, save last sample
-                    if cnt == len(lat_dmc_state_sig) - 1:
-                        t3_idx = cnt
+            if t_detection_idx is not None:
+                # Find when LatDMC report error
+                for cnt in range(t_parking_idx, len(lat_dmc_state_sig)):
+                    if lat_dmc_state_sig[cnt] == constants.HilCl.DmcState.SYSTEM_ERROR:
+                        t_act_error_idx = cnt
                         break
 
-                if t3_idx is not None:
+                if t_act_error_idx is not None:
+
                     eval_cond = [True] * 1
-                    states_dict = HilClFuntions.States(state_on_hmi_sig, t1_idx, (t2_idx + 1), 1)
+
+                    states_dict = HilClFuntions.States(state_on_hmi_sig, t_parking_idx, len(state_on_hmi_sig), 1)
+
+                    counter = 0
 
                     # Keys contains the idx
                     for key in states_dict:
-                        # Check value
-                        if states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR:
-                            # Test PASSED
-                            break
-
-                        if key == list(states_dict.keys())[-1]:
-                            # Tets FAILED
-                            evaluation1 = " ".join(
-                                "The evaluation is FAILED, AP function does not have a reversible error,"
-                                " but the lateral DMC reports a reversible error.".split()
+                        if counter == 1:
+                            actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
+                                states_dict[key]
                             )
-                            eval_cond[0] = False
-                            break
+                            actual_number = int(states_dict[key])
+
+                            if key < t_act_error_idx:
+                                evaluation1 = " ".join(
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_value} ({actual_number}) ({actual_number})"
+                                    f" at {time_signal[key]} us before injected lateral DMC error event.".split()
+                                )
+                                eval_cond[0] = False
+                                break
+
+                            if states_dict[key] != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR:
+                                evaluation1 = " ".join(
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_value} ({actual_number}) at {time_signal[key]} us"
+                                    f" but requiered state is PPC_REVERSIBLE_ERROR ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR}).".split()
+                                )
+                                eval_cond[0] = False
+                                break
+                            counter += 1
+                        else:
+                            counter += 1
 
                 else:
                     test_result = fc.FAIL
                     eval_cond = [False] * 1
                     evaluation1 = " ".join(
-                        "The evaluation is FAILED, TestRun is not valid. Lateral DMC error is not"
-                        " sloved during TestRun.".split()
+                        f"The evaluation of {signal_name['Lat_DMC']} signal is FAILED, value of signal never switched to SYSTEM_ERROR ({constants.HilCl.DmcState.SYSTEM_ERROR})."
+                        " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                     )
-
             else:
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    "The evaluation is FAILED, TestRun is not valid. There is no lateral DMC error"
-                    " during TestRun.".split()
+                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal never switched to PPC_REVERSIBLE_ERROR ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_REVERSIBLE_ERROR})."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
+
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                "The evaluation is FAILED, TestRun is not valid. AP state never switched to Maneuvering mode.".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal never switched to PPC_PERFORM_PARKING ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING})."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -203,14 +216,10 @@ class AupRevErrLatDmcCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:

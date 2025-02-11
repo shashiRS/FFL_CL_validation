@@ -1,5 +1,0 @@
-adas-tsf
-sphinx
-sphinx_autodoc_typehints
-sphinx-book-theme
-plotly

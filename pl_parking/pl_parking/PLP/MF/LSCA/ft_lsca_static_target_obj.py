@@ -449,7 +449,7 @@ class LscaStaticTestStep(TestStep):
             )  # transforma in cm pentru a verifica cu tresholduri const
             active_lsca = df[Signals.Columns.ACTIVATE_BRAKE_INTERV]
             for idx, val in enumerate(velocity):
-                if val > 0:
+                if val > constants.LscaConstants.P_CM_STANDSTILL:
                     driven_time.append(df[Signals.Columns.TIME].iat[idx])
                     driven_distance.append(df[Signals.Columns.VELOCITY_ROAD].iat[idx])
             driven_time = driven_time[-1] - driven_time[0]
@@ -457,7 +457,7 @@ class LscaStaticTestStep(TestStep):
             #     if val == 1 and velocity.iat[idx]< 0.01:  #?
             #         min_dist_stand.append(df[Signals.Columns.MINIMUM_DISTANCE].iat[idx])
             # elif val == 1 and velocity.iat[idx] >= 0.01:
-            min_dist_stand = (active_lsca == 1) & (velocity < 0.01)
+            min_dist_stand = (active_lsca == 1) & (velocity < constants.LscaConstants.P_CM_STANDSTILL)
             # min_dist_eba  = (active_lsca == 1) & (velocity == 0.01)
 
             # driven_distance = driven_distance
@@ -660,7 +660,7 @@ class LscaStaticTestStep(TestStep):
     name="LSCA STATIC",
     description="LSCA function shall reach a classification <passed> if the interventions that would lead to a collision with a protected ego part are in time (not too soon - to big distance, but not too late, so that the defined safety margin is exceeded)",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class LscaStatic(TestCase):
     """Test case."""

@@ -41,7 +41,6 @@ class ValidationSignals(MDFSignalDefinition):
     class Columns(MDFSignalDefinition.Columns):
         """Definition of the dataframe columns."""
 
-        USEER_ACTION = "User_action"
         BRAKE = "Brake"
         HMI_INFO = "State_on_HMI"
 
@@ -50,7 +49,6 @@ class ValidationSignals(MDFSignalDefinition):
         super().__init__()
 
         self._properties = {
-            self.Columns.USEER_ACTION: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIOut1.APHMIOutUserActionHU",
             self.Columns.BRAKE: "MTS.ADAS_CAN.Conti_Veh_CAN.VehInput06.BrakePressureDriver",
             self.Columns.HMI_INFO: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIInGeneral1.APHMIParkingProcedureCtrlState",
         }
@@ -133,11 +131,13 @@ class AupManInitBrakeCheck(TestStep):
                             states_dict[key]
                         )
 
+                        actual_number = int(states_dict[key])
+
                         if key < t2_idx:
                             evaluation1 = " ".join(
-                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_value} at {time_signal[key]} us"
+                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_value} ({actual_number}) at {time_signal[key]} us"
                                 f" before brake pressure, caused by the braking pedal, is higher than"
-                                f" {constants.HilCl.ApThreshold.AP_G_BRAKE_PRESS_TERMINATE_THRESH_BAR} bar"
+                                f" {constants.HilCl.ApThreshold.AP_G_BRAKE_PRESS_TERMINATE_THRESH_BAR} bar."
                                 f" Value of brake pressure was {brake_sig[key]} bar when signal sate changed.".split()
                             )
                             eval_cond[0] = False
@@ -145,15 +145,15 @@ class AupManInitBrakeCheck(TestStep):
 
                         if states_dict[key] != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS:
                             evaluation1 = " ".join(
-                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal does not switch to Terminate mode when brake"
+                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} ({actual_number}) mode when brake"
                                 f" pressure, caused by the braking pedal, is higher than"
                                 f" {constants.HilCl.ApThreshold.AP_G_BRAKE_PRESS_TERMINATE_THRESH_BAR} bar."
-                                f" AP switches into {actual_value} at {time_signal[key]} us"
+                                f" AP switches into {actual_value} at {time_signal[key]} us but requiered state is PPC_SUCCESS ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS})."
                                 f" Value of brake pressure was {brake_sig[key]} bar when signal sate changed.".split()
                             )
                             eval_cond[0] = False
                             break
-
+                        counter += 1
                     else:
                         counter += 1
             else:
@@ -161,13 +161,16 @@ class AupManInitBrakeCheck(TestStep):
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
                     f"The evaluation of {signal_name['Brake']} signal is FAILED, brake pressure, caused by the braking pedal,"
-                    f" never higher than {constants.HilCl.ApThreshold.AP_G_BRAKE_PRESS_TERMINATE_THRESH_BAR} bar.".split()
+                    f" never higher than {constants.HilCl.ApThreshold.AP_G_BRAKE_PRESS_TERMINATE_THRESH_BAR} bar."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Maneuvering mode.".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to PPC_PERFORM_PARKING"
+                f" ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING}) mode."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -205,14 +208,10 @@ class AupManInitBrakeCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:
@@ -233,7 +232,7 @@ class AupManInitBrakeCheck(TestStep):
     description=f"The brake pressure, caused by the braking pedal,"
     f" is higher than {constants.HilCl.ApThreshold.AP_G_BRAKE_PRESS_TERMINATE_THRESH_BAR} bar (tunable).",
 )
-class FtCommon(TestCase):
+class AupManInitBrake(TestCase):
     """AupManInitBrake Test Case."""
 
     custom_report = MfHilClCustomTestcaseReport

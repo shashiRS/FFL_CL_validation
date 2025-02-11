@@ -196,7 +196,7 @@ class ExampleActivation(TestStep):
     name="Minimal example 1",
     description="The most basic TSF example.",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class ExampleMinimalTestCase_1(TestCase):
     """Example test case."""

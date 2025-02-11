@@ -193,7 +193,7 @@ class Step_6_parLeft(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_parLeft(TestCase):
     """Example test case."""
@@ -370,7 +370,7 @@ class Step_6_parRight(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_parRight(TestCase):
     """Example test case."""
@@ -547,7 +547,7 @@ class Step_6_perpLeft(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_perpLeft(TestCase):
     """Example test case."""
@@ -724,7 +724,7 @@ class Step_6_perpRight(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_perpRight(TestCase):
     """Example test case."""
@@ -901,7 +901,7 @@ class Step_6_angLeft(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_angLeft(TestCase):
     """Example test case."""
@@ -1080,7 +1080,7 @@ class Step_6_angRight(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_angRight(TestCase):
     """Example test case."""
@@ -1257,7 +1257,7 @@ class Step_6_parLeft_small(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_parLeft_small(TestCase):
     """Example test case."""
@@ -1434,7 +1434,7 @@ class Step_6_parRight_small(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_parRight_small(TestCase):
     """Example test case."""
@@ -1611,7 +1611,7 @@ class Step_6_perpLeft_small(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_perpLeft_small(TestCase):
     """Example test case."""
@@ -1788,7 +1788,7 @@ class Step_6_perpRight_small(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_perpRight_small(TestCase):
     """Example test case."""
@@ -1965,7 +1965,7 @@ class Step_6_angLeft_small(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_angLeft_small(TestCase):
     """Example test case."""
@@ -2142,7 +2142,7 @@ class Step_6_angRight_small(AupCoreET4ET5Test):
         " present."
     ),
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class MF_AUP_CORE_angRight_small(TestCase):
     """Example test case."""

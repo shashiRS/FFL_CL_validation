@@ -24,14 +24,46 @@ pipeline
                 }
                   }
               }
+    stage('Verify __init__.py Files') {
+            steps {
+                script {
+                    // Run the Nox check_inits session
+                    def status = bat(script: 'nox -s check_inits', returnStatus: true)
+
+                    // Fail the build if the session found any missing __init__.py files
+                    if (status != 0) {
+                        error("Directories are missing __init__.py files. Check console output for details.")
+                                      }
+                      }
+                  }
+                }
+    stage('Run Pylint') {
+            steps {
+                script {
+                    // Run the Nox lint session and capture output
+                    def result = bat(script: 'nox -s pylint', returnStatus: true)
+                    
+                    // Display the pylint report in the console
+                    bat "type pylint.report"
+                    // Check the result of the Nox command
+                    if (result != 0) {
+                        error "Nox pylint_lint session failed."
+                    }
+                }
+            }
+        }
     stage('Upload Python Wheel to Artifactory')
       {
         environment
           {
-            CREDS = credentials('artifactory_api_key_uie40478')
+            CREDS = credentials('artifactory_identity_token_uie40478')
             CCP_ART_CERT = credentials('ccp_artifactory_cert_uie40478')
+            CCP_ART_TOKEN = credentials('ccp_artifactory_identity_token_uie40478')
+
+            //CREDS = credentials('artifactory_api_key_uie40478')
+            //CCP_ART_CERT = credentials('ccp_artifactory_cert_uie40478')
             CCP_ART_API = credentials('cpp_artifactory_api_key_uie40478')
-            CCP_UIDG5548_TOKEN = credentials('3563add8-0ad1-4da8-9483-718e53e88ec8')
+            //CCP_UIDG5548_TOKEN = credentials('3563add8-0ad1-4da8-9483-718e53e88ec8')
           }
         steps
           {
@@ -41,8 +73,8 @@ pipeline
                 // zip(dir: 'coverage', zipFile: "coverage_${BUILD_TAG}.zip", archive: true)
                 if(env.TAG_NAME)
                   {
-                    bat('twine upload --repository-url https://eu.artifactory.conti.de/artifactory/api/pypi/ams_adas_tsf_pypi_l -u %CREDS_USR% -p %CREDS_PSW% dist/*.whl')
-                    bat('twine upload --repository-url https://artifactory.8675.ccp.continental.exchange/artifactory/api/pypi/tsf-local-pypi -u %CCP_UIDG5548_TOKEN_USR% -p %CCP_UIDG5548_TOKEN_PSW%  dist/*.whl')
+                    bat('twine upload --repository-url https://eu.artifactory.conti.de/artifactory/api/pypi/ams_adas_tsf_pypi_l --verbose -u %CREDS_USR% -p %CREDS_PSW% dist/*.whl')
+                    bat('twine upload --repository-url https://artifactory.8675.ccp.continental.exchange/artifactory/api/pypi/tsf-local-pypi --verbose -u %CCP_ART_TOKEN_USR% -p %CCP_ART_TOKEN_PSW%  dist/*.whl')
                   }
                   else
                     {

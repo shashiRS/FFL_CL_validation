@@ -3,8 +3,10 @@
 import logging
 import os
 
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
-from tsf.core.results import FALSE, TRUE, BooleanResult
+from tsf.core.results import DATA_NOK, FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -17,6 +19,7 @@ from tsf.core.testcase import (
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
+import pl_parking.PLP.MF.constants as constants
 from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport, MfSignals
 from pl_parking.PLP.MF.constants import ConstantsTrajpla
 
@@ -29,8 +32,10 @@ example_obj = MfSignals()
 
 @teststep_definition(
     step_number=1,
-    name="Verify planned traj type.",
-    description=" TRJPLA shall send planned traj type based on selected target pose type.",
+    name="Planned traj type perpendicular Park Out",
+    description=f"TRJPLA shall send planned traj type PERP_PARK_OUT_TRAJ({ConstantsTrajpla.PlannedTrajType.PERP_PARK_OUT_TRAJ}), "
+    f"when selected target pose type is T_PERP_PARKING_OUT_FWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_FWD}) "
+    f"or T_PERP_PARKING_OUT_BWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_BWD}).",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(SIGNAL_DATA, MfSignals)
@@ -45,214 +50,240 @@ class TrjplaPerpParkOutTrajType(TestStep):
 
     def process(self, **kwargs):
         """Process the test result."""
-        t2 = None
-        par_pose = None
-        evaluation = ""
+        _log.debug("Starting processing...")
+        # Update the details from the results page with the needed information
+        # All the information from self.result.details is transferred to
+        # report maker(MfCustomTeststepReport in our case)
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        read_data = self.readers[SIGNAL_DATA].signals
-        test_result = fc.INPUT_MISSING  # Result
+        # Create empty lists for titles, plots and remarks,if they are needed,
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = fh.rep([], 3)
-        signal_summary = {}
-        signal_name = example_obj._properties
+        try:
+            t2 = None
+            par_pose = None
+            evaluation = ""
+            read_data = self.readers[SIGNAL_DATA]
+            signal_summary = {}
+            signal_name = example_obj._properties
+            self.result.measured_result = DATA_NOK  # Initializing the result with data nok
+            # Create a lists which will contain test status  and test result for each frame
+            # based on test condition.
+            frame_test_status = []
+            frame_test_result = []
 
-        traj_valid = read_data["trajValid_nu"].tolist()
-        traj_type = read_data["trajType_nu"].tolist()
-        pose_type = read_data["poseType0"].tolist()
+            traj_valid = read_data["trajValid_nu"]
+            traj_type = read_data["trajType_nu"]
+            pose_type = read_data["poseType0"]
 
-        for idx, val in enumerate(traj_valid):
-            if val == ConstantsTrajpla.TRAJ_VALID:
-                t2 = idx
-                break
-
-        for idx, val in enumerate(pose_type):
-            if val == ConstantsTrajpla.T_PERP_PARKING_OUT_FWD or val == ConstantsTrajpla.T_PERP_PARKING_OUT_BWD:
-                par_pose = idx
-                break
-
-        eval_cond = True
-        if t2 is not None:
-            if par_pose is not None:
-                for idx in range(t2, len(traj_valid)):
-                    if traj_valid[idx] == ConstantsTrajpla.TRAJ_VALID and (
-                        pose_type[idx] == ConstantsTrajpla.T_PERP_PARKING_OUT_FWD
-                        or pose_type[idx] == ConstantsTrajpla.T_PERP_PARKING_OUT_BWD
-                    ):
-                        if traj_type[idx] == ConstantsTrajpla.PERP_PARK_OUT_TRAJ and eval_cond:
-                            evaluation = " ".join(
-                                f"The evaluation of {signal_name['trajType_nu']} and is PASSED, with values ="
-                                f" {ConstantsTrajpla.PERP_PARK_OUT_TRAJ} when {signal_name['poseType0']} == "
-                                f"{ConstantsTrajpla.T_PERP_PARKING_OUT_FWD} or "
-                                f"{ConstantsTrajpla.T_PERP_PARKING_OUT_BWD}.".split()
-                            )
-                            eval_cond = True
-                        else:
-                            evaluation = " ".join(
-                                f"The evaluation of {signal_name['trajType_nu']} is FAILED, with values ="
-                                f" {ConstantsTrajpla.PERP_PARK_OUT_TRAJ} when {signal_name['poseType0']} == "
-                                f"{ConstantsTrajpla.T_PERP_PARKING_OUT_FWD} or "
-                                f"{ConstantsTrajpla.T_PERP_PARKING_OUT_BWD} at frame "
-                                f" {idx} s.".split()
-                            )
-                            eval_cond = False
-                            break
-            else:
-                eval_cond = False
-                evaluation = " ".join(
-                    "Evaluation not possible, the value of signal {signal_name['poseType0']} was "
-                    "never equal to "
-                    f"{ConstantsTrajpla.T_PERP_PARKING_OUT_FWD} or"
-                    f"{ConstantsTrajpla.T_PERP_PARKING_OUT_BWD}".split()
-                )
-        else:
-            eval_cond = False
-            evaluation = " ".join(
-                "Evaluation not possible, the valid trajectory for                            "
-                f" {signal_name['trajValid_nu']} was never found.".split()
+            signal_map = dict()
+            signal_map["trajType_nu"] = traj_type.apply(
+                lambda x: fh.get_status_label(x, ConstantsTrajpla.PlannedTrajType)
             )
+            signal_map["poseType0"] = pose_type.apply(lambda x: fh.get_status_label(x, ConstantsTrajpla.PoseType))
 
-        if eval_cond:
-            test_result = fc.PASS
-        else:
-            test_result = fc.FAIL
+            for idx, val in enumerate(traj_valid):
+                if val == ConstantsTrajpla.TRAJ_VALID:
+                    t2 = idx
+                    break
+                frame_test_status.append("NA:trajValid_nu not True")
+                frame_test_result.append(None)
 
-        signal_summary[f"{signal_name['poseType0']} and {signal_name['trajType_nu']}"] = evaluation
+            for idx, val in enumerate(pose_type):
+                if (
+                    val == ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_FWD
+                    or val == ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_BWD
+                ):
+                    par_pose = idx
+                    break
 
-        # Create an overall summary table
-        colors = "yellowgreen" if test_result != "failed" else "red"
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(
-                        values=["Signal Evaluation", "Summary"],
-                        fill_color="paleturquoise",
-                        align=["left", "center"],
-                        height=40,
-                    ),
-                    cells=dict(
-                        values=[list(signal_summary.keys()), list(signal_summary.values())],
-                        fill_color=[colors, colors],
-                        align=["left", "center"],
-                        font_size=12,
-                        height=30,
-                    ),
+            if t2 is not None:
+                if par_pose is not None:
+                    for idx in range(t2, len(traj_valid)):
+                        if traj_valid.iloc[idx] == ConstantsTrajpla.TRAJ_VALID and (
+                            pose_type.iloc[idx] == ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_FWD
+                            or pose_type.iloc[idx] == ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_BWD
+                        ):
+                            if traj_type.iloc[idx] == ConstantsTrajpla.PlannedTrajType.PERP_PARK_OUT_TRAJ:
+                                frame_test_status.append("Pass")
+                                frame_test_result.append(True)
+                            else:
+                                if not evaluation:
+                                    evaluation = " ".join(
+                                        f" FAILED: {signal_name['trajType_nu']} ="
+                                        f" {traj_type.iloc[idx]} when {signal_name['poseType0']} == "
+                                        f"{pose_type.iloc[idx]} at frame  {idx}.".split()
+                                    )
+                                frame_test_status.append(
+                                    f"Fail: trajType_nu != PERP_PARK_OUT_TRAJ({ConstantsTrajpla.PlannedTrajType.PERP_PARK_OUT_TRAJ})"
+                                )
+                                frame_test_result.append(False)
+                        else:
+                            frame_test_status.append("NA: trajValid_nu or selected pose type not relevant")
+                            frame_test_result.append(None)
+
+                else:
+                    frame_test_result.append(None)
+                    evaluation = " ".join(
+                        "Evaluation not possible, the value of signal "
+                        f"{signal_name['poseType0']} was "
+                        "never equal to "
+                        f"T_PERP_PARKING_OUT_FWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_FWD}) or "
+                        f"T_PERP_PARKING_OUT_BWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_BWD})".split()
+                    )
+            else:
+                frame_test_result.append(None)
+                evaluation = " ".join(
+                    "Evaluation not possible," f" {signal_name['trajValid_nu']} == True(1) was never found.".split()
                 )
-            ]
-        )
-        plot_titles.append("Signal Evaluation")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
 
-        # Create a table containing all signals and their status for each frame
-        # for the purpose of analysis.
-        frame_number_list = list(range(0, len(traj_valid)))
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(
-                        values=["Frames", "trajValid_nu", "Target Pose Type", "TrajType"],
-                        fill_color="paleturquoise",
-                    ),
-                    cells=dict(
-                        values=[
-                            frame_number_list,
-                            traj_valid,
-                            pose_type,
-                            traj_type,
-                        ],
-                        fill=dict(
-                            color=[
-                                "rgb(245, 245, 245)",
-                                "white",
-                                "white",
-                                "white",
-                            ]
-                        ),
-                    ),
+            if False in frame_test_result:
+                verdict = fc.FAIL
+                self.result.measured_result = FALSE
+            elif frame_test_result == [None] * len(frame_test_result):
+                verdict = fc.FAIL
+                self.result.measured_result = FALSE
+                if not evaluation:
+                    evaluation = (
+                        f"Evaluation not possible, check if trigger conditions for "
+                        f"{signal_name['trajValid_nu']} or {signal_name['poseType0']} are met in the recording"
+                    )
+            else:
+                verdict = fc.PASS
+                self.result.measured_result = TRUE
+                evaluation = "Passed"
+
+            expected_val = f"{signal_name['trajType_nu']} = PERP_PARK_OUT_TRAJ({ConstantsTrajpla.PlannedTrajType.PERP_PARK_OUT_TRAJ})"
+
+            signal_summary[
+                f"{signal_name['trajType_nu']} = PERP_PARK_OUT_TRAJ({ConstantsTrajpla.PlannedTrajType.PERP_PARK_OUT_TRAJ}), when "
+                f"<br>{signal_name['poseType0']} == "
+                f"T_PERP_PARKING_OUT_FWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_FWD}) or "
+                f"T_PERP_PARKING_OUT_BWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_BWD})"
+            ] = [expected_val, evaluation, verdict]
+
+            remark = (
+                f"Check if {signal_name['trajType_nu']} = "
+                f"PERP_PARK_OUT_TRAJ({ConstantsTrajpla.PlannedTrajType.PERP_PARK_OUT_TRAJ}), "
+                f"<br>when a valid path is available ({signal_name['trajValid_nu']} = True(1)) and "
+                f"<br>the selected target pose is of type T_PERP_PARKING_OUT_FWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_FWD}) "
+                f"or T_PERP_PARKING_OUT_BWD({ConstantsTrajpla.PoseType.T_PERP_PARKING_OUT_BWD})"
+            )
+            self.sig_sum = convert_dict_to_pandas(signal_summary, remark)
+            plots.append(self.sig_sum)
+
+            frame_number_list = list(range(0, len(traj_valid)))
+            # add graph for  evaluated signals
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=traj_valid,
+                    mode="lines",
+                    name="trajValid_nu",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<extra></extra>",
                 )
-            ]
-        )
-        plot_titles.append("Signals Summary")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
-
-        # Create a table which contains all constants and their values.
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(values=["Constants", "Values"], fill_color="paleturquoise", align="left"),
-                    cells=dict(
-                        values=[
-                            [
-                                "TRAJ_VALID",
-                                "T_PARALLEL_PARKING",
-                                "T_PERP_PARKING_FWD",
-                                "T_PERP_PARKING_BWD",
-                                "T_ANGLED_PARKING_STANDARD",
-                                "T_ANGLED_PARKING_REVERSE",
-                                "T_REM_MAN_FWD",
-                                "T_REM_MAN_BWD",
-                                "T_PERP_PARKING_OUT_FWD",
-                                "T_PERP_PARKING_OUT_BWD",
-                                "T_PAR_PARKING_OUT",
-                                "T_ANGLED_PARKING_STANDARD_OUT",
-                                "T_ANGLED_PARKING_REVERSE_OUT",
-                                "T_UNDEFINED",
-                                "PAR_PARK_IN_TRAJ",
-                                "PERP_PARK_IN_TRAJ",
-                                "PERP_PARK_OUT_TRAJ",
-                                "PAR_PARK_OUT_TRAJ",
-                                "REMOTE_MAN_TRAJ",
-                                "UNDO_TRAJ",
-                                "MAX_NUM_PLANNED_TRAJ_TYPES",
-                            ],
-                            [1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 21, 1, 0, 2, 3, 4, 5, 6],
-                        ],
-                        align="left",
-                    ),
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=pose_type,
+                    mode="lines",
+                    name=".targetPoses_0.type",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<br>pose type: %{text}<extra></extra>",
+                    text=signal_map["poseType0"],
                 )
-            ]
-        )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=frame_number_list,
+                    y=traj_type,
+                    mode="lines",
+                    name="trajType_nu",
+                    hovertemplate="Frame: %{x}<br>Value: %{y}<br>trajectory type: %{text}<extra></extra>",
+                    text=signal_map["trajType_nu"],
+                )
+            )
+            if True in frame_test_result or False in frame_test_result:
+                fig.add_trace(
+                    go.Scatter(
+                        x=frame_number_list,
+                        y=[0] * len(frame_number_list),
+                        mode="lines",  # 'lines' or 'markers'
+                        name="Test Status",
+                        hovertemplate="Frame: %{x}<br><br>status: %{text}<extra></extra>",
+                        text=frame_test_status,
+                    )
+                )
+            fig.layout = go.Layout(
+                yaxis=dict(tickformat="14"),
+                xaxis=dict(tickformat="14"),
+                xaxis_title="Frames",
+                showlegend=True,
+                title="Graphical Overview of Evaluated signals",
+            )
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
 
-        plot_titles.append("Abbreviations")
-        plots.append(fig)
-        remarks.append("TRJPLA Evaluation")
+            res_valid = (np.array(frame_test_result)) != np.array(None)
+            res_valid_int = [int(elem) for elem in res_valid]
+            res_valid_int.insert(0, 0)
+            eval_start = [i - 1 for i in range(1, len(res_valid_int)) if res_valid_int[i] - res_valid_int[i - 1] == 1]
+            eval_stop = [i - 1 for i in range(1, len(res_valid_int)) if res_valid_int[i] - res_valid_int[i - 1] == -1]
+            if len(eval_start) > 0:
+                for i in range(len(eval_start)):
+                    fig.add_vline(
+                        x=eval_start[i],
+                        line_width=1,
+                        line_dash="dash",
+                        line_color="darkslategray",
+                        annotation_text=f"t{i + 1}Start",
+                    )
+            if len(eval_stop) > 0:
+                for i in range(len(eval_stop)):
+                    fig.add_vline(
+                        x=eval_stop[i],
+                        line_width=1,
+                        line_dash="dash",
+                        line_color="darkslategray",
+                        annotation_text=f"t{i + 1}Stop",
+                    )
 
-        result_df = {
-            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            fc.REQ_ID: ["1500183"],
-            fc.TESTCASE_ID: ["41524"],
-            fc.TEST_SAFETY_RELEVANT: [fc.NOT_AVAILABLE],
-            fc.TEST_DESCRIPTION: [
-                "If a valid path is available and the Selected_Target_Pose"
-                " is of type T_PERP_PARKING_OUT_FWD or T_PERP_PARKING_OUT_BWD, TRJPLA"
-                " shall send <PlannedTrajPort.trajType> = PERP_PARK_OUT_TRAJ."
-            ],
-            fc.TEST_RESULT: [test_result],
-        }
+            plots.append(fig)
 
-        if test_result == fc.PASS:
-            self.result.measured_result = TRUE
-        else:
-            self.result.measured_result = FALSE
+            result_df = {
+                "Verdict": {"value": verdict.title(), "color": fh.get_color(verdict)},
+                fc.REQ_ID: ["1500183"],
+                fc.TESTCASE_ID: ["41524"],
+                fc.TEST_SAFETY_RELEVANT: [fc.SAFETY_RELEVANT_QM],
+                fc.TEST_RESULT: [verdict],
+            }
+            self.result.details["Additional_results"] = result_df
+
+        except Exception as e:
+            _log.error(f"Error processing signals: {e}")
+            self.result.measured_result = DATA_NOK
+            self.sig_sum = f"<p>Error processing signals : {e}</p>"
+            plots.append(self.sig_sum)
+
+        # Add the plots in html page
         for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-
-        self.result.details["Additional_results"] = result_df
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+            else:
+                self.result.details["Plots"].append(plot)
 
 
 @verifies("1500183")
 @testcase_definition(
     name="SWRT_CNC_TRJPLA_PerpendicularParkOutTrajType",
-    description="This testcase will verify the planned traj type, based on selected target pose type.",
+    description="If a valid path is available (PlannedTrajPort.trajValid_nu  == true) "
+    "for the given environmental model provided by ApParkingBoxPort and ApEnvModelPort "
+    "and the Selected_Target_Pose is of type T_PERP_PARKING_OUT_FWD  or T_PERP_PARKING_OUT_BWD, "
+    "TRJPLA shall send PlannedTrajPort.trajType_nu = PERP_PARK_OUT_TRAJ.",
+    doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_Wm5bMEczEe68PtCWeWkWbA&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_p9KzlDK_Ee6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class TrjplaPerpParkOutTrajTypeTC(TestCase):
     """Example test case."""
@@ -265,3 +296,23 @@ class TrjplaPerpParkOutTrajTypeTC(TestCase):
         return [
             TrjplaPerpParkOutTrajType,
         ]
+
+
+def convert_dict_to_pandas(
+    signal_summary: dict,
+    table_remark="",
+    table_title="",
+):
+    """Converts a dictionary to a Pandas DataFrame and creates an HTML table."""
+    # Create a DataFrame from the dictionary
+    evaluation_summary = pd.DataFrame(
+        {
+            "Signal Summary": {key: key for key, val in signal_summary.items()},
+            "Expected Values": {key: val[0] for key, val in signal_summary.items()},
+            "Summary": {key: val[1] for key, val in signal_summary.items()},
+            "Verdict": {key: val[2] for key, val in signal_summary.items()},
+        }
+    )
+
+    # Generate HTML table using build_html_table function
+    return fh.build_html_table(evaluation_summary, table_remark, table_title)

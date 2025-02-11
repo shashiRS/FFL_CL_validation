@@ -20,7 +20,7 @@ lint.select = [
     "UP"
 ]
 # lint.ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107", "E402", "D203", "D213", "E501"]
-lint.ignore = ["D105", "D106", "D107", "D205", "D401", "D203", "D213", "D400", "E402", "E501"]
+lint.ignore = ["D105", "D106", "D107", "D205", "D401", "D203", "D213", "D400", "E402", "E501", "UP006", "UP035"]
 
 # Allow autofix for all enabled rules (when `--fix`) is provided.
 lint.fixable = [

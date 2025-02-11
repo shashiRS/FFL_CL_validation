@@ -30,8 +30,11 @@ class ObjectClass(Enum):
     UNKNOWN: int = 0
     CAR: int = 1
     PEDESTRIAN: int = 2
-    MOTORCYCLE: int = 3
-    BICYCLE: int = 4
+    TWOWHEELER: int = 3
+    VAN: int = 4
+    TRUCK: int = 5
+    SHOPPING_CART: int = 6
+    ANIMAL: int = 7
 
 
 @dataclass
@@ -42,6 +45,7 @@ class DynPoint:
     y: float
     var_x: float
     var_y: float
+    covar: float
 
 
 @dataclass
@@ -50,11 +54,11 @@ class DynamicObject:
 
     object_id: int
     object_class: ObjectClass
-    class_certainty: int
+    class_certainty: float
     dyn_property: DynamicProperty
-    dyn_property_certainty: int
+    # dyn_property_certainty: int
     shape: typing.List[DynPoint]
-    existence_prob: int
+    existence_prob: float
     orientation: float
     orientation_std: float
     velocity_x: float
@@ -65,8 +69,12 @@ class DynamicObject:
     yaw_rate_std: float
     center_x: float
     center_y: float
+    acceleration_x: float
+    acceleration_y: float
+    acceleration_std_x: float
+    acceleration_std_y: float
     state: MaintenanceState
-    contained_in_last_sensor_update: int
+    # contained_in_last_sensor_update: int
     lifetime: int
 
 
@@ -86,7 +94,8 @@ class TPFReader:
         """Initialize object attributes."""
         self.data = reader
         self._synthetic_flag = self.__is_synthetic()
-        self.number_of_objects = len(self.data.filter(regex="objects.existenceProb").columns)
+        # self.number_of_objects = len(self.data.filter(regex="objects.existenceProb").columns)
+        self.number_of_objects = len(self.data.filter(regex="objects.existenceCertainty").columns)
 
     def __is_synthetic(self):
         """Check if the data contains synthetic signals."""
@@ -101,48 +110,53 @@ class TPFReader:
 
         for _, row in self.data.iterrows():
             objects: typing.List[DynamicObject] = []
-            timestamp = int(row["timestamp"])
+            timestamp = int(row["sigTimestamp"])
+            # self.number_of_objects = int(row["numberOfObjects"])
             if len(timeframes) > 0 and timestamp == timeframes[-1].timestamp:
                 continue
 
             for i in range(self.number_of_objects):
-                existence_prob = int(row[("objects.existenceProb", i)])
-                if existence_prob > 0:
+                existence_prob = float(row[("objects.existenceCertainty", i)])
+
+                if existence_prob > 0.:
                     object_id = int(row[("objects.id", i)])
                     object_class = ObjectClass(int(row[("objects.objectClass", i)]))
-                    class_certainty = int(row[("objects.classCertainty", i)])
+                    class_certainty = float(row[("objects.classProbability", i)])
                     dyn_property = DynamicProperty(int(row[("objects.dynamicProperty", i)]))
-                    dyn_property_certainty = int(row[("objects.dynPropCertainty", i)])
-                    existence_prob = int(row[("objects.existenceProb", i)])
+                    existence_prob = int(row[("objects.existenceCertainty", i)])
                     orientation = row[("objects.orientation", i)]
                     orientation_std = row[("objects.orientationStandardDeviation", i)]
-                    velocity_x = row[("objects.velocity.f_Xr", i)]
-                    velocity_y = row[("objects.velocity.f_Ya", i)]
+                    velocity_x = row[("objects.velocity.x", i)]
+                    velocity_y = row[("objects.velocity.y", i)]
                     yaw_rate = row[("objects.yawRate", i)]
-                    velocity_std_x = row[("objects.velocityStandardDeviation.f_Xr", i)]
-                    velocity_std_y = row[("objects.velocityStandardDeviation.f_Ya", i)]
+                    velocity_std_x = row[("objects.velocityStandardDeviation.x", i)]
+                    velocity_std_y = row[("objects.velocityStandardDeviation.y", i)]
                     yaw_rate_std = row[("objects.yawRateStandardDeviation", i)]
-                    center_x = row[("objects.center_x", i)]
-                    center_y = row[("objects.center_y", i)]
-                    state = MaintenanceState(int(row[("objects.state", i)]))
-                    contained_in_last_sensor_update = int(row[("objects.containedInLastSensorUpdate", i)])
+                    center_x = row[("objects.shape.referencePoint.x", i)]
+                    center_y = row[("objects.shape.referencePoint.y", i)]
+                    acceleration_x = row[("objects.acceleration.x", i)]
+                    acceleration_y = row[("objects.acceleration.y", i)]
+                    acceleration_std_x = row[("objects.accelerationStandardDeviation.x", i)]
+                    acceleration_std_y = row[("objects.accelerationStandardDeviation.y", i)]
+                    state = MaintenanceState(row[("objects.state", i)])
                     lifetime = int(row[("objects.lifetime", i)])
 
                     points: typing.List[DynPoint] = []
                     for j in range(4):
-                        pnt_x = row[(f"objects.shape.points[{j}].position.f_Xr", i)]
-                        pnt_y = row[(f"objects.shape.points[{j}].position.f_Ya", i)]
+                        pnt_x = row[(f"objects.shape.points[{j}].position.x", i)]
+                        pnt_y = row[(f"objects.shape.points[{j}].position.y", i)]
                         pnt_var_x = row[(f"objects.shape.points[{j}].varianceX", i)]
                         pnt_var_y = row[(f"objects.shape.points[{j}].varianceY", i)]
+                        pnt_covar = row[(f"objects.shape.points[{j}].covarianceXY", i)]
 
-                        points.append(DynPoint(pnt_x, pnt_y, pnt_var_x, pnt_var_y))
+                        points.append(DynPoint(pnt_x, pnt_y, pnt_var_x, pnt_var_y, pnt_covar))
 
                     dynamic_object = DynamicObject(
                         object_id,
                         object_class,
                         class_certainty,
                         dyn_property,
-                        dyn_property_certainty,
+                        # dyn_property_certainty,
                         points,
                         existence_prob,
                         orientation,
@@ -155,8 +169,12 @@ class TPFReader:
                         yaw_rate_std,
                         center_x,
                         center_y,
+                        acceleration_x,
+                        acceleration_y,
+                        acceleration_std_x,
+                        acceleration_std_y,
                         state,
-                        contained_in_last_sensor_update,
+                        # contained_in_last_sensor_update,
                         lifetime,
                     )
                     objects.append(dynamic_object)

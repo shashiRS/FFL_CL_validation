@@ -41,9 +41,7 @@ class ValidationSignals(MDFSignalDefinition):
     class Columns(MDFSignalDefinition.Columns):
         """Definition of the dataframe columns."""
 
-        CAR_ROAD = "Car_road"
         CAR_SPEED = "Car_speed"
-        USEER_ACTION = "User_action"
         HMI_INFO = "State_on_HMI"
 
     def __init__(self):
@@ -51,9 +49,7 @@ class ValidationSignals(MDFSignalDefinition):
         super().__init__()
 
         self._properties = {
-            self.Columns.CAR_ROAD: "CM.Car.sRoad",
             self.Columns.CAR_SPEED: "MTS.ADAS_CAN.Conti_Veh_CAN.Tachometer.SpeedoSpeed",
-            self.Columns.USEER_ACTION: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIOut1.APHMIOutUserActionHU",
             self.Columns.HMI_INFO: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIInGeneral1.APHMIParkingProcedureCtrlState",
         }
 
@@ -117,7 +113,7 @@ class AupScanToInitVelCheck(TestStep):
         if t1_idx is not None:
             # Find when speed of ego vehicle is above OFF limit
             for cnt in range(t1_idx, len(car_speed_sig)):
-                if car_speed_sig[cnt] < 3.6 * constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS:
+                if car_speed_sig[cnt] > 3.6 * constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS:
                     t2_idx = cnt
                     break
             if t2_idx is not None:
@@ -136,11 +132,12 @@ class AupScanToInitVelCheck(TestStep):
                         actual_valule = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
                             states_dict[key]
                         )
+                        actual_number = int(states_dict[key])
 
                         if key < t2_idx:
                             evaluation1 = " ".join(
-                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_valule} at {time_signal[key]} us but speed of ego vehicle"
-                                f" above {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS}.".split()
+                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_valule} ({actual_number}) at {time_signal[key]} us but speed of ego vehicle"
+                                f" above {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS} m/s.".split()
                             )
                             eval_cond[0] = False
                             break
@@ -149,10 +146,11 @@ class AupScanToInitVelCheck(TestStep):
                             evaluation1 = " ".join(
                                 f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, speed of ego vehicle is {car_speed_sig[key] / 3.6} m/s. This value is above"
                                 f" {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS} m/s and"
-                                f" State of signal switches into {actual_valule} at {time_signal[key]} us.".split()
+                                f" State of signal switches into {actual_valule} ({actual_number}) at {time_signal[key]} us.".split()
                             )
                             eval_cond[0] = False
                             break
+                        counter += 1
 
                     else:
                         counter += 1
@@ -160,14 +158,16 @@ class AupScanToInitVelCheck(TestStep):
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    f"The evaluation of {signal_name['Car_speed']} signal is FAILED, speed of ego vehicle never aboive"
-                    f" {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS} m/s.".split()
+                    f"The evaluation of {signal_name['Car_speed']} signal is FAILED, speed of ego vehicle never above"
+                    f" {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS} m/s."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Snanning.".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Snanning."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -205,14 +205,10 @@ class AupScanToInitVelCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:
@@ -232,7 +228,7 @@ class AupScanToInitVelCheck(TestStep):
     name="Mode transition: Scanning to Init",
     description=f"The velocity of the ego vehicle is above {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_OFF_MPS}.",
 )
-class FtCommon(TestCase):
+class AupScanToInitVel(TestCase):
     """AupScanToInitVel Test Case."""
 
     custom_report = MfHilClCustomTestcaseReport

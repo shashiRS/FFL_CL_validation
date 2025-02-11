@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Average manuever time KPI"""
+"""Average number of time KPI"""
 import logging
 import os
 import sys
@@ -16,8 +16,11 @@ from tsf.core.report import (
 from tsf.core.results import DATA_NOK, NAN, ExpectedResult, Result
 from tsf.core.testcase import (
     CustomReportTestStep,
+    PreProcessor,
     TestCase,
     TestStep,
+    register_inputs,
+    register_pre_processor,
     register_signals,
     testcase_definition,
     teststep_definition,
@@ -33,7 +36,7 @@ TSF_BASE = os.path.abspath(os.path.join(__file__, "..", ".."))  # nopep8
 if TSF_BASE not in sys.path:
     sys.path.append(TSF_BASE)
 
-__author__ = "<CHANGE ME>"
+__author__ = "Grubii Otilia"
 __copyright__ = "2020-2012, Continental AG"
 __version__ = "0.16.1"
 __status__ = "Production"
@@ -178,7 +181,7 @@ class StoreStepResults:
     """
 
     def __init__(self):
-        """Initialize object attributes."""
+        """Initialize the test steps results"""
         self.step_1 = fc.INPUT_MISSING
         self.step_2 = fc.INPUT_MISSING
         self.step_3 = fc.INPUT_MISSING
@@ -251,7 +254,7 @@ class Signals(SignalDefinition):
             ],
             self.Columns.PARKING_MODE: [
                 "ADC5xx_Device.EM_DATA.EmPSMDebugPort.stateVarPPC_nu",
-                "MTA_ADC5.IU_PAR230_DATA.PsmDebugPort.stateVarPPC_nu",
+                "MTA_ADC5.APPDEMO_PARKSM_DATA.psmDebugPort.stateVarPPC_nu",
             ],
             self.Columns.STOP_REASON: [
                 "ADC5xx_Device.EM_DATA.EmPARRKSMCoreStatusPort.coreStopReason_nu",
@@ -275,21 +278,92 @@ class Signals(SignalDefinition):
             ],
             self.Columns.DRIVING_DIRECTION: [
                 "ADC5xx_Device.EM_DATA.EmHMIGeneralInputPort.general.drivingDirection_nu",
-                "MTA_ADC5.IU_PAR230_DATA.HmiGeneralInputPort.general.drivingDirection_nu",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.general.drivingDirection_nu",
             ],
             self.Columns.TIME: [
                 "ADC5xx_Device.EM_DATA.EmHeadUnitVisualizationPort.sSigHeader.uiTimeStamp",
-                "MTA_ADC5.IU_PAR230_DATA.HeadUnitVisualizationPort.sSigHeader.uiTimeStamp",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.headUnitVisualizationPort.sSigHeader.uiTimeStamp",
             ],
             self.Columns.HEAD_SCREEN: [
                 ".EM_DATA.EmHeadUnitVisualizationPort.screen_nu",
-                "MTA_ADC5.IU_PAR230_DATA.HeadUnitVisualizationPort.screen_nu",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.headUnitVisualizationPort.screen_nu",
             ],
         }
 
 
 example_obj = Signals()
 verdict_obj = StoreStepResults()
+
+
+class AvgTimePreProcessor(PreProcessor):
+    """Preprocessor class for park end position."""
+
+    def pre_process(self):
+        """Preprocesses the data before further processing."""
+        df = self.readers[EXAMPLE]
+        df[Signals.Columns.TIMESTAMP] = df.index
+        df[Signals.Columns.TIMESTAMP] -= df[Signals.Columns.TIMESTAMP].iat[0]
+        df[Signals.Columns.TIMESTAMP] /= constants.GeneralConstants.US_IN_S
+        time = df[Signals.Columns.TIMESTAMP]
+        plot_titles, plots, remarks = fh.rep([], 3)
+        signal_summary = {}
+        # Get the signals
+        stop_reason = df["CoreStopReason"]
+        # Remove unused variables
+        headscreen_nu = df["HMIUnitScreen"]
+
+        file_path = os.path.abspath(self.artifacts[0].file_path)
+        parking_type = fh.get_parking_type_from_file_path(file_path)
+        parking_type = parking_type.lower()
+        # Get the number of seconds that have passed from frame to frame
+        seconds = df[Signals.Columns.TIMESTAMP].rolling(2).apply(lambda x: x[1] - x[0], raw=True)
+
+        msk_prk_selection = headscreen_nu == constants.HeadUnitVisuPortScreenVal.PARKING_SPACE_SELECTION
+        msk_maneuver_active = headscreen_nu == constants.HeadUnitVisuPortScreenVal.MANEUVER_ACTIVE
+        msk_maneuver_fnsh = headscreen_nu == constants.HeadUnitVisuPortScreenVal.MANEUVER_FINISHED
+
+        headscreen_nu_mask = msk_prk_selection | msk_maneuver_active | msk_maneuver_fnsh.shift(1).fillna(False)
+
+        headscreen_nu_filtered = pd.concat([seconds, headscreen_nu], axis=1)
+
+        headscreen_nu_filtered = headscreen_nu_filtered[headscreen_nu_mask]
+        seconds_while_parking = headscreen_nu_filtered[Signals.Columns.TIMESTAMP].sum()
+        total_time = round(seconds_while_parking, 2)
+        stop_reason_mask = stop_reason == constants.StrokeConstants.PARKING_SUCCESS_VALUE
+        finish_park = any(stop_reason_mask)
+        verdict_obj.park_verdict_1 = "Success" if any(stop_reason_mask) else "Failed"
+        if any(stop_reason_mask):
+            result_summary = (
+                f"The measurement parked successfully in {total_time} [s] while doing {parking_type} parking scenario."
+            )
+        else:
+            result_summary = "The parking failed to finish."
+        signal_summary[Signals.Columns.STOP_REASON] = result_summary
+        remark = f"The parking scenario was {parking_type}."
+        sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
+
+        self.fig = go.Figure()
+        self.fig.add_trace(
+            go.Scatter(
+                x=time,
+                y=headscreen_nu,
+                mode="lines",
+                name=Signals.Columns.HEAD_SCREEN,
+            )
+        )
+        self.fig.add_trace(
+            go.Scatter(
+                x=time,
+                y=stop_reason,
+                mode="lines",
+                name=Signals.Columns.STOP_REASON,
+            )
+        )
+
+        self.fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+        self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+
+        return [sig_sum, self.fig, total_time, parking_type, finish_park]
 
 
 @teststep_definition(
@@ -304,164 +378,78 @@ verdict_obj = StoreStepResults()
     ),
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_time", pre_processor=AvgTimePreProcessor)
 class AvgNbTimePerpAngF(TestStep):
-    """testcase that can be tested by a simple pass/fail test.
-
-    Objective
-    ---------
-    Verify that vehicle velocity[km/h] has values greater than 0 until a slot is selected by the driver.
-
-    Detail
-    ------
-
-    In case there is no signal change to 1 the testcase is failed.
-    The test ist performed for all recordings of the collection
-    """
+    """Verify the average  maneuvering time for perp/ang forward parking type."""
 
     custom_report = MfCustomTeststepReport
 
     def __init__(self):
-        """Initialize the teststep."""
+        """Initialize the test step."""
         super().__init__()
 
-    def process(self):
-        """
-        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
-        evaluation results.
-        """
-        self.result.details.update(
-            {
-                "Plots": [],
-                "software_version_file": "",
-                "Km_driven": 0,
-                "driven_time": 0,
-                "Plot_titles": [],
-                "Remarks": [],
-                "file_name": os.path.basename(self.artifacts[0].file_path),
-            }
-        )
-
-        df = self.readers[EXAMPLE]
-        df[Signals.Columns.TIMESTAMP] = df.index
-        # plots and remarks need to have the same length
-        plot_titles, plots, remarks = fh.rep([], 3)
-
-        # Defining signal variables for signal handling
-
-        sg_core_stop_reason = "CoreStopReason"
-        sg_screen = "HMIUnitScreen"
-
-        signal_summary = {}
-
-        usecase_const = False
-        usecases_dict = constants.ParkingUseCases.parking_usecase_id
-        for key, value in usecases_dict.items():
-            if self.result.details["file_name"].find(f"{key}") != -1:
-                if value.lower().find("forward") != -1 and (
-                    value.lower().find("perpendicular") != -1 or value.lower().find("angular") != -1
-                ):
-                    usecase_const = True
-
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
         try:
-            # Converting microseconds to seconds
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] / constants.GeneralConstants.US_IN_S
-            # Converting epoch time to seconds passed
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] - df[Signals.Columns.TIMESTAMP].iat[0]
-            global total_time
-            headscreen_nu = df[Signals.Columns.HEAD_SCREEN]
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
+                }
+            )
+            # self.result.measured_result = None
 
-            # Get the number of seconds that have passed from frame to frame
-            seconds = df[Signals.Columns.TIMESTAMP].rolling(2).apply(lambda x: x[1] - x[0], raw=True)
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_2 = fc.NOT_ASSESSED
 
-            msk_prk_selection = headscreen_nu == constants.HeadUnitVisuPortScreenVal.PARKING_SPACE_SELECTION
-            msk_maneuver_active = headscreen_nu == constants.HeadUnitVisuPortScreenVal.MANEUVER_ACTIVE
-            msk_maneuver_fnsh = headscreen_nu == constants.HeadUnitVisuPortScreenVal.MANEUVER_FINISHED
+            sig_sum, fig, total_time, park_type, finish_park = self.pre_processors["avg_time"]
 
-            headscreen_nu_mask = msk_prk_selection | msk_maneuver_active | msk_maneuver_fnsh.shift(1).fillna(False)
-
-            headscreen_nu_filtered = pd.concat([seconds, headscreen_nu], axis=1)
-
-            headscreen_nu_filtered = headscreen_nu_filtered[headscreen_nu_mask]
-            seconds_while_parking = headscreen_nu_filtered[Signals.Columns.TIMESTAMP].sum()
-            total_time = round(seconds_while_parking, 2)
-            stop_reason_mask = df[sg_core_stop_reason] == constants.StrokeConstants.PARKING_SUCCESS_VALUE
-
-            verdict_obj.park_verdict_1 = "Success" if any(stop_reason_mask) else "Failed"
-
-            if any(stop_reason_mask) and usecase_const:
-                evaluation1 = f"The measurement parked successfully in {total_time}"
-                self.result.measured_result = Result(total_time)
-                verdict_obj.step_1 = fc.PASS
+            if park_type == "perpendicular forward" or park_type == "angular forward":
+                if finish_park:
+                    self.result.measured_result = Result(total_time, unit="s")
+                    verdict_obj.step_1 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_1 = fc.FAIL
             else:
-                evaluation1 = (
-                    "The parking failed to finish."
-                    if usecase_const
-                    else "The measurement could not be evaluated due to wrong parking scenario."
-                )
+                self.result.measured_result = NAN
                 verdict_obj.step_1 = fc.NOT_ASSESSED
-                self.result.measured_result = DATA_NOK if usecase_const else NAN
 
-            signal_summary[Signals.Columns.STOP_REASON] = evaluation1
-            remark = " "
-            self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append(f"Parking type: {park_type}")
 
-            if usecase_const:
-                plot_titles.append("")
-                plots.append(self.sig_sum)
-                remarks.append("")
-                self.fig = go.Figure()
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_core_stop_reason],
-                        mode="lines",
-                        name=Signals.Columns.STOP_REASON,
-                    )
-                )
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_screen],
-                        mode="lines",
-                        name=Signals.Columns.HEAD_SCREEN,
-                    )
-                )
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
 
-                self.fig.layout = go.Layout(
-                    yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]"
-                )
-                self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
 
-                plot_titles.append("")
-                plots.append(self.fig)
-                remarks.append("")
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "perpendicular forward" or park_type == "angular forward":
+                    additional_results_dict = {
+                        "Measured result [s]": {"value": total_time},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
 
-        except Exception as err:
-            print(str(err))
-            # write_log_message(f"Test failed, the following signal is missing:{str(err)}", "error", LOGGER)
+        except Exception:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
-
-        for plot in plots:
-            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
-                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-            else:
-                self.result.details["Plots"].append(plot)
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-        if usecase_const:
-            color = "#28a745" if verdict_obj.step_1 == fc.PASS else "rgb(129, 133, 137)"
-            park_status = verdict_obj.check_parking_success()
-            additional_results_dict = {
-                "Verdict": {"value": verdict_obj.step_1.title(), "color": color},
-                "Measured result [seconds]": {"value": total_time},
-                "Parking finished": {"value": f"{park_status}"},
-                # "Parking scenario": {"value": f"{park_status}"}
-            }
-            self.result.details["Additional_results_ts"] = additional_results_dict
 
 
 @teststep_definition(
@@ -476,148 +464,77 @@ class AvgNbTimePerpAngF(TestStep):
     ),
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_time", pre_processor=AvgTimePreProcessor)
 class AvgNbTimePerpAngB(TestStep):
-    """testcase that can be tested by a simple pass/fail test.
-
-    Objective
-    ---------
-    Verify that vehicle velocity[km/h] has values greater than 0 until a slot is selected by the driver.
-
-    Detail
-    ------
-
-    In case there is no signal change to 1 the testcase is failed.
-    The test ist performed for all recordings of the collection
-    """
+    """Verify the average  maneuvering time for perp/ang backward parking type."""
 
     custom_report = MfCustomTeststepReport
 
     def __init__(self):
-        """Initialize the teststep."""
+        """Initialize the test step."""
         super().__init__()
 
-    def process(self):
-        """
-        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
-        evaluation results.
-        """
-        self.result.details.update(
-            {
-                "Plots": [],
-                "software_version_file": "",
-                "Km_driven": 0,
-                "druveb_time": 0,
-                "Plot_titles": [],
-                "Remarks": [],
-                "file_name": os.path.basename(self.artifacts[0].file_path),
-            }
-        )
-
-        df = self.readers[EXAMPLE]
-        df[Signals.Columns.TIMESTAMP] = df.index
-        # plots and remarks need to have the same length
-        plot_titles, plots, remarks = fh.rep([], 3)
-
-        # Defining signal variables for signal handling
-
-        sg_core_stop_reason = "CoreStopReason"
-        sg_screen = "HMIUnitScreen"
-
-        # Converting microseconds to seconds
-        df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] / constants.GeneralConstants.US_IN_S
-        # Converting epoch time to seconds passed
-        df[Signals.Columns.TIME] = df[Signals.Columns.TIMESTAMP] - df[Signals.Columns.TIMESTAMP].iat[0]
-
-        signal_summary = {}
-        usecase_const = False
-        usecases_dict = constants.ParkingUseCases.parking_usecase_id
-        for key, value in usecases_dict.items():
-            if self.result.details["file_name"].find(f"{key}") != -1:
-                if value.lower().find("backward") != -1 and (
-                    value.lower().find("perpendicular") != -1 or value.lower().find("angular") != -1
-                ):
-                    usecase_const = True
-
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
         try:
-            stop_reason_mask = df[sg_core_stop_reason] == constants.StrokeConstants.PARKING_SUCCESS_VALUE
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
+                }
+            )
+            # self.result.measured_result = None
 
-            verdict_obj.park_verdict_2 = "Success" if any(stop_reason_mask) else "Failed"
-            if any(stop_reason_mask) and usecase_const:
-                evaluation1 = f"The measurement parked successfully in {total_time}"
-                self.result.measured_result = Result(total_time)
-                verdict_obj.step_2 = fc.PASS
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_2 = fc.NOT_ASSESSED
+
+            sig_sum, fig, total_time, park_type, finish_park = self.pre_processors["avg_time"]
+
+            if park_type == "perpendicular backward" or park_type == "angular backward":
+                if finish_park:
+                    self.result.measured_result = Result(total_time, unit="s")
+                    verdict_obj.step_2 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_2 = fc.FAIL
             else:
-                evaluation1 = (
-                    "The parking failed to finish."
-                    if usecase_const
-                    else "The measurement could not be evaluated due to wrong parking scenario."
-                )
+                self.result.measured_result = NAN
                 verdict_obj.step_2 = fc.NOT_ASSESSED
-                self.result.measured_result = DATA_NOK if usecase_const else NAN
 
-            signal_summary[Signals.Columns.STOP_REASON] = evaluation1
-            remark = " "
-            self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
-            if usecase_const:
-                plot_titles.append("")
-                plots.append(self.sig_sum)
-                remarks.append("")
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append(f"Parking type: {park_type}")
 
-                self.fig = go.Figure()
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
 
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_core_stop_reason],
-                        mode="lines",
-                        name=Signals.Columns.STOP_REASON,
-                    )
-                )
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
 
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_screen],
-                        mode="lines",
-                        name=Signals.Columns.HEAD_SCREEN,
-                    )
-                )
-
-                self.fig.layout = go.Layout(
-                    yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]"
-                )
-                self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
-
-                plot_titles.append("")
-                plots.append(self.fig)
-                remarks.append("")
-
-        except Exception as err:
-            print(str(err))
-            # write_log_message(f"Test failed, the following signal is missing:{str(err)}", "error", LOGGER)
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "perpendicular backward" or park_type == "angular backward":
+                    additional_results_dict = {
+                        "Measured result [s]": {"value": total_time},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
+        except Exception:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
-
-        for plot in plots:
-            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
-                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-            else:
-                self.result.details["Plots"].append(plot)
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-        if usecase_const:
-            color = "#28a745" if verdict_obj.step_2 == fc.PASS else "rgb(129, 133, 137)"
-            park_status = verdict_obj.check_parking_success()
-            additional_results_dict = {
-                "Verdict": {"value": verdict_obj.step_2.title(), "color": color},
-                "Measured result [seconds]": {"value": total_time},
-                "Parking finished": {"value": f"{park_status}"},
-                # "Parking scenario": {"value": f"{park_status}"}
-            }
-            self.result.details["Additional_results_ts"] = additional_results_dict
 
 
 @teststep_definition(
@@ -632,157 +549,179 @@ class AvgNbTimePerpAngB(TestStep):
     ),
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_time", pre_processor=AvgTimePreProcessor)
 class AvgNbTimePar(TestStep):
-    """testcase that can be tested by a simple pass/fail test.
-
-    Objective
-    ---------
-    Verify that vehicle velocity[km/h] has values greater than 0 until a slot is selected by the driver.
-
-    Detail
-    ------
-
-    In case there is no signal change to 1 the testcase is failed.
-    The test ist performed for all recordings of the collection
-    """
+    """Verify the average  maneuvering time for parallel parking type."""
 
     custom_report = MfCustomTeststepReport
 
     def __init__(self):
-        """Initialize the teststep."""
+        """Initialize the test step."""
         super().__init__()
 
-    def process(self):
-        """
-        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
-        evaluation results.
-        """
-        self.result.details.update(
-            {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
-        )
-
-        df = self.readers[EXAMPLE]
-        df[Signals.Columns.TIMESTAMP] = df.index
-        # plots and remarks need to have the same length
-        plot_titles, plots, remarks = fh.rep([], 3)
-
-        # Defining signal variables for signal handling
-
-        sg_core_stop_reason = "CoreStopReason"
-        sg_screen = "HMIUnitScreen"
-
-        signal_summary = {}
-        usecase_const = False
-        usecases_dict = constants.ParkingUseCases.parking_usecase_id
-        for key, value in usecases_dict.items():
-            if self.result.details["file_name"].find(f"{key}") != -1:
-                if value.lower().find("parallel") != -1 and (
-                    value.lower().find("perpendicular") == -1 and value.lower().find("angular") == -1
-                ):
-                    usecase_const = True
-
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
         try:
-            # Converting microseconds to seconds
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] / constants.GeneralConstants.US_IN_S
-            # Converting epoch TIMESTAMP to seconds passed
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] - df[Signals.Columns.TIMESTAMP].iat[0]
-            stop_reason_mask = df[sg_core_stop_reason] == constants.StrokeConstants.PARKING_SUCCESS_VALUE
-
-            if any(stop_reason_mask) and usecase_const:
-                evaluation1 = f"The measurement parked successfully in {total_time}"
-                self.result.measured_result = Result(total_time)
-                verdict_obj.step_3 = fc.PASS
-
-            else:
-                evaluation1 = (
-                    "The parking failed to finish."
-                    if usecase_const
-                    else "The measurement could not be evaluated due to wrong parking scenario."
-                )
-                verdict_obj.step_3 = fc.NOT_ASSESSED
-                self.result.measured_result = DATA_NOK if usecase_const else NAN
-
-            signal_summary[Signals.Columns.STOP_REASON] = evaluation1
-            remark = " "
-            self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
-
-            if usecase_const:
-
-                plot_titles.append("")
-                plots.append(self.sig_sum)
-                remarks.append("")
-                self.fig = go.Figure()
-
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_core_stop_reason],
-                        mode="lines",
-                        name=Signals.Columns.STOP_REASON,
-                    )
-                )
-
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_screen],
-                        mode="lines",
-                        name=Signals.Columns.HEAD_SCREEN,
-                    )
-                )
-
-                self.fig.layout = go.Layout(
-                    yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]"
-                )
-                self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
-
-                plot_titles.append("")
-                plots.append(self.fig)
-                remarks.append("")
-
-            color = "#28a745" if verdict_obj.step_3 == fc.PASS else "rgb(129, 133, 137)"
-            park_status = verdict_obj.check_parking_success()
-            if usecase_const:
-                additional_results_dict = {
-                    "Verdict": {"value": verdict_obj.step_3.title(), "color": color},
-                    "Measured result [seconds]": {"value": total_time},
-                    "Parking finished": {"value": f"{park_status}"},
-                    # "Parking scenario": {"value": f"{park_status}"}
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
                 }
-                self.result.details["Additional_results_ts"] = additional_results_dict
+            )
+            # self.result.measured_result = None
 
-        except Exception as err:
-            print(str(err))
-            # write_log_message(f"Test failed, the following signal is missing:{str(err)}", "error", LOGGER)
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_3 = fc.NOT_ASSESSED
 
+            sig_sum, fig, total_time, park_type, finish_park = self.pre_processors["avg_time"]
+
+            if park_type == "parallel":
+                if finish_park:
+                    self.result.measured_result = Result(total_time, unit="s")
+                    verdict_obj.step_3 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_3 = fc.FAIL
+            else:
+                self.result.measured_result = NAN
+                verdict_obj.step_3 = fc.NOT_ASSESSED
+
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append("")
+
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
+
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
+
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "parallel":
+                    additional_results_dict = {
+                        "Measured result [s]": {"value": total_time},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
+        except Exception:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
 
-        for plot in plots:
-            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
-                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+
+@teststep_definition(
+    step_number=4,
+    name="UNKNOWN",
+    description=("Verify the average  maneuvering time for unknown parking type."),
+    expected_result=ExpectedResult(
+        operator=RelationOperator.LESS,
+        numerator=65,
+        unit="s",
+        aggregate_function=AggregateFunction.MEAN,
+    ),
+)
+@register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_time", pre_processor=AvgTimePreProcessor)
+class AvgNbTimeBase(TestStep):
+    """Verify the average  maneuvering time for unknown parking type."""
+
+    custom_report = MfCustomTeststepReport
+
+    def __init__(self):
+        """Initialize the test step."""
+        super().__init__()
+
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
+        try:
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
+                }
+            )
+            # self.result.measured_result = None
+
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_3 = fc.NOT_ASSESSED
+
+            sig_sum, fig, total_time, park_type, finish_park = self.pre_processors["avg_time"]
+
+            if park_type == "unknown" or park_type == "perpendicular" or park_type == "angular":
+                if finish_park:
+                    self.result.measured_result = Result(total_time, unit="s")
+                    verdict_obj.step_3 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_3 = fc.FAIL
             else:
-                self.result.details["Plots"].append(plot)
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+                self.result.measured_result = NAN
+                verdict_obj.step_3 = fc.NOT_ASSESSED
+
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append("")
+
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
+
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
+
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "unknown" or park_type == "perpendicular" or park_type == "angular":
+                    additional_results_dict = {
+                        "Measured result [s]": {"value": total_time},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
+        except Exception:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
 
 
 @verifies("1028792")
 @testcase_definition(
-    name="Average maneuvering time [s]",
-    description=("Verify the average maneuvering time for specific parking scenarios. "),
+    name="Average maneuvering time[s]",
+    description=("Verify the average number of strokes for specific parking scenarios. "),
     doors_url=r"https://jazz.conti.de/rm4/resources/BI_zX9IAehNEe2m7JKTm3pqog?oslc_config.context=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
 )
-class AvgTime(TestCase):
+@register_inputs("/parking")
+class kpiAvgTimeManuever(TestCase):
     """Test case."""
 
     @property
     def test_steps(self):
         """Define the test steps."""
         return [
+            AvgNbTimeBase,
             AvgNbTimePerpAngF,
             AvgNbTimePerpAngB,
             AvgNbTimePar,

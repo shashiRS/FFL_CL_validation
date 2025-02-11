@@ -30,3 +30,10 @@ repos:
       - id: ruff
         log_file: ruff.log
         args: [--fix, --show-fixes, --exit-non-zero-on-fix]
+
+  # - repo: https://github.com/pylint-dev/pylint
+  #   rev: v3.2.6
+  #   hooks:
+  #     - id: pylint
+  #       args: [--disable=all, --enable=E1101]
+  #       files: \.py$

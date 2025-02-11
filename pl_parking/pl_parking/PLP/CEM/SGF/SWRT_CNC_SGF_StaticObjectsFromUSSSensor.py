@@ -26,11 +26,12 @@ if TRC_ROOT not in sys.path:
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
-from pl_parking.common_ft_helper import CemSignals, CustomTeststepReport, rep
+from pl_parking.common_ft_helper import CustomTeststepReport, rep
 from pl_parking.PLP.CEM.inputs.input_CemSgfReader import SGFReader
+from pl_parking.PLP.CEM.SGF.ft_helper import SGFSignals
 
 SIGNAL_DATA = "StaticObjectsFromUSSSensor"
-example_obj = CemSignals()
+example_obj = SGFSignals()
 
 
 # @specification
@@ -45,7 +46,7 @@ example_obj = CemSignals()
     description="This test case checks in case SGF has only ultrasonic input, the output Static Objects are received.",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, SGFSignals)
 class TestStepStaticObjectsFromUSSSensor(TestStep):
     """TestStep for evaluating static objects detected by USS (UltraSonic Sensor), utilizing a custom report."""
 
@@ -107,7 +108,7 @@ class TestStepStaticObjectsFromUSSSensor(TestStep):
     name="SWRT_CNC_SGF_StaticObjectsFromUSSSensor",
     description="This test case checks in case SGF has only ultrasonic input, the output Static Objects are received.",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class StaticObjectsFromUSSSensor(TestCase):
     """Static Objects From USS Sensor test case."""

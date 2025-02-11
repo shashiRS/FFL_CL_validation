@@ -1,8 +1,15 @@
 """CEM TPF Test Cases"""
 
 import logging
+import math
+import os
+import sys
+import typing
 
-from tsf.core.results import FALSE, TRUE, BooleanResult
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from tsf.core.results import DATA_NOK, FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -11,39 +18,105 @@ from tsf.core.testcase import (
     teststep_definition,
     verifies,
 )
-
-_log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
-
-import os
-import sys
-
-TRC_ROOT = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
-if TRC_ROOT not in sys.path:
-    sys.path.append(TRC_ROOT)
-
-import math
-import typing
-
-import numpy as np
-import pandas as pd
-import plotly.graph_objects as go
+from tsf.io.signals import SignalDefinition
 
 import pl_parking.common_constants as fc
-from pl_parking.common_ft_helper import CemSignals, CustomTeststepReport, rep
+import pl_parking.common_ft_helper as fh
+import pl_parking.PLP.CEM.TPF.ft_helper as fh_tpf
+import pl_parking.PLP.CV.TPP.ft_helper as fh_tpp
 from pl_parking.PLP.CEM.constants import ConstantsCem, GroundTruthTpf
 from pl_parking.PLP.CEM.ft_tpf_helper import FtTPFHelper, TpfFtp2GtAssociator, TPFMetricsHelper
 from pl_parking.PLP.CEM.inputs.input_CemTpfReader import DynamicObject, MaintenanceState, TPFReader
 from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import VedodoReader
 from pl_parking.PLP.CEM.inputs.input_DynamicObjectDetection import (
     DynamicObjectCamera,
-    DynamicObjectDetection,
     DynamicObjectDetectionReader,
 )
 
-SIGNAL_DATA = "CEM-TPF_FTP_confidence_decrease_check"
+_log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
-example_obj = CemSignals()
+TRC_ROOT = os.path.abspath(os.path.join(__file__, "..", "..", ".."))
+if TRC_ROOT not in sys.path:
+    sys.path.append(TRC_ROOT)
+
+SIGNAL_DATA = "CEM-TPF_FTP_confidence_decrease_check"
+INPUT_DATA = "TPP_signals"
+
+example_obj = fh_tpf.TPFSignals()
+
+VEDODO_DATA = "CUSTOM_READER"
+
+
+class VedodoSignals(SignalDefinition):
+    """Custom signal definition for vedodo"""
+
+    class Columns(SignalDefinition.Columns):
+        """Column defines."""
+
+        VEDODO_TIMESTAMP = "vedodo_timestamp_us"
+        VEDODO_SIGSTATUS = "vedodo_signalState"
+        X = "x"
+        Y = "y"
+        YAW = "yaw"
+
+    def __init__(self):
+        """Initialize the signal definition."""
+        super().__init__()
+
+        self._root = ["cem_outpus_sub.dynamic_objects", "CarPC.EM_Thread.CemInDynamicEnvironment"]
+
+        self._properties = [
+            (
+                self.Columns.VEDODO_TIMESTAMP,
+                [
+                    # "cem_outpus_sub.ego_motion_at_cem_time.vehicle_pose_est_at_cem_time.timestamp_us",
+                    # "CarPC.EM_Thread.OdoEstimationPortAtCem.timestamp_us",
+                    # "egoMotionAtCemOutput.sSigHeader.uiTimeStamp",
+                    "MTA_ADC5.CEM200_AUPDF_DATA.EgoMotionOutput.sSigHeader.uiTimeStamp",
+                    "MTA_ADC5.CEM200_LSMO_DATA.m_EgoMotionOutput.sSigHeader.uiTimeStamp",
+                ],
+            ),
+            (
+                self.Columns.VEDODO_SIGSTATUS,
+                [
+                    "egoMotionAtCemOutput.odoEstimationAtCemTime.motionStatus_nu",
+                    "CarPC.EM_Thread.OdoEstimationPortAtCemtate_nu",
+                    "MTA_ADC5.CEM200_AUPDF_DATA.EgoMotionOutput.sSigHeader.eSigStatus",
+                    "MTA_ADC5.CEM200_LSMO_DATA.m_EgoMotionOutput.sSigHeader.eSigStatus",
+                ],
+            ),
+            (
+                self.Columns.X,
+                [
+                    "egoMotionAtCemOutput.odoEstimationAtCemTime.xPosition_m",
+                    "cem_outpus_sub.ego_motion_at_cem_time.vehicle_pose_est_at_cem_time.x_position_m",
+                    "CarPC.EM_Thread.OdoEstimationPortAtCem.xPosition_m",
+                    "MTA_ADC5.CEM200_AUPDF_DATA.EgoMotionOutput.odoEstimationAtCemTime.xPosition_m",
+                    "MTA_ADC5.CEM200_LSMO_DATA.m_EgoMotionOutput.odoEstimationAtCemTime.xPosition_m",
+                ],
+            ),
+            (
+                self.Columns.Y,
+                [
+                    "egoMotionAtCemOutput.odoEstimationAtCemTime.yPosition_m",
+                    "cem_outpus_sub.ego_motion_at_cem_time.vehicle_pose_est_at_cem_time.y_position_m",
+                    "CarPC.EM_Thread.OdoEstimationPortAtCem.yPosition_m",
+                    "MTA_ADC5.CEM200_AUPDF_DATA.EgoMotionOutput.odoEstimationAtCemTime.yPosition_m",
+                    "MTA_ADC5.CEM200_LSMO_DATA.m_EgoMotionOutput.odoEstimationAtCemTime.yPosition_m",
+                ],
+            ),
+            (
+                self.Columns.YAW,
+                [
+                    "egoMotionAtCemOutput.odoEstimationAtCemTime.yawAngle_rad",
+                    "cem_outpus_sub.ego_motion_at_cem_time.vehicle_pose_est_at_cem_time.yaw_angle_rad",
+                    "CarPC.EM_Thread.OdoEstimationPortAtCem.yawAngle_rad",
+                    "MTA_ADC5.CEM200_AUPDF_DATA.EgoMotionOutput.odoEstimationAtCemTime.yawAngle_rad",
+                    "MTA_ADC5.CEM200_LSMO_DATA.m_EgoMotionOutput.odoEstimationAtCemTime.yawAngle_rad",
+                ],
+            ),
+        ]
 
 
 @teststep_definition(
@@ -52,11 +125,11 @@ example_obj = CemSignals()
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
 class TestStepFtFTPConfidenceDecreaseCheck(TestStep):
     """TestStep for FTP Confidence Decrease Check, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.CustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -69,9 +142,9 @@ class TestStepFtFTPConfidenceDecreaseCheck(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         tpf_reader = TPFReader(reader)
         tpf_data = tpf_reader.convert_to_class()
 
@@ -133,15 +206,18 @@ class TestStepFtFTPConfidenceDecreaseCheck(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -165,11 +241,12 @@ class FtFTPConfidenceDecreaseCheck(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
+@register_signals(INPUT_DATA, fh_tpp.TPPSignals)
 class TestStepFtFTPConfidenceObjectMeasured(TestStep):
     """TestStep for FTP Confidence Object Measured, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -182,111 +259,95 @@ class TestStepFtFTPConfidenceObjectMeasured(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
-        tpf_reader = TPFReader(reader)
-        tpf_data = tpf_reader.convert_to_class()
-        input_reader = DynamicObjectDetectionReader(reader)
-        rtp_data = input_reader.convert_to_class()
+        reader = self.readers[SIGNAL_DATA]
+        # tpp_reader = self.readers[INPUT_DATA]
+        # tpf_reader = TPFReader(reader)
+        # tpf_data = tpf_reader.convert_to_class()
+        # input_reader = DynamicObjectDetectionReader(tpp_reader)
+        # rtp_data = input_reader.convert_to_class()
 
         # TODO: do we really need this?
         # if not FtTPFHelper.check_only_one_camera_is_active(rtp_data):
         #     test_result = fc.INPUT_MISSING
         #     test_fail_message = "Recording should contain dynamic object(s) receieved only from single camera"
 
-        if tpf_reader.number_of_objects > 0:
-            # object_id: (timestamp, existence_prob, state)
-            tpf_object_previous_state: typing.Dict[int, (int, int, MaintenanceState)] = {}
+        index_list = list(range(len(reader)))
+        failed = 0
+        rows = []
+        for idx in index_list:
+            index = int(idx)
 
-            failed = 0
-            for tpf_timeframe in tpf_data:
-                cnt_tpf_objects = len(tpf_timeframe.dynamic_objects)
-                association_with_min_prob: typing.List[DynamicObjectDetection] = [None] * cnt_tpf_objects
+            if index > 0:
+                object_id = reader[(example_obj.Columns.OBJECTS_ID, 0)].iloc[index]
+                ts = reader["sigTimestamp"].iloc[index]
+                state = reader[("objects.state", 0)].iloc[index]
+                existence_prob = reader[("objects.existenceCertainty", 0)].iloc[index]
+                prev_existence_prob = reader[("objects.existenceCertainty", 0)].iloc[index - 1]
 
-                for _, rtp_timeframe_list in rtp_data.items():
-                    relevent_rtp_timeframe = FtTPFHelper.get_single_relevant_RTP_frame(
-                        rtp_timeframe_list, tpf_timeframe.timestamp
-                    )
-                    if relevent_rtp_timeframe is not None:
-                        association_per_camera: typing.List[typing.List[DynamicObjectDetection]] = (
-                            FtTPFHelper.associate_RTP_To_FTP(
-                                tpf_timeframe.dynamic_objects, relevent_rtp_timeframe.dynamic_objects
-                            )
-                        )
+                if state == MaintenanceState.MEASURED.value and existence_prob < prev_existence_prob:
+                    failed += 1
+                    values = {
+                        "Timestamp": ts,
+                        "Current state": state,
+                        "Object ID": object_id,
+                    }
+                    rows.append(values)
 
-                    for i in range(cnt_tpf_objects):
-                        for associated_rtp in association_per_camera[i]:
-                            if (
-                                association_with_min_prob[i] is None
-                                or association_with_min_prob[i].confidence > associated_rtp.confidence
-                            ):
-                                association_with_min_prob[i] = associated_rtp
-
-                for i, tpf_object in enumerate(tpf_timeframe.dynamic_objects):
-                    if tpf_object.object_id in tpf_object_previous_state:
-                        prev_timestamp, prev_existence_prob, prev_state = tpf_object_previous_state[
-                            tpf_object.object_id
-                        ]
-
-                        timestamp_diff = (tpf_timeframe.timestamp - prev_timestamp) * 1e-6
-
-                        if (
-                            timestamp_diff < ConstantsCem.AP_E_DYN_OBJ_ID_REUSE_TIME_S
-                            and prev_state != MaintenanceState.DELETED
-                        ):
-
-                            if (
-                                tpf_object.state == MaintenanceState.MEASURED
-                                and association_with_min_prob[i] is not None
-                                and association_with_min_prob[i].confidence >= prev_existence_prob
-                            ):
-                                if tpf_object.existence_prob < prev_existence_prob:
-                                    failed += 1
-
-                    if tpf_object.state == MaintenanceState.DELETED:
-                        if tpf_object.object_id in tpf_object_previous_state:
-                            tpf_object_previous_state.pop(tpf_object.object_id)
-                    else:
-                        tpf_object_previous_state[tpf_object.object_id] = (
-                            tpf_timeframe.timestamp,
-                            tpf_object.existence_prob,
-                            tpf_object.state,
-                        )
-
-            if failed:
-                test_result = fc.FAIL
-                test_fail_message = (
-                    "SVC provides object with higher confidence but CEM gives " + "it with lower confidence"
-                )
-                fig = go.Figure(
-                    data=[
-                        go.Table(
-                            header=dict(values=["Failing message", "Number of failed objects"]),
-                            cells=dict(values=[[test_fail_message], [failed]]),
-                        )
-                    ]
-                )
-                plot_titles.append("Number of failed objects")
-                plots.append(fig)
-                remarks.append("")
-            else:
-                test_result = fc.PASS
-
+        signal_name = example_obj.get_properties()[example_obj.Columns.OBJECTS_EXISTENCECERTAINTY][0]
+        test_results_dict = {"Signal Name": signal_name}
+        if failed:
+            test_result = fc.FAIL
+            test_fail_message = "SVC provides object with higher confidence but CEM gives it with lower confidence."
+            test_results_dict["Message"] = test_fail_message
+            values_df_1 = pd.DataFrame([test_results_dict])
+            fig = fh.build_html_table(values_df_1.head(10), "", "")
+            plot_titles.append("Number of failed objects")
+            plots.append(fig)
+            remarks.append("")
+            values_df_2 = pd.DataFrame(rows)
+            fig = fh.build_html_table(values_df_2.head(10), "", "")
+            plot_titles.append("Test Fail report")
+            plots.append(fig)
+            remarks.append("")
         else:
-            test_result = fc.INPUT_MISSING
+            test_result = fc.PASS
+            passed_message = "Result is as expected - Test Passed"
+            test_results_dict["Message"] = passed_message
+            values_df = pd.DataFrame([test_results_dict])
+            fig = fh.build_html_table(values_df.head(10), "", "")
+            plot_titles.append("Test Passed")
+            plots.append(fig)
+            remarks.append("")
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1521998"],
+            fc.TESTCASE_ID: ["38917"],
+            fc.TEST_DESCRIPTION: [
+                "The test is to check that when an object is confirmed by the same sensor with equal"
+                " or greater probability, its probability of existence is not decreased."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @verifies("38917", doors_url="")
@@ -298,6 +359,8 @@ class TestStepFtFTPConfidenceObjectMeasured(TestStep):
 )
 class FtFTPConfidenceObjectMeasured(TestCase):
     """Example test case."""
+
+    custom_report = fh.MfCustomTestcaseReport
 
     @property
     def test_steps(self):
@@ -311,11 +374,11 @@ class FtFTPConfidenceObjectMeasured(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
 class TestStepFtFTPConfidenceObjectNotMeasured(TestStep):
     """TestStep for FTP Confidence Object Not Measured, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -328,111 +391,110 @@ class TestStepFtFTPConfidenceObjectNotMeasured(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
-        tpf_reader = TPFReader(reader)
-        tpf_data = tpf_reader.convert_to_class()
+        reader = self.readers[SIGNAL_DATA]
 
-        # object_id: (timestamp, existence_prob, state)
-        tpf_object_previous_state: typing.Dict[int, (int, int, MaintenanceState)] = {}
+        # TODO: Remove
+        # reader[(example_obj.Columns.OBJECTS_EXISTENCECERTAINTY, 0)] = np.array(range(len(reader))).astype('float64') / 1000
 
-        if tpf_reader.number_of_objects > 0:
-            rows = []
-            failed = 0
-            for timeframe in tpf_data:
-                for tpf_object in timeframe.dynamic_objects:
-                    if tpf_object.object_id in tpf_object_previous_state:
-                        prev_timestamp, prev_existence_prob, prev_state = tpf_object_previous_state[
-                            tpf_object.object_id
-                        ]
+        # tpf_reader = TPFReader(reader)
+        # tpf_data = tpf_reader.convert_to_class()
 
-                        timestamp_diff = (timeframe.timestamp - prev_timestamp) * 1e-6
+        index_list = list(range(len(reader)))
+        failed = 0
+        rows = []
+        for idx in index_list:
+            index = int(idx)
 
-                        if (
-                            timestamp_diff < ConstantsCem.AP_E_DYN_OBJ_ID_REUSE_TIME_S
-                            and prev_state != MaintenanceState.DELETED
-                        ):
+            if index > 0:
+                object_id = reader[(example_obj.Columns.OBJECTS_ID, 0)].iloc[index]
+                ts = reader["sigTimestamp"].iloc[index]
+                prev_ts = reader["sigTimestamp"].iloc[index - 1]
+                state = reader[("objects.state", 0)].iloc[index]
+                prev_state = reader[("objects.state", 0)].iloc[index - 1]
+                existence_prob = reader[("objects.existenceCertainty", 0)].iloc[index]
+                prev_existence_prob = reader[("objects.existenceCertainty", 0)].iloc[index - 1]
 
-                            if (
-                                tpf_object.state == MaintenanceState.PREDICTED
-                                and prev_state == MaintenanceState.PREDICTED
-                                and tpf_object.existence_prob > prev_existence_prob
-                            ):
-                                failed += 1
-                                values = [
-                                    [timeframe.timestamp],
-                                    [tpf_object.existence_prob],
-                                    [prev_existence_prob],
-                                    [tpf_object.object_id],
-                                ]
-                                rows.append(values)
+                if (
+                    state == MaintenanceState.PREDICTED.value
+                    and prev_state == MaintenanceState.PREDICTED.value
+                    and existence_prob > prev_existence_prob
+                    and ts > prev_ts  # Sometimes timestamp is repeating, skip those frames
+                ):
+                    failed += 1
+                    values = {
+                        "Timestamp": ts,
+                        "Current existence certainty": existence_prob,
+                        "Previous existence certainty": prev_existence_prob,
+                        "Object ID": object_id,
+                    }
+                    rows.append(values)
 
-                    if tpf_object.state == MaintenanceState.DELETED:
-                        if tpf_object.object_id in tpf_object_previous_state:
-                            tpf_object_previous_state.pop(tpf_object.object_id)
-                    else:
-                        tpf_object_previous_state[tpf_object.object_id] = (
-                            timeframe.timestamp,
-                            tpf_object.existence_prob,
-                            tpf_object.state,
-                        )
-
-            if failed:
-                test_result = fc.FAIL
-                test_fail_message = "Confidence value is increasing while FTP is not measured."
-                fig = go.Figure(
-                    data=[
-                        go.Table(
-                            header=dict(values=["Failing message", "Number of failed objects"]),
-                            cells=dict(values=[[test_fail_message], [failed]]),
-                        )
-                    ]
-                )
-                plot_titles.append("Number of failed objects")
-                plots.append(fig)
-                remarks.append("")
-
-                values = list(zip(*rows))
-                fig = go.Figure(
-                    data=[
-                        go.Table(
-                            header=dict(
-                                values=["Timestamp", "Current probability", "Previous probability", "Object ID"]
-                            ),
-                            cells=dict(values=values),
-                        )
-                    ]
-                )
-                plot_titles.append("Test Fail report")
-                plots.append(fig)
-                remarks.append("")
-            else:
-                test_result = fc.PASS
-
+        signal_name = example_obj.get_properties()[example_obj.Columns.OBJECTS_EXISTENCECERTAINTY][0]
+        test_results_dict = {"Signal Name": signal_name}
+        if failed:
+            test_result = fc.FAIL
+            test_fail_message = "Confidence value is increasing while FTP is not measured."
+            test_results_dict["Message"] = test_fail_message
+            values_df_1 = pd.DataFrame([test_results_dict])
+            fig = fh.build_html_table(values_df_1.head(10), "", "")
+            plot_titles.append("Number of failed objects")
+            plots.append(fig)
+            remarks.append("")
+            values_df_2 = pd.DataFrame(rows)
+            fig = fh.build_html_table(values_df_2.head(10), "", "")
+            plot_titles.append("Test Fail report")
+            plots.append(fig)
+            remarks.append("")
         else:
-            test_result = fc.INPUT_MISSING
+            test_result = fc.PASS
+            passed_message = "Result is as expected - Test Passed"
+            test_results_dict["Message"] = passed_message
+            values_df = pd.DataFrame([test_results_dict])
+            fig = fh.build_html_table(values_df.head(10), "", "")
+            plot_titles.append("Test Passed")
+            plots.append(fig)
+            remarks.append("")
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1521996"],
+            fc.TESTCASE_ID: ["38918"],
+            fc.TEST_DESCRIPTION: [
+                "The test is to check that when an object is not observed by any sensor, "
+                " its probability of existence is not increased."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
     name="CEM-TPF FTP Confidence check when object is not measured",
-    description="The test is to check that when an object is not observed by any sensor,"
+    description="The test is to check that when an object is not observed by any sensor, "
     "its probability of existence is not increased.",
 )
 class FtFTPConfidenceObjectNotMeasured(TestCase):
     """Example test case."""
+
+    custom_report = fh.MfCustomTestcaseReport
 
     @property
     def test_steps(self):
@@ -446,11 +508,12 @@ class FtFTPConfidenceObjectNotMeasured(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtFTPIDMaintenance(TestStep):
     """TestStep for FTP ID Maintenance, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -463,19 +526,21 @@ class TestStepFtFTPIDMaintenance(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
-        inputReader = TPFReader(reader)
-        tpfData = inputReader.convert_to_class()
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
-
-        if inputReader.number_of_objects > 0:
+        reader = self.readers[SIGNAL_DATA]
+        input_reader = TPFReader(reader)
+        tpf_data = input_reader.convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        print(vedodo_reader)
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
+        print(vedodo_buffer.buffer)
+        if input_reader.number_of_objects > 0:
             rows = []
             failed = 0
-            for index, cur_time_frame in enumerate(tpfData):
+            for index, cur_time_frame in enumerate(tpf_data):
                 if index > 0:
-                    prev_time_frame = tpfData[index - 1]
+                    prev_time_frame = tpf_data[index - 1]
                     for cur_object in cur_time_frame.dynamic_objects:
                         if cur_object.state == MaintenanceState.MEASURED:
                             time_stamp_diff = cur_time_frame.timestamp - prev_time_frame.timestamp
@@ -494,43 +559,74 @@ class TestStepFtFTPIDMaintenance(TestStep):
                             if len(associated_prev_object) == 1:
                                 if associated_prev_object[0].object_id != cur_object.object_id:
                                     failed += 1
-                                    values = [[cur_time_frame.timestamp], [cur_object.object_id]]
+                                    values = {"Timestamp": cur_time_frame.timestamp, "Object ID": cur_object.object_id}
                                     rows.append(values)
+                            # ToDo: Remove the following if
+                            # if 1 == 1:
+                            #     failed += 1
+                            #     values = {"Timestamp": cur_time_frame.timestamp,
+                            #               "Object ID": cur_object.object_id}
+                            #     rows.append(values)
 
             if failed:
                 test_result = fc.FAIL
-                values = list(zip(*rows))
-                fig = go.Figure(data=[go.Table(header=dict(values=["Timestamp", "FTP_ID"]), cells=dict(values=values))])
+                values_df = pd.DataFrame(rows)
+                fig = fh.build_html_table(values_df.head(10), "", "")
                 plot_titles.append("Test Fail report")
                 plots.append(fig)
                 remarks.append("")
             else:
                 test_result = fc.PASS
+                passed_message = [{"Message": "Result is as expected - Test Passed"}]
+                values_df = pd.DataFrame(passed_message)
+                fig = fh.build_html_table(values_df.head(10), "", "")
+                plot_titles.append("Test Passed")
+                plots.append(fig)
+                remarks.append("")
 
         else:
             test_result = fc.INPUT_MISSING
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1521992"],
+            fc.TESTCASE_ID: ["38924"],
+            fc.TEST_DESCRIPTION: [
+                "This test case checks if a RTP is received in the current cycle and is associated to"
+                " a FTP which TPF provided in the previous cycle with an unique ID, TPF shall provide"
+                " the same ID of this updated FTP in the current cycle."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
     name="CEM-TPF FTP ID Maintenance Check ",
-    description="If a RTP is received in the current cycle and is associated to a FTP which EnvironmentFusion"
-    "provided in the previous cycle with an unique ID, CEM-SW shall provide the same ID of this"
+    description="If a RTP is received in the current cycle and is associated to a FTP which EnvironmentFusion "
+    "provided in the previous cycle with an unique ID, CEM-SW shall provide the same ID of this "
     "updated FTP in the current cycle.",
 )
 class FtFTPIDMaintenance(TestCase):
     """Example test case."""
+
+    custom_report = fh.MfCustomTestcaseReport
 
     @property
     def test_steps(self):
@@ -544,11 +640,12 @@ class FtFTPIDMaintenance(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+# @register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
 class TestStepFtFTPIDReuse(TestStep):
     """TestStep for FTP ID Reuse, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -561,67 +658,95 @@ class TestStepFtFTPIDReuse(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
-        inputReader = TPFReader(reader)
-        tpfData = inputReader.convert_to_class()
+        reader = self.readers[SIGNAL_DATA]
+        input_reader = TPFReader(reader)
+        tpf_data = input_reader.convert_to_class()
 
         timestamp_for_ids_stop: typing.Dict[int, int] = {}
 
-        if inputReader.number_of_objects > 0:
+        if input_reader.number_of_objects > 0:
             rows = []
             failed = 0
-            for index, time_frame in enumerate(tpfData):
-                if index == len(tpfData) - 1:
+            for index, time_frame in enumerate(tpf_data):
+                if index == len(tpf_data) - 1:
                     continue
-                for object in time_frame.dynamic_objects:
-                    if object.object_id in timestamp_for_ids_stop:
-                        time_diff = (time_frame.timestamp - timestamp_for_ids_stop[object.object_id]) * 1e-6
+                for object_ in time_frame.dynamic_objects:
+                    if object_.object_id in timestamp_for_ids_stop:
+                        time_diff = (time_frame.timestamp - timestamp_for_ids_stop[object_.object_id]) * 1e-6
                         if time_diff < ConstantsCem.AP_E_DYN_OBJ_ID_REUSE_TIME_S:
                             failed += 1
-                            values = [[object.timestamp], [time_diff]]
+                            values = {"Timestamp": object_.timestamp, "Time difference": time_diff}
                             rows.append(values)
                         else:
-                            timestamp_for_ids_stop.pop(object.object_id)
-                    if not FtTPFHelper.check_if_object_in_timeframe(object, tpfData[index + 1]):
-                        timestamp_for_ids_stop[object.object_id] = time_frame.timestamp
+                            timestamp_for_ids_stop.pop(object_.object_id)
+                    if not FtTPFHelper.check_if_object_in_timeframe(object_, tpf_data[index + 1]):
+                        timestamp_for_ids_stop[object_.object_id] = time_frame.timestamp
+
+                    # ToDo: Remove the following if
+                    # if 1:
+                    #     failed += 1
+                    #     values = {"Timestamp": 123, "Time difference": 100}
+                    #     rows.append(values)
 
             if failed:
                 test_result = fc.FAIL
-                values = list(zip(*rows))
-                fig = go.Figure(
-                    data=[go.Table(header=dict(values=["Timestamp", "Time Difference"]), cells=dict(values=values))]
-                )
+                values_df = pd.DataFrame(rows)
+                fig = fh.build_html_table(values_df.head(10), "", "")
                 plot_titles.append("Test Fail report")
                 plots.append(fig)
                 remarks.append("")
             else:
                 test_result = fc.PASS
+                passed_message = [{"Message": "Result is as expected - Test Passed"}]
+                values_df = pd.DataFrame(passed_message)
+                fig = fh.build_html_table(values_df.head(10), "", "")
+                plot_titles.append("Test Passed")
+                plots.append(fig)
+                remarks.append("")
 
         else:
             test_result = fc.INPUT_MISSING
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1521997"],
+            fc.TESTCASE_ID: ["38925"],
+            fc.TEST_DESCRIPTION: [
+                "The test is to check that when an object ID of an FTP is stops being provided it "
+                "wont be assigned for a new one for at least {AP_E_DYN_OBJ_ID_REUSE_TIME_S}."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
     name="CEM-TPF FTP ID Reuse",
-    description=f"""This test checks that when an object ID of an FTP is stopped being provided
+    description=f"""This test checks that when an object ID of a FTP is stopped being provided
                 it wont be assigned immediately for a new one until {ConstantsCem.AP_E_DYN_OBJ_ID_REUSE_TIME_S} s""",
 )
 class FtFTPIDReuse(TestCase):
     """Example test case."""
+
+    custom_report = fh.MfCustomTestcaseReport
 
     @property
     def test_steps(self):
@@ -635,11 +760,12 @@ class FtFTPIDReuse(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
+# @register_signals(SIGNAL_DATA, fh.CemSignals)
 class TestStepFtFTPMeasured(TestStep):
     """TestStep for FTP Measured, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -652,76 +778,104 @@ class TestStepFtFTPMeasured(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
-        inputReader = TPFReader(reader)
-        tpfData = inputReader.convert_to_class()
+        reader = self.readers[SIGNAL_DATA]
+        input_reader = TPFReader(reader)
+        tpf_data = input_reader.convert_to_class()
 
         prediction_start_timestamp: typing.Dict[int, int] = {}
 
-        if inputReader.number_of_objects > 0:
+        if input_reader.number_of_objects > 0:
             failed = 0
             rows = []
-            for index, time_frame in enumerate(tpfData):
-                if index == len(tpfData) - 1:
+            for index, time_frame in enumerate(tpf_data):
+                if index == len(tpf_data) - 1:
                     continue
-                for object in time_frame.dynamic_objects:
-                    if not FtTPFHelper.check_if_object_in_timeframe(object, tpfData[index + 1]):
+                for object_ in time_frame.dynamic_objects:
+                    if not FtTPFHelper.check_if_object_in_timeframe(object_, tpf_data[index + 1]):
                         diff = 0
-                        if object.object_id in prediction_start_timestamp:
-                            diff = abs(prediction_start_timestamp[object.object_id] - time_frame.timestamp) * 1e-6
+                        if object_.object_id in prediction_start_timestamp:
+                            diff = abs(prediction_start_timestamp[object_.object_id] - time_frame.timestamp) * 1e-6
                         if (
                             diff < ConstantsCem.AP_E_DYN_OBJ_MIN_TRACKING_TIME_S
                             or diff > ConstantsCem.AP_E_DYN_OBJ_MAX_TRACKING_TIME_S
                         ):
                             failed += 1
-                            values = [
-                                [time_frame.timestamp],
-                                [object.object_id],
-                                [prediction_start_timestamp[object.object_id]],
-                                [diff],
-                            ]
+                            values = {
+                                "Timestamp": time_frame.timestamp,
+                                "Object ID": object_.object_id,
+                                "Prediction Start": prediction_start_timestamp[object_.object_id],
+                                "Difference": diff,
+                            }
                             rows.append(values)
 
-                    if object.object_id in prediction_start_timestamp:
-                        if object.state == MaintenanceState.MEASURED:
-                            prediction_start_timestamp.pop(object.object_id)
+                        # ToDo: Remove the following if
+                        # if 1:
+                        #     failed += 1
+                        #     values = {
+                        #         "Timestamp": time_frame.timestamp,
+                        #         "Object ID": object_.object_id,
+                        #         "Prediction Start": 1093013949310,
+                        #         "Difference": diff,
+                        #     }
+                        #     rows.append(values)
 
-                    elif object.state == MaintenanceState.PREDICTED:
-                        prediction_start_timestamp[object.object_id] = time_frame.timestamp
+                    if object_.object_id in prediction_start_timestamp:
+                        if object_.state == MaintenanceState.MEASURED:
+                            prediction_start_timestamp.pop(object_.object_id)
+
+                    elif object_.state == MaintenanceState.PREDICTED:
+                        prediction_start_timestamp[object_.object_id] = time_frame.timestamp
 
             if failed:
                 test_result = fc.FAIL
-                values = list(zip(*rows))
-                fig = go.Figure(
-                    data=[
-                        go.Table(
-                            header=dict(values=["Timestamp", "FTP_ID", "Prediction Started", "Prediction time [s]"]),
-                            cells=dict(values=values),
-                        )
-                    ]
-                )
+                values_df = pd.DataFrame(rows)
+                fig = fh.build_html_table(values_df.head(10), "", "")
                 plot_titles.append("Test Fail report")
                 plots.append(fig)
                 remarks.append("")
             else:
-                test_result = (fc.PASS,)
+                test_result = fc.PASS
+                passed_message = [{"Message": "Result is as expected - Test Passed"}]
+                values_df = pd.DataFrame(passed_message)
+                fig = fh.build_html_table(values_df.head(10), "", "")
+                plot_titles.append("Test Passed")
+                plots.append(fig)
+                remarks.append("")
 
         else:
             test_result = fc.INPUT_MISSING
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1522002"],
+            fc.TESTCASE_ID: ["38916"],
+            fc.TEST_DESCRIPTION: [
+                "The test is to validate that the maximum prediction time of a valid FTP when none of"
+                " the sensors are detecting it is between {AP_E_DYN_OBJ_MIN_TRACKING_TIME_S} and"
+                " {AP_E_DYN_OBJ_MAX_TRACKING_TIME_S}."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
@@ -730,6 +884,8 @@ class TestStepFtFTPMeasured(TestStep):
 )
 class FtFTPMeasured(TestCase):
     """Example test case."""
+
+    custom_report = fh.MfCustomTestcaseReport
 
     @property
     def test_steps(self):
@@ -743,11 +899,11 @@ class FtFTPMeasured(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
 class TestStepFtFTPReferencePointCheck(TestStep):
     """TestStep for FTP Reference Point Check, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -760,9 +916,14 @@ class TestStepFtFTPReferencePointCheck(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
+        rows = []  # List of dictionaries where the errors are stored
+        signal_summary = {}
+        # Initialize the description of the report
+        description = " ".join("The evaluation of the signals is <b>PASSED</b> for all timeframes.".split())
+        signal_name = "MTA_ADC5.CEM200_AUPDF_DATA.DynamicObjects.objects[%].shape.referencePoint"
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         input_reader = TPFReader(reader)
         tpf_data = input_reader.convert_to_class()
         test_fail_message = "Data not available"
@@ -786,28 +947,46 @@ class TestStepFtFTPReferencePointCheck(TestStep):
                     diff = np.max(distances) - np.min(distances)
 
                     if diff > 1e-2:
-                        failed += 1
+                        failed += (1,)
+                        values = {
+                            "Timestamp": timeframe.timestamp,
+                            "ID": tpf_object.object_id,
+                            "CenterPoint X": tpf_object.center_x,
+                            "CenterPoint Y": tpf_object.center_y,
+                            "Distance Difference": diff,
+                        }
+                        # Generate the description for the first failing check
+                        if failed == 1:
+                            description = " ".join(
+                                f"The evaluation of the signals is <b>FAILED</b> at timestamp "
+                                f"<b>{timeframe.timestamp}</b> for object with ID <b>{tpf_object.object_id}</b> "
+                                f"with center point X,Y({tpf_object.center_x}, {tpf_object.center_x}) because "
+                                f"the reference point is not in the middle (difference {diff} m)".split()
+                            )
+                        rows.append(values)
 
             if failed:
                 test_result = fc.FAIL
-                test_fail_message = f"The reference point is not in the center of the object (difference = {diff} m)"
-                fig = go.Figure(
-                    data=[
-                        go.Table(
-                            header=dict(values=["Failing message", "Number of failed objects"]),
-                            cells=dict(values=[[test_fail_message], [failed]]),
-                        )
-                    ]
-                )
-                plot_titles.append("")
-                plots.append(fig)
-                remarks.append("")
             else:
                 test_result = fc.PASS
 
         else:
             test_result = fc.INPUT_MISSING
+            description = " ".join("Signal is <b>NOT EVALUATED</b> because it is not available.".split())
 
+        # Generate the tables for the report
+        signal_summary[signal_name] = description
+        self.sig_sum = fh.convert_dict_to_pandas(signal_summary=signal_summary)
+        plot_titles.append("Signal Evaluation")
+        plots.append(self.sig_sum)
+        remarks.append("")
+
+        if test_result == fc.FAIL:
+            values_df = pd.DataFrame(rows)
+            fig = fh.build_html_table(values_df.head(10), "", "")
+            plot_titles.append("Test Fail Report")
+            plots.append(fig)
+            remarks.append("")
         if test_result != fc.PASS:
             fig = go.Figure(
                 data=[go.Table(header=dict(values=["Failing message"]), cells=dict(values=[[test_fail_message]]))]
@@ -818,15 +997,28 @@ class TestStepFtFTPReferencePointCheck(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1521991", "1304624"],
+            fc.TESTCASE_ID: ["38922"],
+            fc.TEST_DESCRIPTION: ["Check if the reference point is in the center of the object."],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
@@ -848,11 +1040,11 @@ class FtFTPReferencePointCheck(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
 class TestStepFtFTPUniqueID(TestStep):
     """TestStep for FTP Unique ID, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -865,49 +1057,88 @@ class TestStepFtFTPUniqueID(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
+        rows = []  # List of dictionaries where the errors are stored
+        signal_summary = {}
+        # Initialize the description of the report
+        description = " ".join("The evaluation of the signals is <b>PASSED</b> for all timeframes.".split())
+        signal_name = "MTA_ADC5.CEM200_AUPDF_DATA.DynamicObjects.objects[%].id"  # TODO: Get the signal name form class
 
-        reader = self.readers[SIGNAL_DATA].signals
-        inputReader = TPFReader(reader)
-        tpfData = inputReader.convert_to_class()
+        reader = self.readers[SIGNAL_DATA]
+        tpf_reader = TPFReader(reader)
+        tpf_data = tpf_reader.convert_to_class()
 
-        if inputReader.number_of_objects > 0:
-            rows = []
+        if tpf_reader.number_of_objects > 0:
             failed = 0
-            for time_frame in tpfData:
+            for time_frame in tpf_data:
                 ids = []
-                for object in time_frame.dynamic_objects:
-                    if object.object_id in ids:
+                # ids = list(range(255))  # TODO: Remove this
+
+                for obj in time_frame.dynamic_objects:
+                    if obj.object_id in ids:
                         failed += 1
-                        values = [[object.timestamp], [object.object_id]]
+                        values = {
+                            "Timestamp": time_frame.timestamp,
+                            "FTP ID": obj.object_id,
+                        }
+                        # Generate the description for the first failing check
+                        if failed == 1:
+                            description = " ".join(
+                                f"The evaluation of the signals is <b>FAILED</b> at timestamp "
+                                f"<b>{time_frame.timestamp}</b> for object with ID <b>{obj.object_id}</b> "
+                                f"because the ID is not unique.".split()
+                            )
                         rows.append(values)
                     else:
-                        ids.append(object.object_id)
+                        ids.append(obj.object_id)
 
             if failed:
                 test_result = fc.FAIL
-                values = list(zip(*rows))
-                fig = go.Figure(data=[go.Table(header=dict(values=["Timestamp", "FTP_ID"]), cells=dict(values=values))])
-                plot_titles.append("Test Fail report")
-                plots.append(fig)
-                remarks.append("")
             else:
                 test_result = fc.PASS
 
         else:
             test_result = fc.INPUT_MISSING
+            description = " ".join("Signal is <b>NOT EVALUATED</b> because it is not available.".split())
+
+        # Generate the tables for the report
+        signal_summary[signal_name] = description
+        self.sig_sum = fh.convert_dict_to_pandas(signal_summary=signal_summary)
+        plot_titles.append("Signal Evaluation")
+        plots.append(self.sig_sum)
+        remarks.append("")
+
+        if test_result == fc.FAIL:
+            values_df = pd.DataFrame(rows)
+            fig = fh.build_html_table(values_df.head(10), "", "")
+            plot_titles.append("Test Fail Report")
+            plots.append(fig)
+            remarks.append("")
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1521992"],
+            fc.TESTCASE_ID: ["38924"],
+            fc.TEST_DESCRIPTION: ["ID should be unique for each TP in a single time frame."],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
@@ -929,11 +1160,12 @@ class FtFTPUniqueID(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtTPFClosestTPProvided(TestStep):
     """TestStep for TPFClosestTP Provided, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -946,15 +1178,23 @@ class TestStepFtTPFClosestTPProvided(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
+        rows = []  # List of dictionaries where the errors are stored
+        signal_summary = {}
+        # Initialize the description of the report
+        description = " ".join("The evaluation of the signals is <b>PASSED</b> for all timeframes.".split())
+        signal_name = (
+            "MTA_ADC5.CEM200_AUPDF_DATA.EgoMotionOutput.odoEstimationAtCemTime.xPosition_m <br>"
+            "MTA_ADC5.CEM200_AUPDF_DATA.EgoMotionOutput.odoEstimationAtCemTime.yPosition_m"
+        )
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         tpf_reader = TPFReader(reader)
         tpf_data = tpf_reader.convert_to_class()
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
 
         if tpf_reader.number_of_objects > 0:
-            rows = []
             failed = 0
             for i in range(len(tpf_data) - 1):
                 prev_timeframe = tpf_data[i]
@@ -975,50 +1215,78 @@ class TestStepFtTPFClosestTPProvided(TestStep):
 
                         if closest_missing_tpf_dist > current_furthest_tpf_dist:
                             failed += 1
-                            values = [
-                                [cur_timeframe.timestamp],
-                                [closest_missing_tpf_dist],
-                                [current_furthest_tpf_dist],
-                            ]
+
+                            values = {
+                                "Timestamp": cur_timeframe.timestamp,
+                                "Closest Missing Distance": closest_missing_tpf_dist,
+                                "Current Furthest Distance": current_furthest_tpf_dist,
+                            }
+                            # Generate the description for the first failing check
+                            if failed == 1:
+                                description = " ".join(
+                                    f"The evaluation of the signals is <b>FAILED</b> at timestamp "
+                                    f"<b>{cur_timeframe.timestamp}</b> for object with closest missing distance "
+                                    f"<b>{closest_missing_tpf_dist}</b> (expecting > {current_furthest_tpf_dist}). "
+                                    "".split()
+                                )
                             rows.append(values)
 
             if failed:
                 test_result = fc.FAIL
-                values = list(zip(*rows))
-                fig = go.Figure(
-                    data=[
-                        go.Table(
-                            header=dict(values=["Timestamp", "Closest Missing Distance", "Current furthest Distance"]),
-                            cells=dict(values=values),
-                        )
-                    ]
-                )
-                plot_titles.append("Test Fail report")
-                plots.append(fig)
-                remarks.append("")
             else:
                 test_result = fc.PASS
 
         else:
             test_result = fc.INPUT_MISSING
+            description = " ".join("Signal is <b>NOT EVALUATED</b> because it is not available.".split())
+
+        # Generate the tables for the report
+        signal_summary[signal_name] = description
+        self.sig_sum = fh.convert_dict_to_pandas(signal_summary=signal_summary)
+        plot_titles.append("Signal Evaluation")
+        plots.append(self.sig_sum)
+        remarks.append("")
+
+        if test_result == fc.FAIL:
+            values_df = pd.DataFrame(rows)
+            fig = fh.build_html_table(values_df.head(10), "", "")
+            plot_titles.append("Test Fail Report")
+            plots.append(fig)
+            remarks.append("")
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1521993", "1304623"],
+            fc.TESTCASE_ID: ["38915"],
+            fc.TEST_DESCRIPTION: [
+                f"When the number of TPs exceeds {ConstantsCem.AP_E_DYN_OBJ_MAX_NUM_NU}, only the "
+                f"closest to origin FTPs are provided."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
     name="CEM-TPF check closest FTP are provided",
-    description=f"""The test is to check SW provides the FTPs which are closer to origin of vehicle coordinate system
-                when the number of TPs exceeds {ConstantsCem.AP_E_DYN_OBJ_MAX_NUM_NU}""",
+    description=f"The test is to check SW provides the FTPs which are closer to origin of vehicle coordinate system "
+    f"when the number of TPs exceeds {ConstantsCem.AP_E_DYN_OBJ_MAX_NUM_NU}.",
 )
 class FtTPFClosestTPProvided(TestCase):
     """Example test case."""
@@ -1035,11 +1303,12 @@ class FtTPFClosestTPProvided(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtTPFLateralPosAcc(TestStep):
     """TestStep for TPFLateral Position Accuracy, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1052,11 +1321,12 @@ class TestStepFtTPFLateralPosAcc(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         tpf_data = TPFReader(reader).convert_to_class()
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
         ground_truth = pd.read_hdf(os.path.dirname(__file__) + "\\" + GroundTruthTpf.tpf_gt_file[0])
         rtp_data = DynamicObjectDetectionReader(reader).convert_to_class()
 
@@ -1130,15 +1400,18 @@ class TestStepFtTPFLateralPosAcc(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -1160,11 +1433,12 @@ class FtTPFLateralPosAcc(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtTPFLongitudePosAcc(TestStep):
     """TestStep for TPFLongitude Position Accuracy, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1177,11 +1451,12 @@ class TestStepFtTPFLongitudePosAcc(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         tpf_data = TPFReader(reader).convert_to_class()
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
         ground_truth = pd.read_hdf(os.path.dirname(__file__) + "\\" + GroundTruthTpf.tpf_gt_file[0])
         rtp_data = DynamicObjectDetectionReader(reader).convert_to_class()
 
@@ -1255,15 +1530,18 @@ class TestStepFtTPFLongitudePosAcc(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -1285,11 +1563,12 @@ class FtTPFLongitudePosAcc(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
+@register_signals(INPUT_DATA, fh_tpp.TPPSignals)
 class TestStepFtTPFPredictedStateCheck(TestStep):
     """TestStep for TPFPredicted State Check, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1299,18 +1578,30 @@ class TestStepFtTPFPredictedStateCheck(TestStep):
         """The function processes signals data to evaluate certain conditions and generate plots and remarks based on
         the evaluation results.
         """
+        _log.debug("Starting processing...")
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
+        rows = []  # List of dictionaries where the errors are stored
+        signal_summary = {}
+        # Initialize the description of the report
+        description = " ".join("The evaluation of the signals is <b>PASSED</b> for all timeframes.".split())
+        signal_name = "MTA_ADC5.CEM200_AUPDF_DATA.DynamicObjects.objects[%].state"  # TODO: Read the signal from class
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
+
+        # TODO: Remove this
+        # reader[("objects.state", 0)] = len(reader) * [MaintenanceState.MEASURED]  # - make it pass
+
+        tpp_reader = self.readers[INPUT_DATA]
+
         tpf_reader = TPFReader(reader)
         tpf_data = tpf_reader.convert_to_class()
-        rtp_data = DynamicObjectDetectionReader(reader).convert_to_class()
+        rtp_data = DynamicObjectDetectionReader(tpp_reader).convert_to_class()
 
         if tpf_reader.number_of_objects > 0:
-            rows = []
+
             failed = 0
             for tpf_timeframe in tpf_data:
                 cnt_tpf_objects = len(tpf_timeframe.dynamic_objects)
@@ -1318,6 +1609,7 @@ class TestStepFtTPFPredictedStateCheck(TestStep):
 
                 for camera, _ in rtp_data.items():
                     rtp_timeframe = FtTPFHelper.get_single_relevant_RTP_frame(rtp_data[camera], tpf_timeframe.timestamp)
+
                     if rtp_timeframe is not None:
                         association = FtTPFHelper.associate_RTP_To_FTP(
                             tpf_timeframe.dynamic_objects, rtp_timeframe.dynamic_objects
@@ -1326,46 +1618,83 @@ class TestStepFtTPFPredictedStateCheck(TestStep):
                         cnt_associated_objects = [
                             cnt_associated_objects[i] + len(association[i]) for i in range(cnt_tpf_objects)
                         ]
-
                 for i, tpf_object in enumerate(tpf_timeframe.dynamic_objects):
                     if tpf_object.state == MaintenanceState.MEASURED and cnt_associated_objects[i] == 0:
                         failed += 1
-                        values = [[tpf_timeframe.timestamp], [tpf_object.state]]
+                        values = {
+                            "Timestamp": tpf_timeframe.timestamp,
+                            "Object ID": tpf_object.object_id,
+                            "State": tpf_object.state,
+                        }
+                        # Generate the description for the first failing check
+                        if failed == 1:
+                            description = " ".join(
+                                f"The evaluation of the signals is <b>FAILED</b> at timestamp "
+                                f"<b>{tpf_timeframe.timestamp}</b> for object with ID <b>{tpf_object.object_id}</b> "
+                                f"with state <b>{tpf_object.state}</b> (expecting 'PREDICTED').".split()
+                            )
                         rows.append(values)
 
             if failed:
                 test_result = fc.FAIL
-                values = list(zip(*rows))
-                fig = go.Figure(data=[go.Table(header=dict(values=["Timestamp", "State"]), cells=dict(values=values))])
-                plot_titles.append("Test Fail report")
-                plots.append(fig)
-                remarks.append("")
             else:
                 test_result = fc.PASS
 
         else:
             test_result = fc.INPUT_MISSING
+            description = " ".join("Signal is <b>NOT EVALUATED</b> because it is not available.".split())
+
+        # Generate the tables for the report
+        signal_summary[signal_name] = description
+        self.sig_sum = fh.convert_dict_to_pandas(signal_summary=signal_summary)
+        plot_titles.append("Signal Evaluation")
+        plots.append(self.sig_sum)
+        remarks.append("")
+
+        if test_result == fc.FAIL:
+            values_df = pd.DataFrame(rows)
+            fig = fh.build_html_table(values_df.head(10), "", "")
+            plot_titles.append("Test Fail Report")
+            plots.append(fig)
+            remarks.append("")
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1522000", "1304636"],
+            fc.TESTCASE_ID: ["38923"],
+            fc.TEST_DESCRIPTION: [
+                "When the object is not observed in one time frame should maintain the 'PREDICTED' state."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
     name="CEM-TPF Predicted state check",
     description="This test checks if the object is not observed in one timeframe,"
-    "its maintenance state is set to 'PREDICTED'",
+    "its maintenance state is set to 'PREDICTED'.",
 )
 class FtTPFPredictedStateCheck(TestCase):
     """Example test case."""
+
+    custom_report = fh.MfCustomTestcaseReport
 
     @property
     def test_steps(self):
@@ -1379,11 +1708,12 @@ class FtTPFPredictedStateCheck(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtTPFOutputAtT7(TestStep):
     """TestStep for TPF Output at T7, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1398,12 +1728,13 @@ class TestStepFtTPFOutputAtT7(TestStep):
         )
         # Define variables
         test_result = fc.NOT_ASSESSED
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
         # Load signals
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         input_reader = TPFReader(reader)
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
 
         # Check if data has been provided to continue with the validation
         if len(input_reader.data.timestamp) or len(vedodo_buffer.buffer):
@@ -1449,15 +1780,18 @@ class TestStepFtTPFOutputAtT7(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -1480,11 +1814,12 @@ class FtTPFOutputAtT7(TestCase):
                 {ConstantsCem.TPF_PRECISION_RATE}""",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtTPFPrecisionRate(TestStep):
     """TestStep for TPF Precision Rate, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1497,12 +1832,13 @@ class TestStepFtTPFPrecisionRate(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         input_reader = TPFReader(reader)
         df = input_reader.data.as_plain_df
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
         ground_truth = pd.read_hdf(os.path.dirname(__file__) + "\\" + GroundTruthTpf.tpf_gt_file[0])
 
         tpf_metrics_helper = TPFMetricsHelper(vedodo_buffer, ground_truth)
@@ -1592,15 +1928,18 @@ class TestStepFtTPFPrecisionRate(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -1623,11 +1962,13 @@ class FtTPFPrecisionRate(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh_tpf.TPFSignals)
+@register_signals(INPUT_DATA, fh_tpp.TPPSignals)
+# @register_signals
 class TestStepFtTPFMeasuredStateCheck(TestStep):
     """TestStep for TPF Measured State Check, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1640,15 +1981,25 @@ class TestStepFtTPFMeasuredStateCheck(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
+        rows = []  # List of dictionaries where the errors are stored
+        signal_summary = {}
+        # Initialize the description of the report
+        description = " ".join("The evaluation of the signals is <b>PASSED</b> for all timeframes.".split())
+        signal_name = "MTA_ADC5.CEM200_AUPDF_DATA.DynamicObjects.objects[%].state"  # TODO: Use signal from class
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
+
+        # TODO: Remove this
+        # reader[("objects.state", 0)] = len(reader) * [MaintenanceState.MEASURED] # - make it pass
+
+        tpp_reader = self.readers[INPUT_DATA]
+
         input_reader = TPFReader(reader)
         tpf_data = TPFReader(reader).convert_to_class()
-        rtp_data = DynamicObjectDetectionReader(reader).convert_to_class()
+        rtp_data = DynamicObjectDetectionReader(tpp_reader).convert_to_class()
 
         if input_reader.number_of_objects > 0:
-            rows = []
             failed = 0
             for tpf_timeframe in tpf_data:
                 cnt_tpf_objects = len(tpf_timeframe.dynamic_objects)
@@ -1656,6 +2007,7 @@ class TestStepFtTPFMeasuredStateCheck(TestStep):
 
                 for camera, _ in rtp_data.items():
                     rtp_timeframe = FtTPFHelper.get_single_relevant_RTP_frame(rtp_data[camera], tpf_timeframe.timestamp)
+
                     if rtp_timeframe is not None:
                         association = FtTPFHelper.associate_RTP_To_FTP(
                             tpf_timeframe.dynamic_objects, rtp_timeframe.dynamic_objects
@@ -1668,33 +2020,69 @@ class TestStepFtTPFMeasuredStateCheck(TestStep):
                 for i, tpf_object in enumerate(tpf_timeframe.dynamic_objects):
                     if tpf_object.state == MaintenanceState.PREDICTED and cnt_associated_objects[i] > 0:
                         failed += 1
-                        values = [[tpf_timeframe.timestamp], [tpf_object.state]]
+                        values = {
+                            "Timestamp": tpf_timeframe.timestamp,
+                            "Object ID": tpf_object.object_id,
+                            "State": tpf_object.state,
+                        }
+                        # Generate the description for the first failing check
+                        if failed == 1:
+                            description = " ".join(
+                                f"The evaluation of the signals is <b>FAILED</b> at timestamp "
+                                f"<b>{tpf_timeframe.timestamp}</b> for object with ID <b>{tpf_object.object_id}</b> "
+                                f"with state <b>{tpf_object.state}</b> (expecting 'MEASURED').".split()
+                            )
                         rows.append(values)
 
             if failed:
                 test_result = fc.FAIL
-                values = list(zip(*rows))
-                fig = go.Figure(data=[go.Table(header=dict(values=["Timestamp", "State"]), cells=dict(values=values))])
-                plot_titles.append("Test Fail report")
-                plots.append(fig)
-                remarks.append("")
             else:
                 test_result = fc.PASS
 
         else:
             test_result = fc.INPUT_MISSING
+            description = " ".join("Signal is <b>NOT EVALUATED</b> because it is not available.".split())
+
+        # Generate the tables for the report
+        signal_summary[signal_name] = description
+        self.sig_sum = fh.convert_dict_to_pandas(signal_summary=signal_summary)
+        plot_titles.append("Signal Evaluation")
+        plots.append(self.sig_sum)
+        remarks.append("")
+
+        if test_result == fc.FAIL:
+            values_df = pd.DataFrame(rows)
+            fig = fh.build_html_table(values_df.head(10), "", "")
+            plot_titles.append("Test Fail Report")
+            plots.append(fig)
+            remarks.append("")
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        result_df = {
+            "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
+            fc.REQ_ID: ["1304635", "1522001"],
+            fc.TESTCASE_ID: ["38920"],
+            fc.TEST_DESCRIPTION: [
+                "When the object is observed in one time frame should maintain the " "'MEASURED' state."
+            ],
+            fc.TEST_RESULT: [test_result],
+        }
+
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
+
+        self.result.details["Additional_results"] = result_df
 
 
 @testcase_definition(
@@ -1717,11 +2105,12 @@ class FtTPFMeasuredStateCheck(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtTPFRecallRate(TestStep):
     """TestStep for TPF Recall Rate, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1734,12 +2123,13 @@ class TestStepFtTPFRecallRate(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         tpf_reader = TPFReader(reader)
         tpfData = tpf_reader.convert_to_class()
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
         ground_truth = pd.read_hdf(os.path.dirname(__file__) + "\\" + GroundTruthTpf.tpf_gt_file[0])
 
         tpf_metrics_helper = TPFMetricsHelper(vedodo_buffer, ground_truth)
@@ -1770,15 +2160,18 @@ class TestStepFtTPFRecallRate(TestStep):
             test_result = fc.INPUT_MISSING
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -1800,11 +2193,11 @@ class FtTPFRecallRate(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
 class TestStepFtTPFSensor(TestStep):
     """TestStep for TPF Sensor, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1817,9 +2210,9 @@ class TestStepFtTPFSensor(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         tpfData = TPFReader(reader).convert_to_class()
         rtpData = DynamicObjectDetectionReader(reader).convert_to_class()
 
@@ -1842,15 +2235,18 @@ class TestStepFtTPFSensor(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -1872,11 +2268,11 @@ class FtTPFSensor(TestCase):
     description="",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
 class TestStepFtTPFSigStateOk(TestStep):
     """TestStep for TPF Signal State OK, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -1889,11 +2285,11 @@ class TestStepFtTPFSigStateOk(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
         objects_used = 4  # ToDo: Confirm amount of objects used for this test
         # Variable definition
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         data_df = reader.as_plain_df
 
         # Load TPF inputs
@@ -2048,15 +2444,18 @@ class TestStepFtTPFSigStateOk(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(
@@ -2084,11 +2483,12 @@ class FtTPFSigStateOk(TestCase):
     "+/- {AP_E_DYN_OBJ_VELOCITY_ACCURACY_1_mps} (<= 1m)",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, fh.CemSignals)
+@register_signals(VEDODO_DATA, VedodoSignals)
 class TestStepFtTPFXYVelAcc(TestStep):
     """TestStep for TPF XY Velocity Accuracy, utilizing a custom report."""
 
-    custom_report = CustomTeststepReport
+    custom_report = fh.MfCustomTeststepReport
 
     def __init__(self):
         """Initialize object attributes."""
@@ -2101,14 +2501,15 @@ class TestStepFtTPFXYVelAcc(TestStep):
         self.result.details.update(
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
         test_result = fc.NOT_ASSESSED
-        plot_titles, plots, remarks = rep([], 3)
+        plot_titles, plots, remarks = fh.rep([], 3)
 
-        reader = self.readers[SIGNAL_DATA].signals
+        reader = self.readers[SIGNAL_DATA]
         tpf_data = TPFReader(reader).convert_to_class()
-        vedodo_buffer = VedodoReader(reader).convert_to_class()
+        vedodo_reader = self.readers[VEDODO_DATA]
+        vedodo_buffer = VedodoReader(vedodo_reader).convert_to_class()
         ground_truth = pd.read_hdf(os.path.dirname(__file__) + "\\" + GroundTruthTpf.tpf_gt_file[0])
         rtp_data = DynamicObjectDetectionReader(reader).convert_to_class()
 
@@ -2226,15 +2627,18 @@ class TestStepFtTPFXYVelAcc(TestStep):
 
         if test_result == fc.PASS:
             self.result.measured_result = TRUE
+        elif test_result == fc.INPUT_MISSING:
+            self.result.measured_result = DATA_NOK
         else:
             self.result.measured_result = FALSE
 
-        for plot in plots:
-            self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+        for plot, plot_title, remark in zip(plots, plot_titles, remarks):
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(
+                    f"<h2>{plot_title}</h2>{plot.to_html(full_html=False, include_plotlyjs=False)}<p>{remark}</p>"
+                )
+            else:
+                self.result.details["Plots"].append(f"<h2>{plot_title}</h2>{plot}<p>{remark}</p>")
 
 
 @testcase_definition(

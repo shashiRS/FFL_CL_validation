@@ -6,6 +6,7 @@ from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
+    register_inputs,
     register_side_load,
     register_signals,
     testcase_definition,
@@ -29,6 +30,7 @@ if TSF_BASE not in sys.path:
 import typing
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from tsf.core.common import PathSpecification
 from tsf.io.sideload import JsonSideLoad
@@ -49,18 +51,19 @@ example_obj = CemSignals()
 @teststep_definition(
     step_number=1,
     name="CEM PFS PCL Accuracy",
-    description="",
+    description="This teststep checks that in average CEM doesn't provide worse position for the parking markers"
+    "than each input separately.",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(SIGNAL_DATA, CemSignals)
 @register_side_load(
     alias="JsonGt",
     side_load=JsonSideLoad,  # type of side loaders
+    # use folder=os.path.join(TSF_BASE, "data", "CEM_json_gt") incase running locally
     path_spec=PathSpecification(
-        folder=os.path.join(TSF_BASE, "data", "CEM_json_gt"),
-        extension=".json",
+        folder=r"s3://par230-prod-data-lake-sim/gt_labels",
+        extension=".json", s3=True,
     ),
-    # Absolute path for the sideload.
 )
 class TestStepFtPCLAccuracy(TestStep):
     """Test Parking Marker Accuracy"""
@@ -80,21 +83,23 @@ class TestStepFtPCLAccuracy(TestStep):
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
         plot_titles, plots, remarks = rep([], 3)
+        signal_summary = {}
 
         reader = self.readers[SIGNAL_DATA].signals
         pcl_data = PclDelimiterReader(reader).convert_to_class()
         pmd_data = PMDReader(reader).convert_to_class()
         gt_data = self.side_load["JsonGt"]
         park_marker_gt = FtPclHelper.get_pcl_from_json_gt(gt_data)
+        pmd_lines_gt = FtPclHelper.get_pmdlines_from_json_gt(gt_data)
 
         all_pcl_ground_truth_distances: typing.List[float] = []
         number_of_associated_pcl: typing.Tuple[int, int] = []
 
         for _, pcl_timeframe in enumerate(pcl_data):
+
             if len(pcl_timeframe.pcl_delimiter_array) > 0:
-                gt_with_closest_timestamp = park_marker_gt.get(
-                    min(park_marker_gt.keys(), key=lambda k: abs(k - pcl_timeframe.timestamp))
-                )
+                target_timestamp = min(park_marker_gt.keys(), key=lambda k: abs(float(k) - pcl_timeframe.timestamp))
+                gt_with_closest_timestamp = park_marker_gt.get(target_timestamp)
                 association, _ = FtPclHelper.associate_pcl_to_ground_truth(
                     pcl_timeframe.pcl_delimiter_array,
                     gt_with_closest_timestamp,
@@ -120,22 +125,23 @@ class TestStepFtPCLAccuracy(TestStep):
         all_pmd_ground_truth_distances: typing.List[float] = []
         all_pmd_ground_truth_distances_per_camera: typing.Dict[PMDCamera, typing.List[float]] = dict()
         number_of_associated_pmd: typing.Dict[PMDCamera, typing.List[typing.Tuple[int, int]]] = dict()
+
         for camera, timeframe_list in pmd_data.items():
             all_pmd_ground_truth_distances_per_camera[camera] = []
             number_of_associated_pmd[camera] = []
-
+            pmd_gt = pmd_lines_gt[camera]
             for pmd_timeframe in timeframe_list:
                 if len(pmd_timeframe.pmd_lines) > 0:
-                    gt_with_closest_timestamp = park_marker_gt.get(
-                        min(park_marker_gt.keys(), key=lambda k: abs(k - pcl_timeframe.timestamp))
-                    )
+                    target_timestamp = min(pmd_gt.keys(), key=lambda k: abs(float(k) - pmd_timeframe.timestamp))
+                    gt_with_closest_timestamp = pmd_gt.get(target_timestamp)
+
                     association, _ = FtPclHelper.associate_pmd_to_ground_truth(
                         pmd_timeframe.pmd_lines, gt_with_closest_timestamp, AssociationConstants.PCL_ASSOCIATION_RADIUS
                     )
                     pmd_ground_truth_distances = []
                     for pmd, ground_truth in association:
                         if ground_truth is not None:
-                            dist = FtPclHelper.is_pcl_pmd_association_valid(
+                            dist = FtPclHelper.is_pmd_pmd_association_valid(
                                 ground_truth, pmd, AssociationConstants.PCL_ASSOCIATION_RADIUS
                             )[1:3]
                             pmd_ground_truth_distances.append(dist[0])
@@ -155,8 +161,31 @@ class TestStepFtPCLAccuracy(TestStep):
 
         if avg_pmd_distance >= avg_pcl_distance:
             test_result = fc.PASS
+            evaluation = (
+                "In average, PFS doesn't provides worse position for the parking markers than each input separately"
+            )
+            signal_summary["PFS_ParkingMarker_accuracy"] = evaluation
         else:
             test_result = fc.FAIL
+            evaluation = "In average, PFS provides worse position for the parking markers than each input separately"
+            signal_summary["PFS_ParkingMarker_accuracy"] = evaluation
+
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": "In average, EnvironmentFusion doesn't provide worse position for the parking markers than each input separately.",
+                },
+                "Result": {
+                    "1": evaluation,
+                },
+                "Verdict": {
+                    "1": "PASSED" if test_result == "passed" else "FAILED",
+                },
+            }
+        )
+
+        sig_sum = fh.build_html_table(signal_summary, table_title="PFS Parking Markers accuracy")
+        self.result.details["Plots"].append(sig_sum)
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -190,6 +219,7 @@ class TestStepFtPCLAccuracy(TestStep):
                 )
             ]
         )
+        fig.layout = go.Layout(title=dict(text="Average Distance from Ground Truth", font_size=20))
         plot_titles.append("Average Distance from Ground Truth")
         plots.append(fig)
         remarks.append("")
@@ -203,6 +233,11 @@ class TestStepFtPCLAccuracy(TestStep):
                 name="Number of CEM PCL",
             )
         )
+        fig.layout = go.Layout(
+            xaxis=dict(title="Timestamp [nsec]"),
+            yaxis=dict(title="pcl_delimiter"),
+            title=dict(text="Number of CEM PCL", font_size=20),
+        )
         fig.add_trace(
             go.Scatter(
                 x=[timeframe for timeframe, _ in number_of_associated_pcl],
@@ -210,6 +245,11 @@ class TestStepFtPCLAccuracy(TestStep):
                 mode="lines",
                 name="Number of associated CEM PCL",
             )
+        )
+        fig.layout = go.Layout(
+            xaxis=dict(title="Timestamp [nsec]"),
+            yaxis=dict(title="associated_pcl"),
+            title=dict(text="Number of associated CEM PCL", font_size=20),
         )
         plot_titles.append("")
         plots.append(fig)
@@ -232,6 +272,11 @@ class TestStepFtPCLAccuracy(TestStep):
                     mode="lines",
                     name=f"{camera._name_} camera number of associated PMD",
                 )
+            )
+            fig.layout = go.Layout(
+                xaxis=dict(title="Timestamp [nsec]"),
+                yaxis=dict(title="associated_pmd"),
+                title=dict(text=f"{camera._name_} camera number of associated PMD", font_size=20),
             )
             plot_titles.append("")
             plots.append(fig)
@@ -269,7 +314,9 @@ class TestStepFtPCLAccuracy(TestStep):
     name="SWKPI_CNC_PFS_ParkingMarkerAccuracy",
     description="This test case verifies that, in average CEM doesn't provide worse position for the parking markers"
     "than each input separately.",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_r9j4fU4mEe6M5-WQsF_-tQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_tpTA4CuJEe6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F36325",
 )
+@register_inputs("/parking")
 class FtPCLAccuracy(TestCase):
     """Test Parking Marker Accuracy"""
 

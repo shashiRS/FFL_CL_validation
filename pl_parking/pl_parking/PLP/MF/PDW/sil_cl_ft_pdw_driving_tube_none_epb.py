@@ -1,0 +1,616 @@
+"""Example functional test"""  # this is a required docstring
+
+"""import libraries"""
+import logging
+import os
+import sys
+
+import plotly.graph_objects as go
+
+_log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+
+TRC_ROOT = os.path.abspath(os.path.join(__file__, "..", "..", "..", ".."))
+if TRC_ROOT not in sys.path:
+    sys.path.append(TRC_ROOT)
+"""imports from tsf core"""
+from tsf.core.results import DATA_NOK, FALSE, TRUE, BooleanResult
+from tsf.core.testcase import (
+    TestCase,
+    TestStep,
+    register_signals,
+    testcase_definition,
+    teststep_definition,
+)
+from tsf.io.signals import SignalDefinition
+
+"""imports from current repo"""
+import pl_parking.common_ft_helper as fh
+import pl_parking.PLP.MF.constants as constants
+from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport
+
+__author__ = "A AM SB PRK IAS LAT1"
+__copyright__ = "2020-2012, Continental AG"
+__version__ = "0.16.1"
+__status__ = "Production"
+
+_log = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+
+# any test must have a specific and UNIQUE alias as it will contain a data frame with all the signals for a test script
+ALIAS = "PDW_DRT_EPB"
+
+gearPosition = constants.GearReqConstants
+pdwState = constants.SilCl.PDWConstants.pdwState
+pdwSysState = constants.SilCl.PDWConstants.pdwSystemState
+pdw_hmi_interact = constants.SilCl.PDWConstants.pdwUserActionHeadUnit  # TAP_ON_PDC = 35
+epbSwitch = constants.SilCl.PDWConstants.EPBSwitch
+drvTubeDisplay = constants.SilCl.PDWConstants.DrivingTubeReq
+apStateVal = constants.SilCl.PDWConstants.ApStates
+ap_PDWFailure = constants.SilCl.PDWConstants.pdwFailure
+wheel_direction = constants.SilCl.PDWConstants.WheelDirection
+speed_converter = 3.6  # vehicle velocity convert factor unit [km/h]
+overspeed_deact = 20  # km/h
+delay = constants.SilCl.PDWConstants.delay
+
+
+class Signals(SignalDefinition):
+    """Signal definition."""
+
+    class Columns(SignalDefinition.Columns):
+        """Column defines."""
+
+        PDW_SYSTEM_STATE = "PDWSystemState"
+        PDW_STATE = "PDWSate"
+        VELOCITY = "Velocity"
+        STEERING_ANGLE = "SteeringAngle"
+        TIME = "Time"
+        GEARBOX_STATE = "GearBoxState"
+        EPB_SWITCH = "EPBActivation"
+        MUTE = "PDWMute"
+        DRV_TUBE = "DrvTubeDisplay"
+        TAP_ON_HMI = "UserActionHMI"
+        AP_STATE = "APState"
+        PDW_FAILURE = "apPDWFailure"
+        WHEEL_FL = "WheelFrontLeft"
+        WHEEL_FR = "WheelFrontRight"
+        WHEEL_RL = "WheelRearLeft"
+        WHEEL_RR = "WheelRearRight"
+
+        SECTOR_STAT_DISTANCEFR = "SECTOR_STAT_DISTANCEFR{}"
+        SECTOR_STAT_DISTANCEFR0 = "SECTOR_STAT_DISTANCEFR0"
+        SECTOR_STAT_DISTANCEFR1 = "SECTOR_STAT_DISTANCEFR1"
+        SECTOR_STAT_DISTANCEFR2 = "SECTOR_STAT_DISTANCEFR2"
+        SECTOR_STAT_DISTANCEFR3 = "SECTOR_STAT_DISTANCEFR3"
+        SECTOR_DYN_DISTANCEFR = "SECTOR_DYN_DISTANCEFR{}"
+        SECTOR_DYN_DISTANCEFR0 = "SECTOR_DYN_DISTANCEFR0"
+        SECTOR_DYN_DISTANCEFR1 = "SECTOR_DYN_DISTANCEFR1"
+        SECTOR_DYN_DISTANCEFR2 = "SECTOR_DYN_DISTANCEFR2"
+        SECTOR_DYN_DISTANCEFR3 = "SECTOR_DYN_DISTANCEFR3"
+
+        SECTOR_STAT_DISTANCERI = "SECTOR_STAT_DISTANCERI{}"
+        SECTOR_STAT_DISTANCERI0 = "SECTOR_STAT_DISTANCERI0"
+        SECTOR_STAT_DISTANCERI1 = "SECTOR_STAT_DISTANCERI1"
+        SECTOR_STAT_DISTANCERI2 = "SECTOR_STAT_DISTANCERI2"
+        SECTOR_STAT_DISTANCERI3 = "SECTOR_STAT_DISTANCERI3"
+        SECTOR_DYN_DISTANCERI = "SECTOR_DYN_DISTANCERI{}"
+        SECTOR_DYN_DISTANCERI0 = "SECTOR_DYN_DISTANCERI0"
+        SECTOR_DYN_DISTANCERI1 = "SECTOR_DYN_DISTANCERI1"
+        SECTOR_DYN_DISTANCERI2 = "SECTOR_DYN_DISTANCERI2"
+        SECTOR_DYN_DISTANCERI3 = "SECTOR_DYN_DISTANCERI3"
+
+        SECTOR_STAT_DISTANCERE = "SECTOR_STAT_DISTANCERE{}"
+        SECTOR_STAT_DISTANCERE0 = "SECTOR_STAT_DISTANCERE0"
+        SECTOR_STAT_DISTANCERE1 = "SECTOR_STAT_DISTANCERE1"
+        SECTOR_STAT_DISTANCERE2 = "SECTOR_STAT_DISTANCERE2"
+        SECTOR_STAT_DISTANCERE3 = "SECTOR_STAT_DISTANCERE3"
+        SECTOR_DYN_DISTANCERE = "SECTOR_DYN_DISTANCERE{}"
+        SECTOR_DYN_DISTANCERE0 = "SECTOR_DYN_DISTANCERE0"
+        SECTOR_DYN_DISTANCERE1 = "SECTOR_DYN_DISTANCERE1"
+        SECTOR_DYN_DISTANCERE2 = "SECTOR_DYN_DISTANCERE2"
+        SECTOR_DYN_DISTANCERE3 = "SECTOR_DYN_DISTANCERE3"
+
+        SECTOR_STAT_DISTANCELE = "SECTOR_STAT_DISTANCELE{}"
+        SECTOR_STAT_DISTANCELE0 = "SECTOR_STAT_DISTANCELE0"
+        SECTOR_STAT_DISTANCELE1 = "SECTOR_STAT_DISTANCELE1"
+        SECTOR_STAT_DISTANCELE2 = "SECTOR_STAT_DISTANCELE2"
+        SECTOR_STAT_DISTANCELE3 = "SECTOR_STAT_DISTANCELE3"
+        SECTOR_DYN_DISTANCELE = "SECTOR_DYN_DISTANCELE{}"
+        SECTOR_DYN_DISTANCELE0 = "SECTOR_DYN_DISTANCELE0"
+        SECTOR_DYN_DISTANCELE1 = "SECTOR_DYN_DISTANCELE1"
+        SECTOR_DYN_DISTANCELE2 = "SECTOR_DYN_DISTANCELE2"
+        SECTOR_DYN_DISTANCELE3 = "SECTOR_DYN_DISTANCELE3"
+
+    def __init__(self):
+        """Initialize the signal definition."""
+        super().__init__()
+
+        self._root = [
+            "PDW_Signals",
+        ]
+
+        self._properties = {
+            self.Columns.PDW_SYSTEM_STATE: "AP.drvWarnStatus.pdwSystemState_nu",
+            self.Columns.PDW_STATE: "AP.drvWarnStatus.pdwState_nu",
+            self.Columns.VELOCITY: "Car.v",
+            self.Columns.TIME: "Time",
+            self.Columns.GEARBOX_STATE: "AP.odoInputPort.odoSigFcanPort.gearboxCtrlStatus.gearCur_nu",
+            self.Columns.EPB_SWITCH: "DM.BrakePark",
+            self.Columns.MUTE: "AP.drvWarnStatus.reduceToMuteSoundReq_nu",
+            self.Columns.DRV_TUBE: "AP.pdcpDrivingTubePort.drvTubeDisplay_nu",
+            self.Columns.TAP_ON_HMI: "AP.hmiOutputPort.userActionHeadUnit_nu",
+            self.Columns.AP_STATE: "AP.planningCtrlPort.apStates",
+            self.Columns.PDW_FAILURE: "AP.pdwFailure_nu",
+            self.Columns.WHEEL_FL: "AP.odoInputPort.odoSigFcanPort.wheelMeasurements.wheelDrivingDirections.wheelDrivingDirection_FL_nu",
+            self.Columns.WHEEL_FR: "AP.odoInputPort.odoSigFcanPort.wheelMeasurements.wheelDrivingDirections.wheelDrivingDirection_FR_nu",
+            self.Columns.WHEEL_RL: "AP.odoInputPort.odoSigFcanPort.wheelMeasurements.wheelDrivingDirections.wheelDrivingDirection_RL_nu",
+            self.Columns.WHEEL_RR: "AP.odoInputPort.odoSigFcanPort.wheelMeasurements.wheelDrivingDirections.wheelDrivingDirection_RR_nu",
+        }
+
+        front_stat_distance = {
+            self.Columns.SECTOR_STAT_DISTANCEFR.format(x): f"AP.pdcpSectorsPort.sectorsFront_{x}.smallestDistance_m"
+            for x in range(4)
+        }
+        front_dyn_distance = {
+            self.Columns.SECTOR_DYN_DISTANCEFR.format(
+                x
+            ): f"AP.pdcpSectorsPort.sectorsFront_{x}.dynamicSmallestDistance_m"
+            for x in range(4)
+        }
+        left_stat_distance = {
+            self.Columns.SECTOR_STAT_DISTANCELE.format(x): f"AP.pdcpSectorsPort.sectorsLeft_{x}.smallestDistance_m"
+            for x in range(4)
+        }
+        left_dyn_distance = {
+            self.Columns.SECTOR_DYN_DISTANCELE.format(
+                x
+            ): f"AP.pdcpSectorsPort.sectorsLeft_{x}.dynamicSmallestDistance_m"
+            for x in range(4)
+        }
+        rear_stat_distance = {
+            self.Columns.SECTOR_STAT_DISTANCERE.format(x): f"AP.pdcpSectorsPort.sectorsRear_{x}.smallestDistance_m"
+            for x in range(4)
+        }
+        rear_dyn_distance = {
+            self.Columns.SECTOR_DYN_DISTANCERE.format(
+                x
+            ): f"AP.pdcpSectorsPort.sectorsRear_{x}.dynamicSmallestDistance_m"
+            for x in range(4)
+        }
+        right_stat_distance = {
+            self.Columns.SECTOR_STAT_DISTANCERI.format(x): f"AP.pdcpSectorsPort.sectorsRight_{x}.smallestDistance_m"
+            for x in range(4)
+        }
+        right_dyn_distance = {
+            self.Columns.SECTOR_DYN_DISTANCERI.format(
+                x
+            ): f"AP.pdcpSectorsPort.sectorsRight_{x}.dynamicSmallestDistance_m"
+            for x in range(4)
+        }
+
+        self._properties.update(front_stat_distance)
+        self._properties.update(front_dyn_distance)
+        self._properties.update(left_stat_distance)
+        self._properties.update(left_dyn_distance)
+        self._properties.update(rear_stat_distance)
+        self._properties.update(rear_dyn_distance)
+        self._properties.update(right_stat_distance)
+        self._properties.update(right_dyn_distance)
+
+
+signals_obj = Signals()
+
+
+@teststep_definition(
+    step_number=1,
+    name="Driving tube display",  # this would be shown as a test step name in html report
+    description=(
+        "This test step evaluates after PDW is deactivated by Electronic Parking Brake (EPB) the driving tube is not displayed."
+    ),  # this would be shown as a test step description in html report
+    expected_result=BooleanResult(
+        TRUE
+    ),  # this expected result would be compared with measured_result and give a verdict
+)
+@register_signals(ALIAS, Signals)
+class PDWDrivingTubeReq(TestStep):
+    """testcase that can be tested by a simple pass/fail test.
+    This is a required docstring in which you can add more details about what you verify in test step
+
+    Objective
+    ---------
+
+    ...
+
+    Detail
+    ------
+
+    ...
+    """
+
+    custom_report = MfCustomTeststepReport  # Specific overview
+
+    def __init__(self):
+        super().__init__()
+
+    #
+    def process(self, **kwargs):
+        """
+        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
+        evaluation results.
+        """  # required docstring
+        _log.debug("Starting processing...")
+        # Update the details from the results page with the needed information
+        # All the information from self.result.details is transferred to report maker(MfCustomTeststepReport in our case)
+        self.result.details.update(
+            {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
+        )
+        # Make a constant with the reader for signals:
+        self.result.measured_result = DATA_NOK  # Initializing the result with data nok
+        # Create empty lists for titles, plots and remarks,if they are needed, plots and remarks need to have the same length
+        plot_titles, plots, remarks = fh.rep([], 3)
+
+        signal_summary = {}
+        signals = self.readers[ALIAS]  # Make a dataframe(df) with all signals extracted from Signals class
+
+        self.velocity = signals[Signals.Columns.VELOCITY]
+        self.ap_time = signals[Signals.Columns.TIME]
+        self.pdw_state = signals[Signals.Columns.PDW_STATE]
+        self.pdw_sys_state = signals[Signals.Columns.PDW_SYSTEM_STATE]
+        self.gear_state = signals[Signals.Columns.GEARBOX_STATE]
+        self.epb_switch = signals[Signals.Columns.EPB_SWITCH]
+        self.mute = signals[Signals.Columns.MUTE]
+        self.dt_req = signals[Signals.Columns.DRV_TUBE]
+        self.pdw_button = signals[Signals.Columns.TAP_ON_HMI]
+        self.apStatus = signals[Signals.Columns.AP_STATE]
+        self.pdwFailureState = signals[Signals.Columns.PDW_FAILURE]
+        self.wheelfl = signals[Signals.Columns.WHEEL_FL]
+        self.wheelfr = signals[Signals.Columns.WHEEL_FR]
+        self.wheelrl = signals[Signals.Columns.WHEEL_RL]
+        self.wheelrr = signals[Signals.Columns.WHEEL_RR]
+
+        self.stat_dist_fr_0 = signals[Signals.Columns.SECTOR_STAT_DISTANCEFR0]
+        self.stat_dist_fr_1 = signals[Signals.Columns.SECTOR_STAT_DISTANCEFR1]
+        self.stat_dist_fr_2 = signals[Signals.Columns.SECTOR_STAT_DISTANCEFR2]
+        self.stat_dist_fr_3 = signals[Signals.Columns.SECTOR_STAT_DISTANCEFR3]
+        self.dyn_dist_fr_0 = signals[Signals.Columns.SECTOR_DYN_DISTANCEFR0]
+        self.dyn_dist_fr_1 = signals[Signals.Columns.SECTOR_DYN_DISTANCEFR1]
+        self.dyn_dist_fr_2 = signals[Signals.Columns.SECTOR_DYN_DISTANCEFR2]
+        self.dyn_dist_fr_3 = signals[Signals.Columns.SECTOR_DYN_DISTANCEFR3]
+
+        self.stat_dist_ri_0 = signals[Signals.Columns.SECTOR_STAT_DISTANCERI0]
+        self.stat_dist_ri_1 = signals[Signals.Columns.SECTOR_STAT_DISTANCERI1]
+        self.stat_dist_ri_2 = signals[Signals.Columns.SECTOR_STAT_DISTANCERI2]
+        self.stat_dist_ri_3 = signals[Signals.Columns.SECTOR_STAT_DISTANCERI3]
+        self.dyn_dist_ri_0 = signals[Signals.Columns.SECTOR_DYN_DISTANCERI0]
+        self.dyn_dist_ri_1 = signals[Signals.Columns.SECTOR_DYN_DISTANCERI1]
+        self.dyn_dist_ri_2 = signals[Signals.Columns.SECTOR_DYN_DISTANCERI2]
+        self.dyn_dist_ri_3 = signals[Signals.Columns.SECTOR_DYN_DISTANCERI3]
+
+        self.stat_dist_re_0 = signals[Signals.Columns.SECTOR_STAT_DISTANCERE0]
+        self.stat_dist_re_1 = signals[Signals.Columns.SECTOR_STAT_DISTANCERE1]
+        self.stat_dist_re_2 = signals[Signals.Columns.SECTOR_STAT_DISTANCERE2]
+        self.stat_dist_re_3 = signals[Signals.Columns.SECTOR_STAT_DISTANCERE3]
+        self.dyn_dist_re_0 = signals[Signals.Columns.SECTOR_DYN_DISTANCERE0]
+        self.dyn_dist_re_1 = signals[Signals.Columns.SECTOR_DYN_DISTANCERE1]
+        self.dyn_dist_re_2 = signals[Signals.Columns.SECTOR_DYN_DISTANCERE2]
+        self.dyn_dist_re_3 = signals[Signals.Columns.SECTOR_DYN_DISTANCERE3]
+
+        self.stat_dist_le_0 = signals[Signals.Columns.SECTOR_STAT_DISTANCELE0]
+        self.stat_dist_le_1 = signals[Signals.Columns.SECTOR_STAT_DISTANCELE1]
+        self.stat_dist_le_2 = signals[Signals.Columns.SECTOR_STAT_DISTANCELE2]
+        self.stat_dist_le_3 = signals[Signals.Columns.SECTOR_STAT_DISTANCELE3]
+        self.dyn_dist_le_0 = signals[Signals.Columns.SECTOR_DYN_DISTANCELE0]
+        self.dyn_dist_le_1 = signals[Signals.Columns.SECTOR_DYN_DISTANCELE1]
+        self.dyn_dist_le_2 = signals[Signals.Columns.SECTOR_DYN_DISTANCELE2]
+        self.dyn_dist_le_3 = signals[Signals.Columns.SECTOR_DYN_DISTANCELE3]
+
+        obj_dist_list = [
+            self.stat_dist_fr_0,
+            self.stat_dist_fr_1,
+            self.stat_dist_fr_2,
+            self.stat_dist_fr_3,
+            self.stat_dist_ri_0,
+            self.stat_dist_ri_1,
+            self.stat_dist_ri_2,
+            self.stat_dist_ri_3,
+            self.stat_dist_re_0,
+            self.stat_dist_re_1,
+            self.stat_dist_re_2,
+            self.stat_dist_re_3,
+            self.stat_dist_le_0,
+            self.stat_dist_le_1,
+            self.stat_dist_le_2,
+            self.stat_dist_le_3,
+            self.dyn_dist_fr_0,
+            self.dyn_dist_fr_1,
+            self.dyn_dist_fr_2,
+            self.dyn_dist_fr_3,
+            self.dyn_dist_ri_0,
+            self.dyn_dist_ri_1,
+            self.dyn_dist_ri_2,
+            self.dyn_dist_ri_3,
+            self.dyn_dist_re_0,
+            self.dyn_dist_re_1,
+            self.dyn_dist_re_2,
+            self.dyn_dist_re_3,
+            self.dyn_dist_le_0,
+            self.dyn_dist_le_1,
+            self.dyn_dist_le_2,
+            self.dyn_dist_le_3,
+        ]
+        obj_dist_signal_list = [
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCEFR0],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCEFR1],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCEFR2],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCEFR3],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCEFR0],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCEFR1],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCEFR2],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCEFR3],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERI0],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERI1],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERI2],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERI3],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERI0],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERI1],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERI2],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERI3],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERE0],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERE1],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERE2],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCERE3],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERE0],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERE1],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERE2],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCERE3],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCELE0],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCELE1],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCELE2],
+            signals_obj._properties[Signals.Columns.SECTOR_STAT_DISTANCELE3],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCELE0],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCELE1],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCELE2],
+            signals_obj._properties[Signals.Columns.SECTOR_DYN_DISTANCELE3],
+        ]
+
+        # pdw state mask
+        state_pdw_init_mask = self.pdw_state == pdwState.PDW_INT_STATE_INIT
+
+        pdw_state_mask = [
+            x for x in self.pdw_state if x != pdwState.PDW_INT_STATE_INIT and x != pdwState.PDW_INT_STATE_DEACT_INIT
+        ]
+
+        activate_metod = "not activated"
+        deactivation_metod = "pdw error"
+        pdwState_No_value = pdwState.PDW_INT_STATE_INIT
+        pdwState_value = "PDW_INT_STATE_INIT"
+        act_validation = False
+        if state_pdw_init_mask.any():
+            if not pdw_state_mask:
+                deactivation_metod = "deactivated after initialization"
+                pdwState_No_value = pdwState.PDW_INT_STATE_DEACT_INIT
+                pdwState_value = "PDW_INT_STATE_DEACT_INIT"
+
+                self.result.measured_result = TRUE if deactivation_metod != "pdw error" else FALSE
+                signal_summary["AP.drvWarnStatus.pdwState_nu"] = (
+                    f" PDW function was {deactivation_metod} state with pdwState = {pdwState_No_value} ({pdwState_value})."
+                )
+            else:
+
+                # state_pdw_init_mask1 =pdw_state_mask[0] == pdwState.PDW_INT_STATE_INIT
+                state_act_btn_mask1 = pdw_state_mask[0] == pdwState.PDW_INT_STATE_ACT_BTN
+                state_act_rgear_mask1 = pdw_state_mask[0] == pdwState.PDW_INT_STATE_ACT_R_GEAR
+                state_act_ap_mask1 = pdw_state_mask[0] == pdwState.PDW_INT_STATE_ACT_AP
+                state_act_auto_mask1 = pdw_state_mask[0] == pdwState.PDW_INT_STATE_ACT_AUTO
+                state_act_rbk_mask1 = pdw_state_mask[0] == pdwState.PDW_INT_STATE_ACT_ROLLBACK
+
+                state_deact_epb_mask = self.pdw_state == pdwState.PDW_INT_STATE_DEACT_EPB
+
+                if state_act_ap_mask1:
+                    idx = -1
+                    for i, element in enumerate(self.pdw_state):
+                        if element == pdwState.PDW_INT_STATE_ACT_AP:
+                            idx = i
+                            break
+                    if (
+                        self.pdw_button.iat[idx] == pdw_hmi_interact.TAP_ON_START_PARKING
+                        and self.pdw_state.iat[idx] == pdwState.PDW_INT_STATE_ACT_AP
+                        and self.apStatus.iat[idx] == apStateVal.AP_AVG_ACTIVE_IN
+                    ):  # validate if pdw button was pressed
+                        activate_metod = "activated by automated parking"
+                        pdwState_No_value = pdwState.PDW_INT_STATE_ACT_AP
+                        pdwState_value = "PDW_INT_STATE_ACT_AP"
+                        signal_summary["AP.hmiOutputPort.userActionHeadUnit_nu"] = (
+                            f"Automated parking started with value TAP_ON_SART_PARKING = {int(self.pdw_button.iat[idx])}"
+                        )
+                        signal_summary["AP.planningCtrlPort.apStates"] = (
+                            f"Automated parking stade apStates = {int(self.apStatus.iat[idx])} (AP_AVG_ACTIVE_IN)"
+                        )
+                elif state_act_btn_mask1:
+                    idx = -1
+                    for i, element in enumerate(self.pdw_state):
+                        if element == pdwState.PDW_INT_STATE_ACT_BTN:
+                            idx = i
+                            break
+                    if (
+                        self.pdw_button.iat[idx] == pdw_hmi_interact.TAP_ON_PDC
+                        and self.pdw_state.iat[idx] == pdwState.PDW_INT_STATE_ACT_BTN
+                    ):  # validate if pdw button is pressed
+                        activate_metod = "activated by button"
+                        pdwState_No_value = pdwState.PDW_INT_STATE_ACT_BTN
+                        pdwState_value = "PDW_INT_STATE_ACT_BTN"
+                        signal_summary["AP.hmiOutputPort.userActionHeadUnit_nu"] = (
+                            f"PDW button pressed with value TAP_ON_PDC = {int(self.pdw_button.iat[idx])}"
+                        )
+                elif state_act_rgear_mask1:
+                    idx = -1
+                    for i, element in enumerate(self.pdw_state):
+                        if element == pdwState.PDW_INT_STATE_ACT_R_GEAR:
+                            idx = i
+                            break
+                    if (
+                        self.gear_state.iat[idx] == gearPosition.GEAR_R
+                        and self.pdw_state.iat[idx] == pdwState.PDW_INT_STATE_ACT_R_GEAR
+                    ):  # validate if Reverse gear was engaged
+                        activate_metod = "activated by reverse gear"
+                        pdwState_No_value = pdwState.PDW_INT_STATE_ACT_R_GEAR
+                        pdwState_value = "PDW_INT_STATE_ACT_R_GEAR"
+                        signal_summary["AP.odoInputPort.odoSigFcanPort.gearboxCtrlStatus.gearCur_n"] = (
+                            f"Gear in reverse with value GEAR_R = {int(self.gear_state.iat[idx])}"
+                        )
+                elif state_act_auto_mask1:
+                    idx_auto = -1
+                    for i, element in enumerate(self.pdw_state):
+                        if element == pdwState.PDW_INT_STATE_ACT_AUTO:
+                            idx_auto = i
+                            break
+
+                    for i in range(
+                        len(obj_dist_list)
+                    ):  # check if an obstacle is present in any of the sectors around the car
+                        if obj_dist_list[i].iat[idx_auto] < 2.55:
+                            activate_metod = "automatically activated"
+                            pdwState_No_value = pdwState.PDW_INT_STATE_ACT_AUTO
+                            pdwState_value = "PDW_INT_STATE_ACT_AUTO"
+                            signal_summary[f"{obj_dist_signal_list[i]}"] = (
+                                f"Smallest distance detected towards object = {round(obj_dist_list[i].iat[idx_auto], 3)} m"
+                            )
+                elif state_act_rbk_mask1:
+                    idx = -1
+                    for i, element in enumerate(self.pdw_state):
+                        if element == pdwState.PDW_INT_STATE_ACT_ROLLBACK:
+                            idx = i
+                            break
+                    if (
+                        self.dt_req.iat[idx] == drvTubeDisplay.PDC_DRV_TUBE_REAR
+                        and self.pdw_state.iat[idx] == pdwState.PDW_INT_STATE_ACT_ROLLBACK
+                        and self.velocity.iat[idx] >= 0.1
+                    ):  # validate if vehicle rolls backward witg gear neutral and driving tube display in rear
+                        activate_metod = "activated by rollback"
+                        pdwState_No_value = pdwState.PDW_INT_STATE_ACT_ROLLBACK
+                        pdwState_value = "PDW_INT_STATE_ACT_ROLLBACK"
+                        signal_summary["AP.odoInputPort.odoSigFcanPort.gearboxCtrlStatus.gearCur_n"] = (
+                            f"Gear in reverse with value GEAR_N = {int(self.gear_state.iat[idx])}"
+                        )
+                        signal_summary["Car.v"] = (
+                            f"Ego vehicle speed while rolling backward {round(self.velocity.iat[idx], 3)} m/s"
+                        )
+                        signal_summary["AP.pdcpDrivingTubePort.drvTubeDisplay_nu"] = (
+                            f"Driving tube display PDC_DRV_TUBE_REAR = {int(self.dt_req.iat[idx])}"
+                        )
+
+                act_validation = True if activate_metod != "not activated" else False
+                signal_summary["AP.drvWarnStatus.pdwState_nu"] = (
+                    f" PDW function is {activate_metod} state with pdwState = {pdwState_No_value} ({pdwState_value}) ."
+                )
+
+                if act_validation:
+                    dt_none = FALSE
+                    if state_deact_epb_mask.any():
+                        idx = -1
+                        for i, element in enumerate(self.pdw_state):
+                            if element == pdwState.PDW_INT_STATE_DEACT_EPB:
+                                idx = i
+                                break
+                        if (
+                            self.epb_switch.iat[idx] == epbSwitch.EPB_ON
+                            and self.pdw_state.iat[idx] == pdwState.PDW_INT_STATE_DEACT_EPB
+                            and self.dt_req.iat[idx - delay] != drvTubeDisplay.PDC_DRV_TUBE_NONE
+                        ):  # validate if electronic parking brake was engaged
+                            deactivation_metod = "deactivated by EPB"
+                            pdwState_No_value = pdwState.PDW_INT_STATE_DEACT_EPB
+                            pdwState_value = "PDW_INT_STATE_DEACT_EPB"
+                            signal_summary["DM.BrakePark"] = (
+                                f"Electornic parking brake active with value EPB_ON = {int(self.epb_switch.iat[idx])}"
+                            )
+                            signal_summary["AP.pdcpDrivingTubePort.drvTubeDisplay_nu"] = (
+                                f"Driving tube display PDC_DRV_TUBE_NONE = {int(self.dt_req.iat[idx])}"
+                            )
+                        dt_none = TRUE if self.dt_req.iat[idx] == drvTubeDisplay.PDC_DRV_TUBE_NONE else FALSE
+
+                    self.result.measured_result = dt_none
+                    signal_summary["AP.drvWarnStatus.pdwState_nu"] = (
+                        f" PDW function is {deactivation_metod} state with pdwState = {pdwState_No_value} ({pdwState_value})."
+                    )
+
+        remark = " ".join(
+            "This test step verifies PDW activation/deactivation reason "
+            "monitoring the signal (AP.drvWarnStatus.pdwState_nu) ".split()
+        )
+        # The signal summary and observations will be converted to pandas and finally the html table will be created with them
+        self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
+        plot_titles.append("")
+        plots.append(self.sig_sum)
+        remarks.append("")
+
+        fig = go.Figure()
+        # add the needed signals in the plot
+
+        fig.add_trace(
+            go.Scatter(
+                x=self.ap_time, y=self.pdw_state, mode="lines", name=signals_obj._properties[Signals.Columns.PDW_STATE]
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=self.ap_time,
+                y=self.pdw_sys_state,
+                mode="lines",
+                name=signals_obj._properties[Signals.Columns.PDW_SYSTEM_STATE],
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.ap_time, y=self.velocity, mode="lines", name=signals_obj._properties[Signals.Columns.VELOCITY]
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.ap_time,
+                y=self.epb_switch,
+                mode="lines",
+                name=signals_obj._properties[Signals.Columns.EPB_SWITCH],
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=self.ap_time, y=self.dt_req, mode="lines", name=signals_obj._properties[Signals.Columns.DRV_TUBE]
+            )
+        )
+
+        fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+        fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+
+        plot_titles.append("")
+        plots.append(fig)
+        remarks.append("")
+
+        # Add the plots in html page
+        for plot in plots:
+            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+            else:
+                self.result.details["Plots"].append(plot)
+        for plot_title in plot_titles:
+            self.result.details["Plot_titles"].append(plot_title)
+        for remark in remarks:
+            self.result.details["Remarks"].append(remark)
+
+
+@testcase_definition(
+    name="No Driving Tube Display EPB",
+    description=("PDW function shall set the Driving tube to None if it is deactivated by EPB"),
+)
+# Define the class for test case which will inherit the TestCase class and will return the test steps.
+class PDWDrivingTubeEPB(TestCase):
+    """Example test case."""  # required docstring
+
+    custom_report = MfCustomTestcaseReport
+
+    @property
+    def test_steps(self):
+        """Returns the test steps."""  # required docstring
+        return [
+            PDWDrivingTubeReq,
+        ]  # in this list all the needed test steps are included

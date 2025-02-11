@@ -210,7 +210,7 @@ class PMSDSimpleEndPointDistance(TestStep):
     name="SWKPI_CNC_PMSD_SimpleEndPointError_01",
     description="Parking Lines and simple endpoint error distance KPI",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class PMSDSimpleEndPointDistanceTC(TestCase):
     """Example test case."""

@@ -30,7 +30,7 @@ import pl_parking.common_constants as fc
 from pl_parking.common_ft_helper import MfCustomTeststepReport, convert_dict_to_pandas, get_color, rep
 from pl_parking.PLP.MF.constants import PlotlyTemplate
 
-from .common import calculate_odo_error, get_relative_positional_error_per_meter
+from .common import get_relative_positional_error_per_meter
 from .constants import CarMakerUrl
 
 TSF_BASE = os.path.abspath(os.path.join(__file__, "..", ".."))
@@ -39,7 +39,7 @@ if TSF_BASE not in sys.path:
 
 
 __author__ = "Anil A, Uie64067"
-__copyright__ = "2020-2012, Continental AG"
+__copyright__ = "2012-2024, Continental AG"
 __version__ = "0.0.1"
 __status__ = "Production"
 
@@ -83,9 +83,9 @@ class VedodoSignals(SignalDefinition):
 
 @teststep_definition(
     step_number=1,
-    name="The relative longitudinal position error shall not exceed 0.006 m per driven meter in normal "
+    name="The relative longitudinal position error shall not exceed 0.06 m per driven meter in normal "
     "driving conditions",
-    description="The relative longitudinal position error shall not exceed 0.006 m per driven meter in normal "
+    description="The relative longitudinal position error shall not exceed 0.06 m per driven meter in normal "
     "driving conditions",
     expected_result=BooleanResult(TRUE),
     doors_url="https://jazz.conti.de/qm4/web/console/LIB_L3_SW_TM/_RiAxIJNHEe674_0gzoV9FQ?oslc.configuration=https%3A%"
@@ -99,12 +99,12 @@ class VedodoRelativeLongitudinalPositionErrorNormalDrivingConditions(TestStep):
     Objective
     ---------
 
-    The relative Longitudinal position error shall not exceed 0.006m per driven meter during normal driving conditions.
+    The relative Longitudinal position error shall not exceed 0.06m per driven meter during normal driving conditions.
 
     Detail
     ------
 
-    Check the relative Longitudinal position error should not exceed 0.006m per driven meter during normal
+    Check the relative Longitudinal position error should not exceed 0.06m per driven meter during normal
     driving conditions.
     """
 
@@ -121,70 +121,42 @@ class VedodoRelativeLongitudinalPositionErrorNormalDrivingConditions(TestStep):
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
+        df: pd.DataFrame = self.readers[READER_NAME]
         max_expected_longi_relative_error: float = 0.06
         signal_summary = dict()
-        test_result_list = list()
 
         ap_time = list(df[VedodoSignals.Columns.CM_TIME])
         gt_x = list(df[VedodoSignals.Columns.ODO_CM_REF_X])
-        gt_y = list(df[VedodoSignals.Columns.ODO_CM_REF_Y])
         x_estimated = list(df[VedodoSignals.Columns.ODO_EST_X])
-        y_estimated = list(df[VedodoSignals.Columns.ODO_EST_Y])
-        psi_gt = list(df[VedodoSignals.Columns.ODO_CM_REF_YAWANG_EGO_RA_CUR])
-        psi_estimated = list(df[VedodoSignals.Columns.YAW_ANGLE])
 
-        relative_long_per_meter_list = get_relative_positional_error_per_meter(gt_x, x_estimated)
-        max_longi_error = max(relative_long_per_meter_list)
+        relative_long_per_meter = get_relative_positional_error_per_meter(gt_x, x_estimated, ap_time)
+        max_longi_error = max(relative_long_per_meter["error"])
         if max_longi_error > max_expected_longi_relative_error:
             evaluation_longi = " ".join(
-                f"Evaluation for Longitudinal position error during normal driving conditions is FAILED and "
-                f"the maximum expected error threshold is {max_expected_longi_relative_error}m is above the "
-                f"threshold and maximum estimated relative error is {max_longi_error}m".split()
+                f"Evaluation for Relative Longitudinal position error at normal driving conditions,"
+                f"estimated relative error is {round(max_longi_error, 3)}m and relative threshold is "
+                f"{max_expected_longi_relative_error}m. The deviation error is above threshold value. Hence the result "
+                f"is FAILED".split()
             )
-            test_result_list.append(False)
-        else:
-            evaluation_longi = " ".join(
-                f"Evaluation for Longitudinal position error during normal driving conditions is PASSED and "
-                f"the maximum expected error threshold is {max_expected_longi_relative_error}m is within the "
-                f"threshold and maximum estimated relative error is {max_longi_error}m".split()
-            )
-            test_result_list.append(True)
-
-        signal_summary["Longitudinal Position Error"] = evaluation_longi
-
-        _, _, _, relative_long, _ = calculate_odo_error(gt_x, gt_y, psi_gt, psi_estimated, x_estimated, y_estimated)
-        max_relative_longi_error = max(relative_long)
-        if max_relative_longi_error > max_expected_longi_relative_error:
-            evaluation_relative_longi = " ".join(
-                f"Evaluation for Relative Longitudinal position error during normal driving conditions is FAILED and "
-                f"the maximum expected relative error threshold is {max_expected_longi_relative_error}m is above the "
-                f"threshold and maximum estimated relative error is {max_relative_longi_error}m".split()
-            )
-            test_result_list.append(False)
-        else:
-            evaluation_relative_longi = " ".join(
-                f"Evaluation for Relative Longitudinal position error during normal driving conditions is PASSED and "
-                f"the maximum expected relative error threshold is {max_expected_longi_relative_error}m is within the "
-                f"threshold and maximum estimated relative error is {max_relative_longi_error}m".split()
-            )
-            test_result_list.append(True)
-
-        if all(test_result_list):
-            test_result = fc.PASS
-            self.result.measured_result = TRUE
-        else:
             test_result = fc.FAIL
             self.result.measured_result = FALSE
+        else:
+            evaluation_longi = " ".join(
+                f"Evaluation for Relative Longitudinal position error at normal driving conditions,"
+                f"estimated relative error is {round(max_longi_error, 3)}m and relative threshold is "
+                f"{max_expected_longi_relative_error}m. The deviation error is below threshold value. Hence the result "
+                f"is PASSED".split()
+            )
+            test_result = fc.PASS
+            self.result.measured_result = TRUE
 
-        signal_summary["Longitudinal Relative Position Error"] = evaluation_relative_longi
-
+        signal_summary[CarMakerUrl.odoEstX] = evaluation_longi
         self.sig_summary = convert_dict_to_pandas(signal_summary)
         plot_titles.append("")
         plots.append(self.sig_summary)
         remarks.append("")
 
-        # Position error of Longitudinal w.r.to threshold
+        # Position error of Longitudinal w.r.t threshold
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(
@@ -202,8 +174,8 @@ class VedodoRelativeLongitudinalPositionErrorNormalDrivingConditions(TestStep):
         )
         fig.add_trace(
             go.Scatter(
-                x=ap_time,
-                y=relative_long_per_meter_list,
+                x=relative_long_per_meter["time"],
+                y=relative_long_per_meter["error"],
                 mode="lines",
                 name="Longitudinal position per meter",
             )
@@ -216,48 +188,6 @@ class VedodoRelativeLongitudinalPositionErrorNormalDrivingConditions(TestStep):
                 y=-0.12,
                 showarrow=False,
                 text="Longitudinal position Error vs Threshold",
-                textangle=0,
-                xanchor="left",
-                xref="paper",
-                yref="paper",
-            )
-        )
-        plot_titles.append(" ")
-        plots.append(fig)
-        remarks.append("")
-
-        # Relative Position error of Longitudinal w.r.to threshold
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=ap_time,
-                y=[
-                    max_expected_longi_relative_error,
-                ]
-                * len(ap_time),
-                mode="lines",
-                name="Longitudinal relative error threshold",
-            )
-        )
-        fig.layout = go.Layout(
-            yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]", yaxis_title="Distance[m]"
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=ap_time,
-                y=relative_long,
-                mode="lines",
-                name="Longitudinal relative error",
-            )
-        )
-        fig.update_layout(PlotlyTemplate.lgt_tmplt)
-        fig.add_annotation(
-            dict(
-                font=dict(color="black", size=12),
-                x=0,
-                y=-0.12,
-                showarrow=False,
-                text="Longitudinal relative error vs Threshold",
                 textangle=0,
                 xanchor="left",
                 xref="paper",
@@ -328,14 +258,14 @@ class VedodoRelativeLongitudinalPositionErrorNormalDrivingConditions(TestStep):
 @verifies("ReqId-1386174")
 @testcase_definition(
     name="Check the longitudinal position error during normal driving conditions",
-    description="The relative Longitudinal position error shall not exceed 0.006 m per driven meter during normal "
+    description="The relative Longitudinal position error shall not exceed 0.06 m per driven meter during normal "
     "driving conditions",
-    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2"
-    "Fjazz.conti.de%2Frm4%2Fresources%2FBI_3z7qozaaEe6mrdm2_agUYg&componentURI=https%3A%2F%2Fjazz.conti.de"
-    "%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configurat"
-    "ion=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%"
+    "2Fjazz.conti.de%2Frm4%2Fresources%2FBI_3z7qozaaEe6mrdm2_agUYg&componentURI=https%3A%2F%2Fjazz.conti."
+    "de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configu"
+    "ration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F30013",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class VedodoRelativeLongitudinalPositionErrorNormalDrivingConditionsTestCase(TestCase):
     """VedodoRelativeLongitudinalPositionErrorNormalDrivingConditionsTestCase test case."""

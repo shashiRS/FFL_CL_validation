@@ -28,12 +28,13 @@ if TSF_BASE not in sys.path:
 
 import typing
 
+import pandas as pd
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
 from pl_parking.common_ft_helper import CemSignals, MfCustomTestcaseReport, MfCustomTeststepReport, rep
-from pl_parking.PLP.CEM.constants import ConstantsCem, ConstantsCemInput
+from pl_parking.PLP.CEM.constants import ConstantsCem
 from pl_parking.PLP.CEM.ft_pcl_helper import FtPclHelper
 from pl_parking.PLP.CEM.inputs.input_CemPclReader import PCLDelimiter, PclDelimiterReader
 from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import VedodoReader
@@ -46,7 +47,7 @@ example_obj = CemSignals()
 @teststep_definition(
     step_number=1,
     name="CEM PFS PCL Furthest Line",
-    description="",
+    description="This teststep checks if in case the output limit is reached, the furthest parking marking shall be deleted",
     expected_result=BooleanResult(TRUE),
 )
 @register_signals(SIGNAL_DATA, CemSignals)
@@ -69,6 +70,7 @@ class TestStepFtPCLFurthestLineDeleted(TestStep):
         )
         plot_titles, plots, remarks = rep([], 3)
         reader = self.readers[SIGNAL_DATA].signals
+        signal_summary = {}
         inputReader = PclDelimiterReader(reader)
         vedodo_buffer = VedodoReader(reader).convert_to_class()
         delimiterData = inputReader.convert_to_class()
@@ -76,9 +78,9 @@ class TestStepFtPCLFurthestLineDeleted(TestStep):
 
         data_df = inputReader.data.as_plain_df
         data_df.columns = [f"{col[0]}_{col[1]}" if type(col) is tuple else col for col in data_df.columns]
-        pcl_type = data_df.loc[:, data_df.columns.str.startswith("delimiterType")]
+        pcl_type = data_df.loc[:, data_df.columns.str.startswith("Cem_pcl_delimiterId")]
 
-        if ConstantsCemInput.PCLEnum in pcl_type.values:
+        if not pcl_type.empty:
             failed = 0
             for i in range(nbrTimeframes - 1):
                 prevTimeframe = delimiterData[i]
@@ -112,11 +114,34 @@ class TestStepFtPCLFurthestLineDeleted(TestStep):
                 plot_titles.append("Test Fail report")
                 plots.append(fig)
                 remarks.append("")
+                evaluation = f"""The furthest parking marking is not deleted when output limit {ConstantsCem.PCL_MAX_NUM_MARKERS} was reached"""
+                signal_summary["Delete_FurthestParkingMarker"] = evaluation
             else:
                 test_result = fc.PASS
+                evaluation = f"""The furthest parking marking is deleted when output limit {ConstantsCem.PCL_MAX_NUM_MARKERS} was reached"""
+                signal_summary["Delete_FurthestParkingMarker"] = evaluation
 
         else:
             test_result = fc.INPUT_MISSING
+            evaluation = "Required input is missing"
+            signal_summary["Delete_FurthestParkingMarker"] = evaluation
+
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": """EnvironmentFusion checks if in case the output limit is reached, the furthest parking marking shall be deleted""",
+                },
+                "Result": {
+                    "1": evaluation,
+                },
+                "Verdict": {
+                    "1": "PASSED" if test_result == "passed" else "FAILED",
+                },
+            }
+        )
+
+        sig_sum = fh.build_html_table(signal_summary, table_title="PFS Delete Furthest ParkingMarker")
+        self.result.details["Plots"].append(sig_sum)
 
         result_df = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
@@ -147,7 +172,8 @@ class TestStepFtPCLFurthestLineDeleted(TestStep):
 @verifies("1530456")
 @testcase_definition(
     name="SWRT_CNC_PFS_DeleteFurthestParkingMarkers",
-    description="In case the mentioned limit is reached, the furthest parking marking shall be deleted",
+    description="In case the output limit is reached, the furthest parking marking shall be deleted",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_r9j4eU4mEe6M5-WQsF_-tQ&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_tpTA4CuJEe6mrdm2_agUYg&oslc.configuration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F36325",
 )
 class FtPCLFurthestLineDeleted(TestCase):
     """Example test case."""

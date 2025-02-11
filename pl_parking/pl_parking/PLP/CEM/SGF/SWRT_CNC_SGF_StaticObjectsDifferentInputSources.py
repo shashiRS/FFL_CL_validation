@@ -26,11 +26,12 @@ if TRC_ROOT not in sys.path:
 import plotly.graph_objects as go
 
 import pl_parking.common_constants as fc
-from pl_parking.common_ft_helper import CemSignals, CustomTeststepReport, rep
+from pl_parking.common_ft_helper import CustomTeststepReport, rep
 from pl_parking.PLP.CEM.inputs.input_CemSgfReader import SGFReader
+from pl_parking.PLP.CEM.SGF.ft_helper import SGFSignals
 
 SIGNAL_DATA = "StaticObjectsDifferentInputSources"
-example_obj = CemSignals()
+example_obj = SGFSignals()
 
 
 @teststep_definition(
@@ -39,7 +40,7 @@ example_obj = CemSignals()
     description="This test case checks if SGF provides Static Objects based on the Fusion of the detections from different input sources.",
     expected_result=BooleanResult(TRUE),
 )
-@register_signals(SIGNAL_DATA, CemSignals)
+@register_signals(SIGNAL_DATA, SGFSignals)
 class TestStepStaticObjectsDifferentInputSources(TestStep):
     """TestStep for assessing static objects from different input sources, utilizing a custom report."""
 
@@ -101,7 +102,7 @@ class TestStepStaticObjectsDifferentInputSources(TestStep):
     name="SWRT_CNC_SGF_StaticObjectsDifferentInputSources",
     description="This test case checks if SGF provides Static Objects based on the Fusion of the detections from different input sources.",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class StaticObjectsDifferentInputSources(TestCase):
     """Static Objects Different Input Sources test case."""

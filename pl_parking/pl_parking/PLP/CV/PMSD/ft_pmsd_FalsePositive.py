@@ -240,7 +240,7 @@ class PMSDFalsePositiveTestStep(TestStep):
     name="PMSD FalsePositive",
     description="",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class PMSDFalsePositive(TestCase):
     """Example test case."""

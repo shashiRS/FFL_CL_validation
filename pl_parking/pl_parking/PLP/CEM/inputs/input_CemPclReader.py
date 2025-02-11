@@ -23,7 +23,6 @@ class PCLDelimiter:
     """Represents a delimiter in a PCL."""
 
     delimiter_id: int
-    delimiter_type: int
     start_point: PCLPoint
     end_point: PCLPoint
     confidence_percent: float
@@ -31,7 +30,6 @@ class PCLDelimiter:
     def __eq__(self, other):
         return (
             self.delimiter_id == other.delimiter_id
-            and self.delimiter_type == other.delimiter_type
             and self.start_point == other.start_point
             and self.end_point == other.end_point
             and self.confidence_percent == other.confidence_percent
@@ -64,6 +62,7 @@ class PclDelimiterReader:
         self.number_of_delimiters = len(self.data.filter(regex="delimiterId").columns)
         self.PCLEnum = ConstantsCemInput.PCLEnum
         self.WSEnum = ConstantsCemInput.WSEnum
+        self.WLEnum = ConstantsCemInput.WLEnum
 
     def __is_synthetic(self):
         """Check if the data contains synthetic signals."""
@@ -81,29 +80,27 @@ class PclDelimiterReader:
             wl_delimiter_array = []
             sl_delimiter_array = []
             if len(out) > 0:
-                if row["numPclDelimiters_timestamp"] == out[-1].timestamp:
+                if row["Cem_numPclDelimiters_timestamp"] == out[-1].timestamp:
                     continue
-
-            for i in range(int(row["numPclDelimiters"])):
-                if int(row[("delimiterType", i)]) == self.PCLEnum or int(row[("delimiterType", i)]) == self.WSEnum:
+            try:
+                for i in range(int(row["Cem_numPclDelimiters"])):
                     delimiter = PCLDelimiter(
-                        int(row[("delimiterId", i)]),
-                        int(row[("delimiterType", i)]),
-                        PCLPoint(float(row[("P0_x", i)]), float(row[("P0_y", i)])),
-                        PCLPoint(float(row[("P1_x", i)]), float(row[("P1_y", i)])),
-                        float(row[("confidencePercent", i)]),
+                        int(row[("Cem_pcl_delimiterId", i)]),
+                        PCLPoint(float(row[("Cem_pcl_P0_x", i)]), float(row[("Cem_pcl_P0_y", i)])),
+                        PCLPoint(float(row[("Cem_pcl_P1_x", i)]), float(row[("Cem_pcl_P1_y", i)])),
+                        float(row[("Cem_pcl_confidencePercent", i)]),
                     )
 
-                    if int(row[("delimiterType", i)]) == self.PCLEnum:
-                        pcl_delimiter_array.append(delimiter)
-                    else:
-                        ws_delimiter_array.append(delimiter)
-                        wl_delimiter_array.append(delimiter)
-                        sl_delimiter_array.append(delimiter)
+                    pcl_delimiter_array.append(delimiter)
+                    ws_delimiter_array.append(delimiter)
+                    wl_delimiter_array.append(delimiter)
+                    sl_delimiter_array.append(delimiter)
+            except Exception as err:
+                print("err is ", err)
 
             tf = PCLTimeFrame(
-                row["numPclDelimiters_timestamp"],
-                row["numPclDelimiters"],
+                row["Cem_numPclDelimiters_timestamp"],
+                row["Cem_numPclDelimiters"],
                 pcl_delimiter_array,
                 ws_delimiter_array,
                 wl_delimiter_array,

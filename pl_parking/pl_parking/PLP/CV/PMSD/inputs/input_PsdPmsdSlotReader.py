@@ -31,9 +31,9 @@ class PSDCamera(IntEnum):
 class PSDSlotScenarioConfidences:
     """Dataclass representing confidences of different parking scenarios for a PSD slot."""
 
-    angled: int
-    parallel: int
-    perpendicular: int
+    angled: float
+    parallel: float
+    perpendicular: float
 
 
 @dataclass
@@ -43,6 +43,7 @@ class PSDSlot:
     existence_probability, slot_corners, and scenario_confidence.
     """
 
+    slot_timestamp: int
     existence_probability: float
     slot_corners: typing.List[PSDSlotPoint]
     scenario_confidence: PSDSlotScenarioConfidences
@@ -88,16 +89,24 @@ class PSDSlotReader:
                         p = PSDSlotPoint(xx, yy)
                         corners.append(p)
 
-                    scenario_confidence = PSDSlotScenarioConfidences(0, 0, 0)
+                    scenario_confidences: PSDSlotScenarioConfidences
+                    scenario_confidences = PSDSlotScenarioConfidences(0.0, 0.0, 0.0)
+                    scenario_confidences.perpendicular = float(
+                        row[(f"PmsdSlot_{current_cam}_ScenarioConfidence_Perpendicular", i)])
+                    scenario_confidences.parallel = float(
+                        row[(f"PmsdSlot_{current_cam}_ScenarioConfidence_Parallel", i)])
+                    scenario_confidences.angled = float(row[(f"PmsdSlot_{current_cam}_ScenarioConfidence_Angled", i)])
                     slot = PSDSlot(
+                        int(row[f"PmsdSlot_{current_cam}_timestamp"]),
                         float(row[(f"PmsdSlot_{current_cam}_existenceProbability", i)]),
                         corners,
-                        scenario_confidence,
+                        scenario_confidences,
                     )
                     slot_array.append(slot)
                 tf = PSDTimeFrame(
-                    row[f"PmsdSlot_{current_cam}_timestamp"], row[f"PmsdSlot_{current_cam}_numberOfSlots"], slot_array
+                    int(row[f"PmsdSlot_{current_cam}_timestamp"]), row[f"PmsdSlot_{current_cam}_numberOfSlots"],
+                    slot_array
                 )
                 tfArray.append(tf)
-            out[camera] = tfArray
+            out[camera] = sorted(tfArray, key=lambda s: s.timestamp)
         return out

@@ -42,7 +42,6 @@ class ValidationSignals(MDFSignalDefinition):
         """Definition of the dataframe columns."""
 
         CAR_ROAD = "Car_road"
-        CAR_SPEED = "Car_speed"
         USEER_ACTION = "User_action"
         HMI_INFO = "State_on_HMI"
 
@@ -52,7 +51,6 @@ class ValidationSignals(MDFSignalDefinition):
 
         self._properties = {
             self.Columns.CAR_ROAD: "CM.Car.Road.sRoad",
-            self.Columns.CAR_SPEED: "MTS.ADAS_CAN.Conti_Veh_CAN.Tachometer.SpeedoSpeed",
             self.Columns.USEER_ACTION: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIOut1.APHMIOutUserActionHU",
             self.Columns.HMI_INFO: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIInGeneral1.APHMIParkingProcedureCtrlState",
         }
@@ -62,7 +60,7 @@ example_obj = ValidationSignals()
 
 
 @teststep_definition(
-    name="Init to Scannning check",
+    name="Init to Scannning, Minimum traveled distance",
     description="Check minimum distance dependence of mode transition",
     expected_result=BooleanResult(TRUE),
 )
@@ -85,7 +83,7 @@ class AupInitScannTravCheck(TestStep):
             {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
         )
 
-        read_data = self.readers[SIGNAL_DATA].signals
+        read_data = self.readers[SIGNAL_DATA]
         test_result = fc.INPUT_MISSING  # Result
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = fh.rep([], 3)
@@ -139,9 +137,11 @@ class AupInitScannTravCheck(TestStep):
                             states_dict[key]
                         )
 
+                        actual_number = int(states_dict[key])
+
                         if key < t2_idx:
                             evaluation1 = " ".join(
-                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_state} at {time_signal[key]} us"
+                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches into {actual_state} ({actual_number}) at {time_signal[key]} us"
                                 f" before ego vehicle has traveled a minimum distance:"
                                 f" {constants.HilCl.ApThreshold.AP_G_ROLLED_DIST_IN_THRESH_M} m.".split()
                             )
@@ -150,13 +150,13 @@ class AupInitScannTravCheck(TestStep):
 
                         if states_dict[key] != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SCANNING_IN:
                             evaluation1 = " ".join(
-                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal state is {actual_state}"
+                                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal state is {actual_state} ({actual_number})"
                                 f" at {time_signal[key]} us but ego vehicle traveled more than"
                                 f" {constants.HilCl.ApThreshold.AP_G_ROLLED_DIST_IN_THRESH_M} m.".split()
                             )
                             eval_cond[0] = False
                             break
-
+                        counter += 1
                     else:
                         counter += 1
             else:
@@ -164,13 +164,15 @@ class AupInitScannTravCheck(TestStep):
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
                     f"The evaluation of {signal_name['Car_road']} is FAILED, road of ego vehicle never reached"
-                    f" {constants.HilCl.ApThreshold.AP_G_ROLLED_DIST_IN_THRESH_M} m.".split()
+                    f" {constants.HilCl.ApThreshold.AP_G_ROLLED_DIST_IN_THRESH_M} m."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never set to TOGGLE_AP_ACTIVE (Value: {constants.HilCl.Hmi.Command.TOGGLE_AP_ACTIVE}).".split()
+                f"The evaluation of {signal_name['User_action']} signal is FAILED, signal never set to TOGGLE_AP_ACTIVE ({constants.HilCl.Hmi.Command.TOGGLE_AP_ACTIVE})."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -209,14 +211,10 @@ class AupInitScannTravCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:
@@ -233,7 +231,7 @@ class AupInitScannTravCheck(TestStep):
 
 
 @testcase_definition(
-    name="Mode transition: Init to Scanning",
+    name="Mode transition: Init to Scanning, Minimum traveled distance",
     description=f"Since the last ignition start, the ego vehicle has traveled a minimum distance of"
     f" {constants.HilCl.ApThreshold.AP_G_ROLLED_DIST_IN_THRESH_M} m.",
 )

@@ -237,7 +237,7 @@ class PMSDTruePositiveTestStep(TestStep):
     name="PMSD TruePositive",
     description="",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class PMSDTruePositive(TestCase):
     """Example test case."""

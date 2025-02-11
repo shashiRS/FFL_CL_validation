@@ -31,7 +31,7 @@ import plotly.graph_objects as go
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
 from pl_parking.common_ft_helper import CemSignals, MfCustomTestcaseReport, MfCustomTeststepReport, rep
-from pl_parking.PLP.CEM.constants import ConstantsCem, ConstantsCemInput
+from pl_parking.PLP.CEM.constants import ConstantsCem
 from pl_parking.PLP.CEM.inputs.input_CemPclReader import PclDelimiterReader
 
 SIGNAL_DATA = "PFS_PCL_Output"
@@ -58,7 +58,7 @@ class TestStepFtPCLOutput(TestStep):
 
     def process(self, **kwargs):
         """
-        The function processes signals data to evaluate certain conditions and generate plots and remarsk based
+        The function processes signals data to evaluate certain conditions and generate plots and remarks based
         on the evaluation results
         """
         self.result.details.update(
@@ -67,8 +67,9 @@ class TestStepFtPCLOutput(TestStep):
         plot_titles, plots, remarks = rep([], 3)
 
         reader = self.readers[SIGNAL_DATA].signals
-        pcl_data = PclDelimiterReader(reader).convert_to_class()
         data_df = reader.as_plain_df
+        pcl_data = PclDelimiterReader(reader).convert_to_class()
+
         pmd_data = data_df[
             [
                 "PMDCamera_Front_numberOfLines",
@@ -84,7 +85,7 @@ class TestStepFtPCLOutput(TestStep):
 
         # Check if there are PM in the data
         data_df.columns = [f"{col[0]}_{col[1]}" if type(col) is tuple else col for col in data_df.columns]
-        pcl_type = data_df.loc[:, data_df.columns.str.startswith("delimiterType")]
+        pcl_type = data_df.loc[:, data_df.columns.str.startswith("Cem_pcl_delimiterId")]
 
         # Get the first TS where there is an input in all cameras
         first_in_ts = min(
@@ -111,7 +112,7 @@ class TestStepFtPCLOutput(TestStep):
         first_out_ts = first_in_ts + (delay * 1e3)
         last_out_ts = last_in_ts + (delay * 1e3)
 
-        if ConstantsCemInput.PCLEnum in pcl_type.values:
+        if not pcl_type.empty:
             rows = []
             failed_timestamps = 0
             for _, cur_timeframe in enumerate(pcl_data):
@@ -171,16 +172,18 @@ class TestStepFtPCLOutput(TestStep):
 
             fig = go.Figure()
             fig.add_trace(
-                go.Scatter(x=data_df["numPclDelimiters_timestamp"], y=data_df["numPclDelimiters"], name="Output")
+                go.Scatter(
+                    x=data_df["Cem_numPclDelimiters_timestamp"], y=data_df["Cem_numPclDelimiters"], name="Output"
+                )
             )
             fig.add_vrect(
-                x0=data_df["numPclDelimiters_timestamp"].iat[0], x1=first_in_ts, fillcolor="#F3E5F5", layer="below"
+                x0=data_df["Cem_numPclDelimiters_timestamp"].iat[0], x1=first_in_ts, fillcolor="#F3E5F5", layer="below"
             )
             fig.add_vrect(x0=first_in_ts, x1=first_out_ts, layer="below")
             fig.add_vrect(x0=first_out_ts, x1=last_in_ts, fillcolor="#F5F5F5", layer="below")
             fig.add_vrect(x0=last_in_ts, x1=last_out_ts, layer="below")
             fig.add_vrect(
-                x0=last_out_ts, x1=data_df["numPclDelimiters_timestamp"].iat[-1], fillcolor="#F3E5F5", layer="below"
+                x0=last_out_ts, x1=data_df["Cem_numPclDelimiters_timestamp"].iat[-1], fillcolor="#F3E5F5", layer="below"
             )
             fig.add_trace(
                 go.Scatter(

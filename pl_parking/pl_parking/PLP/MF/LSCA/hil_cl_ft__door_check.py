@@ -153,7 +153,7 @@ class LscaDoorCheck(TestStep):
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    f"The evaluation of {signal_name['Lsca_state']} is FAILED, state of signal still ({constants.HilCl.CarMaker.Door.ALL_CLOSED})"
+                    f"The evaluation of {signal_name['Lsca_state']} is FAILED, state of signal still ({constants.HilCl.Door.DOORSTATE_ALL_CLOSED})"
                     " during measurement. There is no Door Open event in TestRun.".split()
                 )
 

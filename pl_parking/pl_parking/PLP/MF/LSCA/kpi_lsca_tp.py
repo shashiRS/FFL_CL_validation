@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """KPI for LSCA true positive"""
 
-import json
 import logging
 import os
 import sys
@@ -9,7 +8,7 @@ from typing import List
 
 import pandas as pd
 import plotly.graph_objects as go
-from tsf.core.common import AggregateFunction, RelationOperator
+from tsf.core.common import AggregateFunction, PathSpecification, RelationOperator
 from tsf.core.report import (
     ProcessingResult,
     ProcessingResultsList,
@@ -20,12 +19,14 @@ from tsf.core.testcase import (
     TestCase,
     TestStep,
     register_inputs,
+    register_side_load,
     register_signals,
     testcase_definition,
     teststep_definition,
     verifies,
 )
 from tsf.db.results import TeststepResult
+from tsf.io.sideload import JsonSideLoad
 from tsf.io.signals import SignalDefinition
 
 import pl_parking.common_constants as fc
@@ -46,6 +47,7 @@ _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 EXAMPLE = "TP_LSCA"
+ALIAS_JSON = "AliasJson_TP_LSCA"
 
 
 class CustomTeststepReport(CustomReportTestStep):
@@ -360,7 +362,8 @@ class Signals(SignalDefinition):
                 [
                     "SIM VFB.SiCoreGeneric.m_egoMotionPort.sSigHeader.uiTimeStamp",
                     "ADC5xx_Device.EM_DATA.EmEgoMotionPort.sSigHeader.uiTimeStamp",
-                    "MTA_ADC5.SI_DATA.m_egoMotionPort.sSigHeader.uiTimeStamp",
+                    # "MTA_ADC5.SI_DATA.m_egoMotionPort.sSigHeader.uiTimeStamp",
+                    "MTA_ADC5.MF_LSCA_DATA.hmiPort.sSigHeader.uiTimeStamp",
                 ],
             ),
             (
@@ -388,6 +391,13 @@ signals_obj = Signals()
     ),
 )
 @register_signals(EXAMPLE, Signals)
+@register_side_load(
+    alias=ALIAS_JSON,
+    side_load=JsonSideLoad,
+    path_spec=PathSpecification(
+        folder=r"s3://par230-prod-data-lake-sim/gt_labels/", extension=".json", suffix="_lsca", s3=True
+    ),  # CAEdge path
+)
 class Step1(TestStep):
     """Test step class"""
 
@@ -416,9 +426,33 @@ class Step1(TestStep):
                 }
             )
 
-            script_root_folder = os.path.abspath(os.path.join(__file__, "..", "gt_lsca_kpi_sample.json"))
-            with open(script_root_folder) as read_file:
-                gt_data = json.load(read_file)
+            # def load_json(filepath):
+            #     """
+            #     Load JSON data from a file.
+
+            #     Parameters:
+            #     - filepath: str, the path to the JSON file.
+
+            #     Returns:
+            #     - data: dictionary, the parsed JSON data.
+            #     """
+            #     try:
+            #         with open(filepath) as file:
+            #             data = json.load(file)
+            #     except FileNotFoundError:
+            #         _log.error("Ground truth file not found.")
+            #         data = "Ground truth file not found."
+            #     return data
+
+            # script_root_folder = os.path.abspath(os.path.join(__file__, "..", "gt_lsca_kpi_sample.json"))
+            # with open(script_root_folder) as read_file:
+            #     gt_data = json.load(read_file)
+            # file_path = os.path.abspath(self.artifacts[0].file_path)
+            # current_dir = os.path.dirname(file_path)
+            # gt_json = os.path.join(current_dir, "gt_sector_distance_output.json")
+            # gt_data = load_json(gt_json)
+            gt_data = self.side_load[ALIAS_JSON]
+
             plot_titles, plots, remarks = fh.rep([], 3)
             is_adc5xx = 1
             signal_summary = {}
@@ -438,15 +472,16 @@ class Step1(TestStep):
 
             # Read measurement
             df = self.readers[EXAMPLE]
-            df[Signals.Columns.TIMESTAMP] = df.index
+
+            # time = df[Signals.Columns.TIMESTAMP]
 
             if signals_obj.Columns.IS_ADC5X not in df.columns:
                 is_adc5xx = 0
 
             df[Signals.Columns.VELOCITY] *= GeneralConstants.MPS_TO_KMPH
             velocity = df[Signals.Columns.VELOCITY]
-            df[Signals.Columns.TIMESTAMP] -= df[Signals.Columns.TIMESTAMP].iat[0]
-            df[Signals.Columns.TIMESTAMP] /= GeneralConstants.US_IN_S
+            time = df[Signals.Columns.TIMESTAMP] - df[Signals.Columns.TIMESTAMP].iat[0]
+            time /= GeneralConstants.US_IN_S
             # minimum_distance = df[Signals.Columns.MINIMUM_DISTANCE] * 100
             active_lsca = df[Signals.Columns.ACTIVATE_BRAKE_INTERV]
             df[Signals.Columns.DRIVEN_DISTANCE] -= df[Signals.Columns.DRIVEN_DISTANCE].iat[0]
@@ -460,13 +495,17 @@ class Step1(TestStep):
             mask_brake_events = active_lsca.rolling(2).apply(lambda x: x[0] == 0 and x[1] == 1, raw=True)
 
             total_brake_events = mask_brake_events.sum()
+            # print(mask_brake_events)
             timestamp_brake_events = [row for row, val in mask_brake_events.items() if val == 1]
 
             if not total_brake_events:
                 brake_classification = fc.NOT_ASSESSED
+                self.result.measured_result = Result(0, unit="%")
                 eval_text = "LSCA component was not active (signal != 1 throughout the measurement)."
             elif total_brake_events == LscaConstants.MAX_ALLOWED_ACTIVATIONS:
-                timestamp_event = timestamp_brake_events[0]
+                self.result.measured_result = Result(100, unit="%")
+                timestamp_event = df[Signals.Columns.TIMESTAMP].loc[timestamp_brake_events[0]]
+                # timestamp_event = timestamp_brake_events[0]
 
                 gt_data_package = [x for x in gt_data[json_root_key] if x[json_timestamp_key] == timestamp_event][0]
                 if gt_data_package.get(json_front_key, None):
@@ -475,7 +514,7 @@ class Step1(TestStep):
                     distance_from_gt = gt_data_package[json_rear_key][0].get("distanceValue", None)
                 # abs() is used for negative speeds (backwards driving)
                 # .format is used for a better rounding method
-                rounded_velocity = abs(int(f"{velocity[timestamp_event]:.0f}"))
+                rounded_velocity = abs(int(f"{velocity.loc[timestamp_brake_events[0]]:.0f}"))
                 if distance_from_gt < LscaConstants.SAFETY_MARGIN_CRASH:
                     brake_classification = fc.CRASH
                 elif (
@@ -492,10 +531,11 @@ class Step1(TestStep):
                 eval_text = " ".join(
                     f"Braking classification for LSCA is {brake_classification.upper()} with distance to object ="
                     f" {distance_from_gt:.2f} cm and speed {rounded_velocity} km/h, at timestamp"
-                    f" {df[Signals.Columns.TIMESTAMP].loc[timestamp_brake_events[0]]:.2f} s.".split()
+                    f" {time.loc[timestamp_brake_events[0]]:.2f} s.".split()
                 )
 
             elif total_brake_events > LscaConstants.MAX_ALLOWED_ACTIVATIONS:
+                self.result.measured_result = Result(0, unit="%")
                 brake_classification = fc.NOT_ASSESSED
                 eval_text = "LSCA component was activated more than once."
 
@@ -538,7 +578,7 @@ class Step1(TestStep):
             if eval_cond is False:
                 fig.add_trace(
                     go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP].values.tolist(),
+                        x=time,
                         y=df[Signals.Columns.ACTIVATE_BRAKE_INTERV].values.tolist(),
                         mode="lines",
                         name=signals_obj._properties[0][1][is_adc5xx],
@@ -546,7 +586,7 @@ class Step1(TestStep):
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP].values.tolist(),
+                        x=time,
                         y=df[Signals.Columns.VELOCITY].values.tolist(),
                         mode="lines",
                         name=signals_obj._properties[1][1][is_adc5xx],
@@ -554,7 +594,7 @@ class Step1(TestStep):
                 )
                 fig.add_trace(
                     go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP].values.tolist(),
+                        x=time,
                         y=df[Signals.Columns.DRIVEN_DISTANCE].values.tolist(),
                         mode="lines",
                         name=signals_obj._properties[2][1][is_adc5xx],
@@ -600,7 +640,7 @@ class Step1(TestStep):
     description="LSCA function shall reach a classification <passed> if the interventions that would lead to a collision with a protected ego part are in time (not too soon - to big distance, but not too late, so that the defined safety margin is exceeded).",
     doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_WqNP5NHtEe2iKqc0KPO99Q&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_lWHOEPvsEeqIqKySVwTVNQ%2Fcomponents%2F_u4eQYMlKEe2iKqc0KPO99Q&vvc.configuration=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fcm%2Fstream%2F_bMgUkM-3Ee2iKqc0KPO99Q",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class LscaTruePositive(TestCase):
     """Test case."""

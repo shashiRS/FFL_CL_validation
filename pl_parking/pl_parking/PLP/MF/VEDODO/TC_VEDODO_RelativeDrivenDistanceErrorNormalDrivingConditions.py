@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """This is the test case to validate the driven distance position error in normal driving conditions"""
 
+
 import logging
 import math
 import os
@@ -8,14 +9,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from tsf.core.results import (
-    FALSE,
-    TRUE,
-    BooleanResult,
-)
+from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -31,8 +27,7 @@ from tsf.io.signals import SignalDefinition
 import pl_parking.common_constants as fc
 from pl_parking.common_ft_helper import MfCustomTeststepReport, convert_dict_to_pandas, get_color, rep
 from pl_parking.PLP.MF.constants import PlotlyTemplate
-
-from .constants import CarMakerUrl
+from pl_parking.PLP.MF.VEDODO.constants import CarMakerUrl
 
 TSF_BASE = os.path.abspath(os.path.join(__file__, "..", ".."))
 if TSF_BASE not in sys.path:
@@ -40,7 +35,7 @@ if TSF_BASE not in sys.path:
 
 
 __author__ = "Anil A, Uie64067"
-__copyright__ = "2020-2012, Continental AG"
+__copyright__ = "2012-2024, Continental AG"
 __version__ = "0.0.1"
 __status__ = "Production"
 
@@ -80,10 +75,10 @@ class VedodoSignals(SignalDefinition):
 
 @teststep_definition(
     step_number=1,
-    name="The relative driven distance position error shall not exceed 0.6 m per driven meter in"
-    " normal driving conditions",
-    description="The relative driven distance position error shall not exceed 0.6 m per driven meter in"
-    " normal driving conditions",
+    name="The relative driven distance position error shall not exceed 0.06 m per driven meter in"
+    " normal driving conditions.",
+    description="The relative driven distance position error shall not exceed 0.06 m per driven meter in"
+    " normal driving conditions.",
     expected_result=BooleanResult(TRUE),
     doors_url="https://jazz.conti.de/qm4/web/console/LIB_L3_SW_TM/_RiAxIJNHEe674_0gzoV9FQ?oslc.configuration=https%3A%"
     "2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099#action=com.ibm.rqm.planning.home.actionDispatcher&subAc"
@@ -96,13 +91,13 @@ class VedodoRelativeDrivenDistancePositionErrorNormalgDrivingonditions(TestStep)
     Objective
     ---------
 
-    The relative driven distance position error shall not exceed 0.6m per driven meter in
+    The relative driven distance position error shall not exceed 0.06m per driven meter in
      normal driving conditions.
 
     Detail
     ------
 
-    Check the driven distance relative position error should not exceed 0.6m per driven meter in
+    Check the driven distance relative position error should not exceed 0.06m per driven meter in
      normal driving conditions.
     """
 
@@ -120,16 +115,14 @@ class VedodoRelativeDrivenDistancePositionErrorNormalgDrivingonditions(TestStep)
         )
         # plots and remarks need to have the same length
         plot_titles, plots, remarks = rep([], 3)
-        df: pd.DataFrame = self.readers[READER_NAME].signals
-        position_error_per_driven_meter: list = list()
-        current_driven_distance_vedodo: float = 0.0
-        reference_driven_distance: float = 0.0
+        df: pd.DataFrame = self.readers[READER_NAME]
         max_expected_error: float = 0.06
         signal_summary = dict()
         driven_distance_gt_list = list()
         driven_distance = 0
         prev_x = 0
         prev_y = 0
+        position_error_per_driven_meter = {"error": [], "time": []}
 
         ap_time = list(df[VedodoSignals.Columns.CM_TIME])
         driven_distance_est = list(df[VedodoSignals.Columns.DRIVEN_DISTANCE])
@@ -142,42 +135,40 @@ class VedodoRelativeDrivenDistancePositionErrorNormalgDrivingonditions(TestStep)
             disp_y = y - prev_y
             disp_m = abs(math.sqrt(disp_x * disp_x + disp_y * disp_y))
             driven_distance += disp_m
-            driven_distance_gt_list.append(driven_distance % 1000)
+            driven_distance_gt_list.append(driven_distance)
             prev_x = x
             prev_y = y
 
-        for d_est, d_gt in zip(driven_distance_est, driven_distance_gt_list):
-            if not np.isnan(d_est) and d_gt and d_est:
-                current_driven_distance_vedodo += d_est
-                reference_driven_distance += d_gt
-                if current_driven_distance_vedodo >= 1:  # check for 1 meter chunks
-                    diff_dist = abs(reference_driven_distance - current_driven_distance_vedodo)
-                    # To avoid peeks
-                    if diff_dist > 800:
-                        diff_dist -= 1000
-                    elif diff_dist < -800:
-                        diff_dist += 1000
-                    position_error_per_driven_meter.append(diff_dist)
-                    current_driven_distance_vedodo = 0
-                    reference_driven_distance = 0
-            else:
-                position_error_per_driven_meter.append(0)
+        count = 0
+        est_dd = list()
+        len_est_dd = len(driven_distance_est)
+        for i in range(1, len_est_dd):
+            if driven_distance_est[i - 1] > driven_distance_est[i]:
+                count += 1
+            est_dd.append(driven_distance_est[i] + count * 1000)
 
-        # check if all 1 meter chunks pass the criteria
-        max_estimated_error = max(position_error_per_driven_meter)
+        for g, e, t in zip(driven_distance_gt_list, est_dd, ap_time):
+            if g and e:
+                deviation = abs(abs(g) - abs(e))
+                position_error_per_driven_meter["error"].append(deviation)
+                position_error_per_driven_meter["time"].append(t)
+
+        max_estimated_error = max(position_error_per_driven_meter["error"])
         if max_estimated_error <= max_expected_error:
             evaluation = " ".join(
-                f"Evaluation for Relative Driven Distance position error during normal driving conditions is PASSED "
-                f"and the maximum expected threshold error is {max_expected_error}m for "
-                f"every 1m chunk and the maximum estimated error is {max_estimated_error}m ".split()
+                f"Evaluation for Driven Distance position error during normal driving condition, the "
+                f"deviation  is {round(max_estimated_error, 3)}m and the max expected threshold "
+                f"value is {max_expected_error}m. The deviation error is below the threshold. Hence the result is "
+                f"PASSED".split()
             )
             test_result = fc.PASS
             self.result.measured_result = TRUE
         else:
             evaluation = " ".join(
-                f"Evaluation for Relative Driven Distance position error during normal driving conditions is FAILED "
-                f"and the maximum expected threshold error is {max_expected_error}m for "
-                f"every 1m chunk and the maximum estimated error is {max_estimated_error}m ".split()
+                f"Evaluation for Driven Distance position error during normal driving condition, the "
+                f"deviation is {round(max_estimated_error, 3)}m and the max expected threshold"
+                f" value is {max_expected_error}m. The deviation error is above the threshold. Hence the result is "
+                f"FAILED".split()
             )
             test_result = fc.FAIL
             self.result.measured_result = FALSE
@@ -204,8 +195,8 @@ class VedodoRelativeDrivenDistancePositionErrorNormalgDrivingonditions(TestStep)
         )
         fig.add_trace(
             go.Scatter(
-                x=ap_time,
-                y=position_error_per_driven_meter,
+                x=position_error_per_driven_meter["time"],
+                y=position_error_per_driven_meter["error"],
                 mode="lines",
                 name="Position Error driven per meter",
             )
@@ -247,7 +238,7 @@ class VedodoRelativeDrivenDistancePositionErrorNormalgDrivingonditions(TestStep)
         fig.add_trace(
             go.Scatter(
                 x=ap_time,
-                y=driven_distance_est,
+                y=est_dd,
                 mode="lines",
                 name=CarMakerUrl.drivenDistance_m,
             )
@@ -288,17 +279,17 @@ class VedodoRelativeDrivenDistancePositionErrorNormalgDrivingonditions(TestStep)
         self.result.details["Additional_results"] = additional_results_dict
 
 
-@verifies("ReqId-1386174")
+@verifies("ReqId-1386196")
 @testcase_definition(
-    name="Check the driven distance position error in normal driving conditions",
+    name="Check the driven distance position error in normal driving conditions.",
     description="The driven distance position error shall not exceed 0.06 m per driven meter in normal "
-    "driving conditions",
-    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2"
-    "Fjazz.conti.de%2Frm4%2Fresources%2FBI_3z7qozaaEe6mrdm2_agUYg&componentURI=https%3A%2F%2Fjazz.conti.de"
-    "%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.configurat"
-    "ion=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099",
+    "driving conditions.",
+    doors_url="https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F"
+    "%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_3z8RqjaaEe6mrdm2_agUYg&componentURI=https%3A%2F%2Fjazz.con"
+    "ti.de%2Frm4%2Frm-projects%2F_D9K28PvtEeqIqKySVwTVNQ%2Fcomponents%2F_2ewE0DK_Ee6mrdm2_agUYg&oslc.co"
+    "nfiguration=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F30013",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class VedodoRelativeDrivenDistancePositionErrorNormalInConditionsTestCase(TestCase):
     """VedodoRelativeDrivenDistancePositionErrorNormalInConditionsTestCase test case."""

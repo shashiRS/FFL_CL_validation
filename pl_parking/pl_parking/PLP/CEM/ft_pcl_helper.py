@@ -15,6 +15,7 @@ from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import RelativeMotion
 from pl_parking.PLP.CEM.inputs.input_DGPSReader import DgpsTimeframe
 from pl_parking.PLP.CEM.inputs.input_PmdReader import PMDCamera, PMDLine, PMDLinePoint, PMDTimeFrame
 from pl_parking.PLP.CV.PMSD.association import Association, VehicleLine
+from pl_parking.PLP.CV.PMSD.inputs.input_PmdReader import PMDReader
 
 
 class FtPclHelper:
@@ -127,7 +128,6 @@ class FtPclHelper:
 
         return PCLDelimiter(
             pcl.delimiter_id,
-            pcl.delimiter_type,
             PCLPoint(start_point[0], start_point[1]),
             PCLPoint(end_point[0], end_point[1]),
             pcl.confidence_percent,
@@ -193,6 +193,23 @@ class FtPclHelper:
         """
         line = VehicleLine.from_cem_pmd(pmd)
         gt_line = VehicleLine.from_cem_pcl(pcl)
+
+        return Association.match(gt_line, line, Association.AlgoType.ALGO_RECTANGLE)
+
+    def is_pmd_pmd_association_valid(
+        pmd: PMDLine, gt_pmd: PMDLine, association_radius: float
+    ) -> typing.Tuple[bool, float, float, float]:
+        """Check validity of PMD-PMD GT association.
+        Args:
+            pmd (PMDLine): PMD delimiter to associate.
+            pmd (PMDLine): PMD GT line to associate.
+            association_radius (float): Association radius.
+        Returns:
+            typing.Tuple[bool, float, float, float]: Tuple indicating validity and association details.
+        """
+        line = VehicleLine.from_cem_pmd(pmd)
+        gt_line = VehicleLine.from_cem_pmd(gt_pmd)
+
         return Association.match(gt_line, line, Association.AlgoType.ALGO_RECTANGLE)
 
     @staticmethod
@@ -215,6 +232,7 @@ class FtPclHelper:
         association: typing.List[typing.Tuple[PCLDelimiter, PCLDelimiter]] = []
 
         ground_truth_set = set(pcl_ground_truth_list)
+
         for pcl in pcl_cem_list:
             min_dist = sys.float_info.max
             associated_ground_truth = None
@@ -239,8 +257,10 @@ class FtPclHelper:
 
     @staticmethod
     def associate_pmd_to_ground_truth(
-        pmd_list: typing.List[PMDLine], pcl_ground_truth_list: typing.List[PCLDelimiter], association_radius: float
-    ) -> typing.Tuple[typing.List[typing.Tuple[PMDLine, PCLDelimiter]], typing.List[PCLDelimiter]]:
+        pmd_list: typing.List[PMDLine],
+        pmd_ground_truth_list: typing.List[PMDLine],
+        association_radius: float,
+    ) -> typing.Tuple[typing.List[typing.Tuple[PMDLine, PMDLine]], typing.List[PMDLine]]:
         """Associate PMD to the ground truth
 
         Args:
@@ -252,15 +272,16 @@ class FtPclHelper:
                 association pair list including the unassociated PMD (the first element of the pair is the \
                     PMD and the second one is the associated ground truth), unassociated PCL ground truth
         """
-        association: typing.List[typing.Tuple[PMDLine, PCLDelimiter]] = []
+        association: typing.List[typing.Tuple[PMDLine, PMDLine]] = []
 
-        ground_truth_set = set(pcl_ground_truth_list)
+        ground_truth_set = set(pmd_ground_truth_list)
+
         for pmd in pmd_list:
             min_dist = sys.float_info.max
             associated_ground_truth = None
 
             for ground_truth in ground_truth_set:
-                is_valid_association, _, _, line_dist = FtPclHelper.is_pcl_pmd_association_valid(
+                is_valid_association, _, _, line_dist = FtPclHelper.is_pmd_pmd_association_valid(
                     ground_truth, pmd, association_radius
                 )
 
@@ -410,18 +431,25 @@ class FtPclHelper:
     ) -> typing.List[PCLDelimiter]:
         """Get marker with associated input within specified association radius."""
         output: typing.List[PCLDelimiter] = []
+        try:
+            for pcl in CEM:
+                done = False
+                for pmd_timeframe in PMD_timeframes:
+                    try:
+                        for pmd in pmd_timeframe.pmd_lines:
+                            association = FtPclHelper.is_pcl_pmd_association_valid(pcl, pmd, association_radius)
+                            if association[0]:
+                                output.append(pcl)
+                                done = True
+                                break
+                    except Exception as err:
+                        print("inner for loop ", err)
 
-        for pcl in CEM:
-            done = False
-            for pmd_timeframe in PMD_timeframes:
-                for pmd in pmd_timeframe.pmd_lines:
-                    association = FtPclHelper.is_pcl_pmd_association_valid(pcl, pmd, association_radius)
-                    if association[0]:
-                        output.append(pcl)
-                        done = True
+                    if done:
                         break
-                if done:
-                    break
+        except Exception as err:
+            print("outer for loop err", err)
+
         return output
 
     # Return a dictionary 1 to 1 where the key is a prev index and the value is a current index
@@ -499,22 +527,48 @@ class FtPclHelper:
     def get_pcl_from_json_gt(gt_data):
         """Get PCL from JSON ground truth data."""
         line_gt_output = dict()
-        lines_all_ts = gt_data["LinesCem"]
+
+        lines_all_ts = gt_data["PfsParkingLines"]
 
         for _, lines in enumerate(lines_all_ts):
+            ts_lines = lines["sSigHeader"]["uiTimeStamp"]
+            line_gt_output[ts_lines] = list()
 
-            if lines["SensorSource"] == "CV_COMMON_E_SENSOR_SOURCE_T_NOT_APPLICABLE":
-                ts_lines = lines["SignalHeader"]["timestamp"]
-                line_gt_output[ts_lines] = list()
-
-                for line in lines["PmdParkingLineList"]:
-                    line_out = PCLDelimiter(
-                        line["lineId"],
-                        2,
-                        PCLPoint(line["lineStartXInM"], line["lineStartYInM"]),
-                        PCLPoint(line["lineEndXinM"], line["lineEndYinM"]),
-                        line["lineConfidence"],
-                    )
-                    line_gt_output[ts_lines].append(line_out)
+            for line in lines["delimiters"]:
+                line_out = PCLDelimiter(
+                    line["id"],
+                    PCLPoint(line["startPointXPosition"], line["startPointYPosition"]),
+                    PCLPoint(line["endPointXPosition"], line["endPointYPosition"]),
+                    line["confidence"],
+                )
+            line_gt_output[ts_lines].append(line_out)
 
         return line_gt_output
+
+    def get_pmdlines_from_json_gt(gt_data):
+        """Get PCL from JSON ground truth data."""
+        out: typing.Dict[PMDCamera, dict] = {}
+
+        for camera in PMDCamera:
+            line_gt_output = dict()
+            current_cam = PMDReader.get_camera_strings()[camera]
+
+            lines_cam_ts = gt_data[f"Pmsd{current_cam}Lines"]
+
+            for _, lines in enumerate(lines_cam_ts):
+                ts_lines = lines["sSigHeader"]["uiTimeStamp"]
+                line_gt_output[ts_lines] = list()
+
+                for line in lines["parkingLines"]:
+
+                    line_out = PMDLine(
+                        PMDLinePoint(line["startPoint"]["x"], line["startPoint"]["y"]),
+                        PMDLinePoint(line["endPoint"]["x"], line["endPoint"]["x"]),
+                        line["confidence"],
+                    )
+
+                line_gt_output[ts_lines].append(line_out)
+
+            out[camera] = dict(sorted(line_gt_output.items()))
+
+        return out

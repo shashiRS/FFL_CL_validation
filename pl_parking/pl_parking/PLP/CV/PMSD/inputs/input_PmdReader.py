@@ -55,6 +55,11 @@ class PMDReader:
         self.camera_strings = self.get_camera_strings()
 
     @staticmethod
+    def get_signal_camera_name():
+        """Returns a dictionary mapping camera types to their corresponding strings."""
+        return {PMDCamera.FRONT: "FC", PMDCamera.REAR: "RC", PMDCamera.LEFT: "LSC", PMDCamera.RIGHT: "RSC"}
+
+    @staticmethod
     def get_camera_strings():
         """Returns a dictionary mapping camera types to their corresponding strings."""
         return {PMDCamera.FRONT: "Front", PMDCamera.REAR: "Rear", PMDCamera.LEFT: "Left", PMDCamera.RIGHT: "Right"}

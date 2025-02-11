@@ -34,7 +34,7 @@ from pl_parking.common_ft_helper import CemSignals, MfCustomTestcaseReport, MfCu
 from pl_parking.PLP.CEM.ft_slot_helper import FtSlotHelper
 from pl_parking.PLP.CEM.inputs.input_CemSlotReader import SlotReader
 from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import VedodoReader
-from pl_parking.PLP.CEM.inputs.input_PsdSlotReader import PSDCamera, PSDSlotReader
+from pl_parking.PLP.CEM.inputs.input_PmdSlotReader import PMDCamera, PMDSlotReader
 
 SIGNAL_DATA = "PFS_Slot_ID_Maintenance"
 
@@ -57,7 +57,7 @@ class TestStepFtSlotMainID(TestStep):
         """Initialize the test step"""
         super().__init__()
 
-    def process(self):
+    def process(self, **kwargs):
         """
         The function processes signals data to evaluate certain conditions and generate plots and remarsk based
         on the evaluation results
@@ -69,7 +69,8 @@ class TestStepFtSlotMainID(TestStep):
 
         reader = self.readers[SIGNAL_DATA].signals
         slot_data = SlotReader(reader).convert_to_class()
-        psd_data = PSDSlotReader(reader).convert_to_class()
+        psd_data = PMDSlotReader(reader).convert_to_class()
+
         vedodo_buffer = VedodoReader(reader).convert_to_class()
 
         if any(reader.as_plain_df["CemSlot_numberOfSlots"].values > 0):
@@ -91,12 +92,12 @@ class TestStepFtSlotMainID(TestStep):
                     FtSlotHelper.get_PSD_timeframe_index(
                         curTimeframe.timestamp, prevTimeframe.timestamp, psd_data[camera]
                     )
-                    for camera in PSDCamera
+                    for camera in PMDCamera
                 ]
 
                 psd_timeframes = [
                     psd_data[camera][psd_timeframe_index[int(camera)]]
-                    for camera in PSDCamera
+                    for camera in PMDCamera
                     if psd_timeframe_index[int(camera)] is not None
                 ]
 

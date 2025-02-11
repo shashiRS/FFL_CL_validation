@@ -4,7 +4,6 @@ import logging
 import os
 import sys
 
-import numpy as np
 import plotly.graph_objects as go
 
 _log = logging.getLogger(__name__)
@@ -98,106 +97,119 @@ class AupManTermRevErrCheck(TestStep):
         abs_act_sig = read_data["ABS_act"].tolist()
         state_on_hmi_sig = read_data["State_on_HMI"].tolist()
 
-        t1_idx = None
-        t2_idx = None
-        t3_idx = None
+        t_parking_idx = None
+        t_act_idx = None
+        t_deact_idx = None
         evaluation1 = " ".join(
             f"The evaluation of {signal_name['State_on_HMI']} signal is PASSED, signal switches to Terminate mode when reversible error is detected."
             f" Revesible error in this case: ABS activated longer than limit"
             f" {constants.HilCl.ApThreshold.AP_G_ABS_TIME_THRESH_S} s. ABS related signal: {signal_name['ABS_act']}".split()
         )
         """Evaluation part"""
-        # Find when AP swithes to Maneuvering
-        for cnt in range(0, len(state_on_hmi_sig)):
-            if state_on_hmi_sig[cnt] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
-                t1_idx = cnt
+        # Find parking
+        for cnt, item in enumerate(state_on_hmi_sig):
+            if item == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING:
+                t_parking_idx = cnt
                 break
 
-        if t1_idx is not None:
-            # Find ABS on
-            tmp = np.sign(np.diff(abs_act_sig))
-            for cnt in range(0, len(tmp)):
-                if tmp[cnt] > 0 and abs_act_sig[cnt] == constants.HilCl.FunctionActivate.ABS_ACTIVE:
-                    t2_idx = cnt
+        if t_parking_idx is not None:
+            # Find ABS activation and deactivation
+            for cnt in range(t_parking_idx, len(abs_act_sig)):
+                if abs_act_sig[cnt] == constants.HilCl.FunctionActivate.ABS_ACTIVE:
+                    t_act_idx = cnt
                     break
 
-            if t2_idx is not None:
-                # Find ABS off
-                tmp = np.sign(np.diff(abs_act_sig))
-                for cnt in range(t2_idx, len(tmp)):
-                    if tmp[cnt] < 0 and abs_act_sig[cnt] != constants.HilCl.FunctionActivate.ABS_ACTIVE:
-                        t3_idx = cnt
+            if t_act_idx is not None:
+
+                # Find ABS deact
+                for cnt in range(t_act_idx, len(abs_act_sig)):
+                    if abs_act_sig[cnt] != constants.HilCl.FunctionActivate.ABS_ACTIVE:
+                        t_deact_idx = cnt
                         break
 
-                if t3_idx is not None:
-                    eval_cond = [True] * 1
-                    counter = 0
-                    requiered_sate = None
-                    relation_string = ""
+                if t_deact_idx is not None:
+                    # Calculate lenght of ABS
+                    abs_time = time_signal[t_deact_idx] - time_signal[t_act_idx]
+                    # Set time to sec
+                    abs_time = abs_time * 1e-6
 
-                    # counter == 0 : This is Maneuvering mode, because states are collected from the begining of Maneuvering.
-                    # counter == 1: This has to be Terminate mode in this case. System has to switch from Maneuvering to Terminate
+                    # Compare with limit
+                    if abs_time > constants.HilCl.ApThreshold.AP_G_ABS_TIME_THRESH_S:
+                        eval_cond = [True] * 1
 
-                    # Collect states of AP after switch to Maneuvering event
-                    states_dict = HilClFuntions.States(state_on_hmi_sig, t1_idx, len(state_on_hmi_sig), 1)
+                        states_dict = HilClFuntions.States(state_on_hmi_sig, t_act_idx, len(state_on_hmi_sig), 1)
 
-                    # Calculate legnth of interruption
-                    calc_intervention = time_signal[t3_idx] - time_signal[t2_idx]
-                    calc_intervention = calc_intervention * 1e-6
+                        counter = 0
 
-                    # Check lenght of interruption and decide the requiered state
-                    if calc_intervention > constants.HilCl.ApThreshold.AP_G_ABS_TIME_THRESH_S:
-                        requiered_sate = constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS
-                        relation_string = " ".join("longer")
+                        # Keys contains the idx
+                        for key in states_dict:
+                            if counter == 1:
+                                actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
+                                    states_dict[key]
+                                )
+                                actual_number = int(states_dict[key])
+
+                                reaction_time = time_signal[key] - time_signal[t_act_idx]
+                                reaction_time = reaction_time * 1e-6  # Set to sec
+
+                                if (
+                                    reaction_time < constants.HilCl.ApThreshold.AP_G_ABS_TIME_THRESH_S
+                                    and states_dict[key] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS
+                                ):
+                                    test_result = fc.FAIL
+                                    eval_cond = [False] * 1
+                                    evaluation1 = " ".join(
+                                        f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal"
+                                        f" switches to PPC_SUCCESS  ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS })."
+                                        f" Reaction time of the system is {reaction_time} sec. This values is less then AP_G_ABS_TIME_THRESH_S"
+                                        f" ({constants.HilCl.ApThreshold.AP_G_ABS_TIME_THRESH_S}) sec. System shall not detect reversible error and not switch out from Maneuvering mode in this case.".split()
+                                    )
+
+                                if states_dict[key] != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS:
+                                    evaluation1 = " ".join(
+                                        f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} ({actual_number}) mode."
+                                        f" Lenght of ABS intervetion is {abs_time} sec."
+                                        f" Requiered state is PPC_SUCCESS  ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS })".split()
+                                    )
+                                    eval_cond[0] = False
+                                    break
+                                counter += 1
+
+                            else:
+                                counter += 1
                     else:
-                        requiered_sate = constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING
-                        relation_string = " ".join("not longer")
-
-                    # Keys contains the idy
-                    # Check mode after Maneuvering mode
-                    for key in states_dict:
-                        if counter == 1:
-                            actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
-                                states_dict[key]
-                            )
-
-                            if key < t2_idx:
-                                evaluation1 = " ".join(
-                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} at {time_signal[key]} us"
-                                    f" before reversible error injection.".split()
-                                )
+                        eval_cond = [True] * 1
+                        # Check reversible error in whole measurement after activation
+                        for cnt in range(t_act_idx, len(state_on_hmi_sig)):
+                            if state_on_hmi_sig[cnt] == constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS:
+                                test_result = fc.FAIL
                                 eval_cond[0] = False
-                                break
-
-                            if states_dict[key] != requiered_sate:
                                 evaluation1 = " ".join(
-                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, time of ABS intervention is {calc_intervention} s."
-                                    f" This value is {relation_string} than {constants.HilCl.ApThreshold.AP_G_ABS_TIME_THRESH_S} s."
-                                    f" State of signal is {actual_value} at {time_signal[key]} us but requiered mode is {requiered_sate}.".split()
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal switches to PPC_SUCCESS "
+                                    f" ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SUCCESS }) at {time_signal[cnt]} us but ABS intervention is"
+                                    f" less then AP_G_ABS_TIME_THRESH_S ({constants.HilCl.ApThreshold.AP_G_ABS_TIME_THRESH_S}) sec.".split()
                                 )
-                                eval_cond[0] = False
                                 break
-
-                        else:
-                            counter += 1
                 else:
                     test_result = fc.FAIL
                     eval_cond = [False] * 1
                     evaluation1 = " ".join(
-                        f"The evaluation of {signal_name['ABS_act']} signal is FAILED, ABS never deactivated in TestRun.".split()
+                        f"The evaluation of {signal_name['ABS_act']} signal is FAILED, value of signal never switched out from ABS_ACTIVE ({constants.HilCl.FunctionActivate.ABS_ACTIVE})."
+                        " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                     )
-
             else:
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    f"The evaluation of {signal_name['ABS_act']} signal is FAILED, ABS never activated in TestRun.".split()
+                    f"The evaluation of {signal_name['ABS_act']} signal is FAILED, value of signal never switched to ABS_ACTIVE ({constants.HilCl.FunctionActivate.ABS_ACTIVE})."
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Maneuvering mode.".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, value of signal never switched to PPC_PERFORM_PARKING ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_PERFORM_PARKING})."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -235,14 +247,10 @@ class AupManTermRevErrCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:
@@ -260,7 +268,7 @@ class AupManTermRevErrCheck(TestStep):
 
 @testcase_definition(
     name="Mode transition: Maneuvering to Terminate",
-    description="The AP function shall transition from Scanning to Maneuvering mode if AP function has a reversible error.",
+    description="The AP function shall transition from Maneuvering to Terminate mode if AP function has a reversible error.",
 )
 class AupManTermRevErr(TestCase):
     """AupManTermRevErr test case."""

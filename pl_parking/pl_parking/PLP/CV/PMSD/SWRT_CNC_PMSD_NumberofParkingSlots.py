@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
+
+import pandas as pd
 from tsf.core.results import FALSE, TRUE, BooleanResult
 from tsf.core.testcase import (
     TestCase,
@@ -56,7 +58,6 @@ class PmsdNumberofParkingSlotsTestStep(TestStep):
 
         test_result = fc.INPUT_MISSING  # Result
         plot_titles, plots, remarks = rep([], 3)
-        signal_summary = {}
 
         reader = self.readers[SIGNAL_DATA].signals
         df = reader.as_plain_df
@@ -66,16 +67,16 @@ class PmsdNumberofParkingSlotsTestStep(TestStep):
         try:
             pmd_data = df[
                 [
-                    "PsdSlot_Front_numberOfSlots",
-                    "PsdSlot_Rear_numberOfSlots",
-                    "PsdSlot_Left_numberOfSlots",
-                    "PsdSlot_Right_numberOfSlots",
+                    "PmsdSlot_Front_numberOfSlots",
+                    "PmsdSlot_Rear_numberOfSlots",
+                    "PmsdSlot_Left_numberOfSlots",
+                    "PmsdSlot_Right_numberOfSlots",
                 ]
             ]
 
             print("All output signals are present")
-            if (pmd_data["PsdSlot_Front_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
-                pmd_data["PsdSlot_Front_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
+            if (pmd_data["PmsdSlot_Front_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
+                pmd_data["PmsdSlot_Front_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
             ).any():
                 FC_result = True
                 evaluation[0] = "Front Camera Parking Slots are present"
@@ -83,8 +84,8 @@ class PmsdNumberofParkingSlotsTestStep(TestStep):
                 FC_result = False
                 evaluation[0] = "Front Camera Parking Slots are not within the range"
 
-            if (pmd_data["PsdSlot_Rear_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
-                pmd_data["PsdSlot_Rear_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
+            if (pmd_data["PmsdSlot_Rear_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
+                pmd_data["PmsdSlot_Rear_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
             ).any():
                 RC_result = True
                 evaluation[1] = "Rear Camera Parking Slots are present"
@@ -92,8 +93,8 @@ class PmsdNumberofParkingSlotsTestStep(TestStep):
                 RC_result = False
                 evaluation[1] = "Rear Camera Parking Slots are not within the range"
 
-            if (pmd_data["PsdSlot_Left_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
-                pmd_data["PsdSlot_Left_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
+            if (pmd_data["PmsdSlot_Left_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
+                pmd_data["PmsdSlot_Left_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
             ).any():
                 LSC_result = True
                 evaluation[2] = "Left Side Camera Parking Slots are present"
@@ -101,8 +102,8 @@ class PmsdNumberofParkingSlotsTestStep(TestStep):
                 LSC_result = False
                 evaluation[2] = "Left Side Camera Parking Slots are not within the range"
 
-            if (pmd_data["PsdSlot_Right_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
-                pmd_data["PsdSlot_Right_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
+            if (pmd_data["PmsdSlot_Right_numberOfSlots"] >= ConstantsPmsd.NUM_PARKING_SLOTS_MIN).any() and (
+                pmd_data["PmsdSlot_Right_numberOfSlots"] <= ConstantsPmsd.NUM_PARKING_SLOTS_MAX
             ).any():
                 RSC_result = True
                 evaluation[3] = "Right Side Camera Parking Slots are present"
@@ -123,23 +124,31 @@ class PmsdNumberofParkingSlotsTestStep(TestStep):
 
         test_result = fc.PASS if all(cond_bool) else fc.FAIL
 
-        signal_summary["FC_PSDParkingSlots"] = evaluation[0]
-        signal_summary["RC_PSDParkingSlots"] = evaluation[1]
-        signal_summary["LSC_PSDParkingSlots"] = evaluation[2]
-        signal_summary["RSC_PSDParkingSlots"] = evaluation[3]
-
-        fig = go.Figure(
-            data=[
-                go.Table(
-                    header=dict(values=["Signal Evaluation", "Summary"]),
-                    cells=dict(values=[list(signal_summary.keys()), list(signal_summary.values())]),
-                )
-            ]
+        signal_summary = pd.DataFrame(
+            {
+                "Evaluation": {
+                    "1": "Front Camera Parking Slots Detections should be present",
+                    "2": "Rear Camera Parking Slots Detections should be present",
+                    "3": "Left Camera Parking Slots Detections should be present",
+                    "4": "Right Camera Parking Slots Detections should be present",
+                },
+                "Result": {
+                    "1": evaluation[0],
+                    "2": evaluation[1],
+                    "3": evaluation[2],
+                    "4": evaluation[3],
+                },
+                "Verdict": {
+                    "1": "PASSED" if cond_bool[0] else "FAILED",
+                    "2": "PASSED" if cond_bool[1] else "FAILED",
+                    "3": "PASSED" if cond_bool[2] else "FAILED",
+                    "4": "PASSED" if cond_bool[3] else "FAILED",
+                },
+            }
         )
 
-        plot_titles.append("Signal Evaluation")
-        plots.append(fig)
-        remarks.append("PMSD Evaluation")
+        sig_sum = fh.build_html_table(signal_summary, table_title="PMSD List of Parking Slots")
+        self.result.details["Plots"].append(sig_sum)
 
         if len(pmd_data) != 0:
             for camera, _ in pmd_data.items():
@@ -203,8 +212,8 @@ class PmsdNumberofParkingSlotsTestStep(TestStep):
     name="SWRT_CNC_PMSD_NumberofParkingSlots",
     description="Verify Detected Parking Slots",
 )
-@register_inputs("/Playground_2/TSF-Debug")
-# @register_inputs("/TSF_DEBUG/")
+@register_inputs("/parking")
+# @register_inputs("/parking")
 class PmsdNumberofParkingSlots(TestCase):
     """ListofParkingSlots test case."""
 

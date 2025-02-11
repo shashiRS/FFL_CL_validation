@@ -27,22 +27,21 @@ class WLDetectionReader:
             timeframes = []
 
             for _, row in self.data.iterrows():
-                timestamp = row[f"CemWl_{self.camera_strings[camera]}_timestamp"]
-                number_of_lines = int(row[f"CemWl_{self.camera_strings[camera]}_numberOfLines"])
+                timestamp = row[f"PMDWl_{self.camera_strings[camera]}_timestamp"]
+                number_of_lines = int(row[f"PMDWl_{self.camera_strings[camera]}_numberOfLines"])
                 pmd_lines = []
 
                 for i in range(number_of_lines):
                     line = PMDLine(
-                        row[(f"CemWl_{self.camera_strings[camera]}_parkingLines_lineId", i)],
                         PMDLinePoint(
-                            row[(f"CemWl_{self.camera_strings[camera]}_parkingLines_lineStartX", i)] * -1,
-                            row[(f"CemWl_{self.camera_strings[camera]}_parkingLines_lineStartY", i)] * -1,
+                            row[(f"PMDWl_{self.camera_strings[camera]}_lineStartX", i)] * -1,
+                            row[(f"PMDWl_{self.camera_strings[camera]}_lineStartY", i)] * -1,
                         ),
                         PMDLinePoint(
-                            row[(f"CemWl_{self.camera_strings[camera]}_parkingLines_lineEndX", i)] * -1,
-                            row[(f"CemWl_{self.camera_strings[camera]}_parkingLines_lineEndY", i)] * -1,
+                            row[(f"PMDWl_{self.camera_strings[camera]}_lineEndX", i)] * -1,
+                            row[(f"PMDWl_{self.camera_strings[camera]}_lineEndY", i)] * -1,
                         ),
-                        row[(f"CemWl_{self.camera_strings[camera]}_parkingLines_lineConfidence", i)],
+                        row[(f"PMDWl_{self.camera_strings[camera]}_lineConfidence", i)],
                     )
 
                     pmd_lines.append(line)

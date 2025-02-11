@@ -26,12 +26,16 @@ if TSF_BASE not in sys.path:
     sys.path.append(TSF_BASE)
 
 
+import tempfile
+from pathlib import Path
+
 import plotly.graph_objects as go
+from tsf.core.utilities import debug
 
 import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
 from pl_parking.common_ft_helper import CemSignals, MfCustomTestcaseReport, MfCustomTeststepReport, rep
-from pl_parking.PLP.CEM.constants import AssociationConstants, ConstantsCemInput
+from pl_parking.PLP.CEM.constants import AssociationConstants
 from pl_parking.PLP.CEM.ft_pcl_helper import FtPclHelper
 from pl_parking.PLP.CEM.inputs.input_CemPclReader import PclDelimiterReader
 from pl_parking.PLP.CEM.inputs.input_CemVedodoReader import VedodoReader
@@ -60,7 +64,7 @@ class TestStepFtPCLMaintID(TestStep):
 
     def process(self, **kwargs):
         """
-        The function processes signals data to evaluate certain conditions and generate plots and remarsk based
+        The function processes signals data to evaluate certain conditions and generate plots and remarks based
         on the evaluation results
         """
         self.result.details.update(
@@ -76,9 +80,9 @@ class TestStepFtPCLMaintID(TestStep):
 
         data_df = pcl_reader.data.as_plain_df
         data_df.columns = [f"{col[0]}_{col[1]}" if type(col) is tuple else col for col in data_df.columns]
-        pcl_type = data_df.loc[:, data_df.columns.str.startswith("delimiterType")]
+        pcl_type = data_df.loc[:, data_df.columns.str.startswith("Cem_pcl_delimiterId")]
 
-        if ConstantsCemInput.PCLEnum in pcl_type.values:
+        if not pcl_type.empty:
             rows = []
             failed = 0
             for index, curTimeframe in enumerate(pcl_data):
@@ -190,3 +194,34 @@ class FtPCLMaintID(TestCase):
     def test_steps(self):
         """Define the test steps."""
         return [TestStepFtPCLMaintID]
+
+
+def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
+    """Call to debug to set up debugging in the simplest possible way.
+
+    When calling the test case you need to provide a valid input to
+    execute the test (e.g. a BSIG file) and report the result.
+
+    This is only meant to jump start testcase debugging.
+    """
+    # test_bsigs = r'D:\Rrec_Ext_Bsigs\Recordings\trjpla\exported_file__D2024_01_09_T13_51_40.bsig'
+    # test_bsigs = r"D:\Rrec_Ext_Bsigs\Bsig_Output\carpc_wheelstopper\2022.08.04_at_13.29.33_svu-mi5_149.bsig"
+    test_bsigs = r"D:\Rrec_Ext_Bsigs\Bsig_Output\R4 Bsigs\PFS_ergs\PFS_3ODSlot_PCL_WS_WL_SL_PC.erg"
+    debug(
+        FtPCLMaintID,
+        test_bsigs,
+        temp_dir=temp_dir,
+        open_explorer=open_explorer,
+        kpi_report=False,
+        dev_report=True,
+    )
+    _log.debug("All done.")
+
+
+if __name__ == "__main__":
+    working_directory = Path(tempfile.mkdtemp("_tsf"))
+
+    data_folder = working_directory / "data"
+    out_folder = working_directory / "out"
+
+    main(data_folder=data_folder, temp_dir=out_folder, open_explorer=True)

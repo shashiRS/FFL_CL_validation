@@ -15,8 +15,11 @@ from tsf.core.report import (
 from tsf.core.results import DATA_NOK, NAN, ExpectedResult, Result
 from tsf.core.testcase import (
     CustomReportTestStep,
+    PreProcessor,
     TestCase,
     TestStep,
+    register_inputs,
+    register_pre_processor,
     register_signals,
     testcase_definition,
     teststep_definition,
@@ -32,7 +35,7 @@ TSF_BASE = os.path.abspath(os.path.join(__file__, "..", ".."))  # nopep8
 if TSF_BASE not in sys.path:
     sys.path.append(TSF_BASE)
 
-__author__ = "<CHANGE ME>"
+__author__ = "Grubii Otilia"
 __copyright__ = "2020-2012, Continental AG"
 __version__ = "0.16.1"
 __status__ = "Production"
@@ -242,7 +245,7 @@ class Signals(SignalDefinition):
             ],
             self.Columns.PARKING_MODE: [
                 "ADC5xx_Device.EM_DATA.EmPSMDebugPort.stateVarPPC_nu",
-                "MTA_ADC5.IU_PAR230_DATA.PsmDebugPort.stateVarPPC_nu",
+                "MTA_ADC5.APPDEMO_PARKSM_DATA.psmDebugPort.stateVarPPC_nu",
             ],
             self.Columns.STOP_REASON: [
                 "ADC5xx_Device.EM_DATA.EmPARRKSMCoreStatusPort.coreStopReason_nu",
@@ -262,17 +265,83 @@ class Signals(SignalDefinition):
             ],
             self.Columns.GEAR: [
                 "ADC5xx_Device.VD_DATA.IuGearboxCtrlRequestPort.gearReq_nu",
-                "MTA_ADC5.MF_TRJCTL_DATA.GearboxCtrlRequestPort.gearReq_nu",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.general.currentGear_nu",
             ],
             self.Columns.DRIVING_DIRECTION: [
                 "ADC5xx_Device.EM_DATA.EmHMIGeneralInputPort.general.drivingDirection_nu",
-                "MTA_ADC5.IU_PAR230_DATA.HmiGeneralInputPort.general.drivingDirection_nu",
+                "MTA_ADC5.APPDEMO_HMIH_DATA.hmiInputPort.general.drivingDirection_nu",
             ],
         }
 
 
 example_obj = Signals()
 verdict_obj = StoreStepResults()
+
+
+class AvgStrokesPreProcessor(PreProcessor):
+    """Preprocessor class for park end position."""
+
+    def pre_process(self):
+        """Preprocesses the data before further processing."""
+        df = self.readers[EXAMPLE]
+        df[Signals.Columns.TIMESTAMP] = df.index
+        df[Signals.Columns.TIMESTAMP] -= df[Signals.Columns.TIMESTAMP].iat[0]
+        df[Signals.Columns.TIMESTAMP] /= constants.GeneralConstants.US_IN_S
+        time = df[Signals.Columns.TIMESTAMP]
+        signal_summary = {}
+        # Get the signals
+        stop_reason = df["CoreStopReason"]
+        valid_gear_req = df["GearReqFusion"]
+        # valid_segments = df["NumValidSegments"]
+        # parking_mode = df["ppcParkingMode"]
+        # parking_scenario = df["ParkingScenario"]
+        # target_pose = df["TargetPose0_type"]
+        # valid_pb = df["NumberOfValidParkingBoxes"]
+        # driving_direction = df["DrivingDirection"]
+
+        stop_reason_mask = stop_reason == constants.StrokeConstants.PARKING_SUCCESS_VALUE
+        file_path = os.path.abspath(self.artifacts[0].file_path)
+        parking_type = fh.get_parking_type_from_file_path(file_path)
+        parking_type = parking_type.lower()
+        usable_data = valid_gear_req[valid_gear_req.diff() != 0]
+        strokes = [
+            i
+            for i in usable_data.values
+            if i == constants.GearReqConstants.GEAR_D or i == constants.GearReqConstants.GEAR_R
+        ]
+        finish_park = any(stop_reason_mask)
+        total_number_of_strokes = len(strokes)
+        verdict_obj.park_verdict_1 = "Success" if any(stop_reason_mask) else "Failed"
+        if any(stop_reason_mask):
+            result_summary = f"The measurement parked successfully in {total_number_of_strokes} strokes while doing {parking_type} parking scenario."
+        else:
+            result_summary = "The parking failed to finish."
+        signal_summary[Signals.Columns.STOP_REASON] = result_summary
+        remark = f"The parking scenario was {parking_type}."
+        sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
+
+        self.fig = go.Figure()
+        self.fig.add_trace(
+            go.Scatter(
+                x=time,
+                y=valid_gear_req,
+                mode="lines",
+                name=Signals.Columns.GEAR,
+            )
+        )
+        self.fig.add_trace(
+            go.Scatter(
+                x=time,
+                y=stop_reason,
+                mode="lines",
+                name=Signals.Columns.STOP_REASON,
+            )
+        )
+
+        self.fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+        self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+
+        return [sig_sum, self.fig, total_number_of_strokes, parking_type, finish_park]
 
 
 @teststep_definition(
@@ -287,151 +356,78 @@ verdict_obj = StoreStepResults()
     ),
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_strokes", pre_processor=AvgStrokesPreProcessor)
 class AvgNbStrokesPerpAngF(TestStep):
-    """testcase that can be tested by a simple pass/fail test.
-
-    Objective
-    ---------
-
-    Detail
-    ------
-
-    In case there is no signal change to 1 the testcase is failed.
-    The test ist performed for all recordings of the collection
-    """
+    """Verify the average number of strokes for perp/ang forward parking type."""
 
     custom_report = MfCustomTeststepReport
 
     def __init__(self):
-        """Initialize the teststep."""
+        """Initialize the test step."""
         super().__init__()
 
-    def process(self):
-        """
-        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
-        evaluation results.
-        """
-        self.result.details.update(
-            {
-                "Plots": [],
-                "software_version_file": "",
-                "Km_driven": 0,
-                "driven_time": 0,
-                "Plot_titles": [],
-                "Remarks": [],
-                "file_name": os.path.basename(self.artifacts[0].file_path),
-            }
-        )
-
-        df = self.readers[EXAMPLE]
-        df[Signals.Columns.TIMESTAMP] = df.index
-        plot_titles, plots, remarks = fh.rep([], 3)
-
-        # Defining signal variables for signal handling
-
-        sg_core_stop_reason = "CoreStopReason"
-        sg_gear_req = "GearReqFusion"
-        signal_summary = {}
-
-        usecase_const = False
-        usecases_dict = constants.ParkingUseCases.parking_usecase_id
-        for key, value in usecases_dict.items():
-            if self.result.details["file_name"].find(f"{key}") != -1:
-                if value.lower().find("forward") != -1 and (
-                    value.lower().find("perpendicular") != -1 or value.lower().find("angular") != -1
-                ):
-                    usecase_const = True
-
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
         try:
-            # Converting microseconds to seconds
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] / constants.GeneralConstants.US_IN_S
-            # Converting epoch time to seconds passed
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] - df[Signals.Columns.TIMESTAMP].iat[0]
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
+                }
+            )
+            # self.result.measured_result = None
 
-            # df[sg_ppc_parking_mode] == constants.ParkingMachineStates.PPC_SCANNING_IN
-            # df[sg_ppc_parking_mode] == constants.ParkingMachineStates.PPC_PERFORM_PARKING
-            stop_reason_mask = df[sg_core_stop_reason] == constants.StrokeConstants.PARKING_SUCCESS_VALUE
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_2 = fc.NOT_ASSESSED
 
-            valid_gear_req = df[sg_gear_req]
-            usable_data = valid_gear_req[valid_gear_req.diff() != 0]
-            strokes = [
-                i
-                for i in usable_data.values
-                if i == constants.GearReqConstants.GEAR_D or i == constants.GearReqConstants.GEAR_R
-            ]
-            total_number_of_strokes = len(strokes)
-            verdict_obj.park_verdict_1 = "Success" if any(stop_reason_mask) else "Failed"
+            sig_sum, fig, nr_strokes, park_type, finish_park = self.pre_processors["avg_strokes"]
 
-            if any(stop_reason_mask) and usecase_const:
-                self.result.measured_result = Result(total_number_of_strokes)
-                f"The measurement parked successfully in {total_number_of_strokes} strokes"
-                verdict_obj.step_1 = fc.PASS
+            if park_type == "perpendicular forward" or park_type == "angular forward":
+                if finish_park:
+                    self.result.measured_result = Result(nr_strokes, unit="strokes")
+                    verdict_obj.step_1 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_1 = fc.FAIL
             else:
+                self.result.measured_result = NAN
                 verdict_obj.step_1 = fc.NOT_ASSESSED
-                self.result.measured_result = DATA_NOK if usecase_const else NAN
-                evaluation1 = "The parking failed to finish." if usecase_const else "Not applicable."
 
-            signal_summary[Signals.Columns.STOP_REASON] = evaluation1
-            remark = " "
-            self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append(f"Parking type: {park_type}")
 
-            if usecase_const:
-                plot_titles.append("")
-                plots.append(self.sig_sum)
-                remarks.append("")
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
 
-                self.fig = go.Figure()
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_gear_req],
-                        mode="lines",
-                        name=Signals.Columns.GEAR,
-                    )
-                )
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_core_stop_reason],
-                        mode="lines",
-                        name=Signals.Columns.STOP_REASON,
-                    )
-                )
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
 
-                self.fig.layout = go.Layout(
-                    yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]"
-                )
-                self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "perpendicular forward" or park_type == "angular forward":
+                    additional_results_dict = {
+                        "Measured result [strokes]": {"value": nr_strokes},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
 
-                plot_titles.append("")
-                plots.append(self.fig)
-                remarks.append("")
-
-        except Exception as err:
-            print(str(err))
-            # write_log_message(f"Test failed, the following signal is missing:{str(err)}", "error", LOGGER)
+        except Exception:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
-
-        for plot in plots:
-            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
-                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-            else:
-                self.result.details["Plots"].append(plot)
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-            color = "#28a745" if verdict_obj.step_1 == fc.PASS else "rgb(129, 133, 137)"
-            park_status = verdict_obj.check_parking_success()
-            if usecase_const:
-                additional_results_dict = {
-                    "Verdict": {"value": verdict_obj.step_1.title(), "color": color},
-                    "Measured result [strokes]": {"value": total_number_of_strokes},
-                    "Parking finished": {"value": f"{park_status}"},
-                }
-                self.result.details["Additional_results"] = additional_results_dict
 
 
 @teststep_definition(
@@ -446,149 +442,77 @@ class AvgNbStrokesPerpAngF(TestStep):
     ),
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_strokes", pre_processor=AvgStrokesPreProcessor)
 class AvgNbStrokesPerpAngB(TestStep):
-    """testcase that can be tested by a simple pass/fail test.
-
-    Objective
-    ---------
-
-    Detail
-    ------
-
-    In case there is no signal change to 1 the testcase is failed.
-    The test ist performed for all recordings of the collection
-    """
+    """Verify the average number of strokes for perp/ang backward parking type."""
 
     custom_report = MfCustomTeststepReport
 
     def __init__(self):
-        """Initialize the teststep."""
+        """Initialize the test step."""
         super().__init__()
 
-    def process(self):
-        """
-        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
-        evaluation results.
-        """
-        self.result.details.update(
-            {
-                "Plots": [],
-                "software_version_file": "",
-                "Km_driven": 0,
-                "druveb_time": 0,
-                "Plot_titles": [],
-                "Remarks": [],
-                "file_name": os.path.basename(self.artifacts[0].file_path),
-            }
-        )
-
-        df = self.readers[EXAMPLE]
-        df[Signals.Columns.TIMESTAMP] = df.index
-        # plots and remarks need to have the same length
-        plot_titles, plots, remarks = fh.rep([], 3)
-
-        # Defining signal variables for signal handling
-
-        sg_core_stop_reason = "CoreStopReason"
-        sg_gear_req = "GearReqFusion"
-
-        signal_summary = {}
-        usecase_const = False
-        usecases_dict = constants.ParkingUseCases.parking_usecase_id
-        for key, value in usecases_dict.items():
-            if self.result.details["file_name"].find(f"{key}") != -1:
-                if value.lower().find("backward") != -1 and (
-                    value.lower().find("perpendicular") != -1 or value.lower().find("angular") != -1
-                ):
-                    usecase_const = True
-
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
         try:
-            # Converting microseconds to seconds
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] / constants.GeneralConstants.US_IN_S
-            # Converting epoch time to seconds passed
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] - df[Signals.Columns.TIMESTAMP].iat[0]
-            stop_reason_mask = df[sg_core_stop_reason] == constants.StrokeConstants.PARKING_SUCCESS_VALUE
-            valid_gear_req = df[sg_gear_req]
-            usable_data = valid_gear_req[valid_gear_req.diff() != 0]
-            strokes = [
-                i
-                for i in usable_data.values
-                if i == constants.GearReqConstants.GEAR_D or i == constants.GearReqConstants.GEAR_R
-            ]
-            total_number_of_strokes = len(strokes)
-            verdict_obj.park_verdict_2 = "Success" if any(stop_reason_mask) else "Failed"
-            if any(stop_reason_mask) and usecase_const:
-                self.result.measured_result = Result(total_number_of_strokes)
-                evaluation1 = f"The measurement parked successfully in {total_number_of_strokes} strokes"
-                verdict_obj.step_2 = fc.PASS
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
+                }
+            )
+            # self.result.measured_result = None
+
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_2 = fc.NOT_ASSESSED
+
+            sig_sum, fig, nr_strokes, park_type, finish_park = self.pre_processors["avg_strokes"]
+
+            if park_type == "perpendicular backward" or park_type == "angular backward":
+                if finish_park:
+                    self.result.measured_result = Result(nr_strokes, unit="strokes")
+                    verdict_obj.step_2 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_2 = fc.FAIL
             else:
+                self.result.measured_result = NAN
                 verdict_obj.step_2 = fc.NOT_ASSESSED
-                self.result.measured_result = DATA_NOK if usecase_const else NAN
-                evaluation1 = (
-                    "The parking failed to finish."
-                    if usecase_const
-                    else "The measurement could not be evaluated due to wrong parking scenario."
-                )
 
-            signal_summary[Signals.Columns.STOP_REASON] = evaluation1
-            remark = " "
-            self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append(f"Parking type: {park_type}")
 
-            if usecase_const:
-                plot_titles.append("")
-                plots.append(self.sig_sum)
-                remarks.append("")
-                self.fig = go.Figure()
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_gear_req],
-                        mode="lines",
-                        name=Signals.Columns.GEAR,
-                    )
-                )
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_core_stop_reason],
-                        mode="lines",
-                        name=Signals.Columns.STOP_REASON,
-                    )
-                )
-                self.fig.layout = go.Layout(
-                    yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]"
-                )
-                self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
 
-                plot_titles.append("")
-                plots.append(self.fig)
-                remarks.append("")
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
 
-        except Exception as err:
-            print(str(err))
-            # write_log_message(f"Test failed, the following signal is missing:{str(err)}", "error", LOGGER)
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "perpendicular backward" or park_type == "angular backward":
+                    additional_results_dict = {
+                        "Measured result [strokes]": {"value": nr_strokes},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
+        except Exception:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
-
-        for plot in plots:
-            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
-                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
-            else:
-                self.result.details["Plots"].append(plot)
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
-            color = "#28a745" if verdict_obj.step_2 == fc.PASS else "rgb(129, 133, 137)"
-            park_status = verdict_obj.check_parking_success()
-            if usecase_const:
-                additional_results_dict = {
-                    "Verdict": {"value": verdict_obj.step_2.title(), "color": color},
-                    "Measured result [strokes]": {"value": total_number_of_strokes},
-                    "Parking finished": {"value": f"{park_status}"},
-                }
-                self.result.details["Additional_results"] = additional_results_dict
 
 
 @teststep_definition(
@@ -603,152 +527,171 @@ class AvgNbStrokesPerpAngB(TestStep):
     ),
 )
 @register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_strokes", pre_processor=AvgStrokesPreProcessor)
 class AvgNbStrokesPar(TestStep):
-    """testcase that can be tested by a simple pass/fail test.
-
-    Objective
-    ---------
-
-    Detail
-    ------
-
-    In case there is no signal change to 1 the testcase is failed.
-    The test ist performed for all recordings of the collection
-    """
+    """Verify the average number of strokes for parallel parking type."""
 
     custom_report = MfCustomTeststepReport
 
     def __init__(self):
-        """Initialize the teststep."""
+        """Initialize the test step."""
         super().__init__()
 
-    def process(self):
-        """
-        The function processes signals data to evaluate certain conditions and generate plots and remarks based on the
-        evaluation results.
-        """
-        self.result.details.update(
-            {"Plots": [], "Plot_titles": [], "Remarks": [], "file_name": os.path.basename(self.artifacts[0].file_path)}
-        )
-
-        df = self.readers[EXAMPLE]
-        df[Signals.Columns.TIMESTAMP] = df.index
-        # plots and remarks need to have the same length
-        plot_titles, plots, remarks = fh.rep([], 3)
-
-        # Defining signal variables for signal handling
-
-        sg_core_stop_reason = "CoreStopReason"
-        sg_gear_req = "GearReqFusion"
-
-        signal_summary = {}
-        usecase_const = False
-        usecases_dict = constants.ParkingUseCases.parking_usecase_id
-        for key, value in usecases_dict.items():
-            if self.result.details["file_name"].find(f"{key}") != -1:
-                if value.lower().find("parallel") != -1 and (
-                    value.lower().find("perpendicular") == -1 and value.lower().find("angular") == -1
-                ):
-                    usecase_const = True
-
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
         try:
-            # Converting microseconds to seconds
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] / constants.GeneralConstants.US_IN_S
-            # Converting epoch time to seconds passed
-            df[Signals.Columns.TIMESTAMP] = df[Signals.Columns.TIMESTAMP] - df[Signals.Columns.TIMESTAMP].iat[0]
-            stop_reason_mask = df[sg_core_stop_reason] == constants.StrokeConstants.PARKING_SUCCESS_VALUE
-            valid_gear_req = df[sg_gear_req]
-            usable_data = valid_gear_req[valid_gear_req.diff() != 0]
-            strokes = [
-                i
-                for i in usable_data.values
-                if i == constants.GearReqConstants.GEAR_D or i == constants.GearReqConstants.GEAR_R
-            ]
-            verdict_obj.park_verdict_3 = "Success" if any(stop_reason_mask) else "Failed"
-
-            total_number_of_strokes = len(strokes)
-            if any(stop_reason_mask) and usecase_const:
-                self.result.measured_result = Result(total_number_of_strokes)
-                evaluation1 = f"The measurement parked successfully in {total_number_of_strokes} strokes"
-                verdict_obj.step_3 = fc.PASS
-            else:
-                verdict_obj.step_3 = fc.NOT_ASSESSED
-                self.result.measured_result = DATA_NOK if usecase_const else NAN
-                evaluation1 = (
-                    "The parking failed to finish."
-                    if usecase_const
-                    else "The measurement could not be evaluated due to wrong parking scenario."
-                )
-
-            signal_summary[Signals.Columns.STOP_REASON] = evaluation1
-            remark = " "
-            self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
-
-            if usecase_const:
-                plot_titles.append("")
-                plots.append(self.sig_sum)
-                remarks.append("")
-
-                self.fig = go.Figure()
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_gear_req],
-                        mode="lines",
-                        name=Signals.Columns.GEAR,
-                    )
-                )
-                self.fig.add_trace(
-                    go.Scatter(
-                        x=df[Signals.Columns.TIMESTAMP],
-                        y=df[sg_core_stop_reason],
-                        mode="lines",
-                        name=Signals.Columns.STOP_REASON,
-                    )
-                )
-                self.fig.layout = go.Layout(
-                    yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]"
-                )
-                self.fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
-                plot_titles.append("")
-                plots.append(self.fig)
-                remarks.append("")
-
-            color = "#28a745" if verdict_obj.step_3 == fc.PASS else "rgb(129, 133, 137)"
-            park_status = verdict_obj.check_parking_success()
-            if usecase_const:
-                additional_results_dict = {
-                    "Verdict": {"value": verdict_obj.step_3.title(), "color": color},
-                    "Measured result [strokes]": {"value": total_number_of_strokes},
-                    "Parking finished": {"value": f"{park_status}"},
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
                 }
-                self.result.details["Additional_results"] = additional_results_dict
+            )
+            # self.result.measured_result = None
 
-        except Exception as err:
-            print(str(err))
-            # write_log_message(f"Test failed, the following signal is missing:{str(err)}", "error", LOGGER)
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_3 = fc.NOT_ASSESSED
 
+            sig_sum, fig, nr_strokes, park_type, finish_park = self.pre_processors["avg_strokes"]
+
+            if park_type == "parallel":
+                if finish_park:
+                    self.result.measured_result = Result(nr_strokes, unit="strokes")
+                    verdict_obj.step_3 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_3 = fc.FAIL
+            else:
+                self.result.measured_result = NAN
+                verdict_obj.step_3 = fc.NOT_ASSESSED
+
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append("")
+
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
+
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
+
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "parallel":
+                    additional_results_dict = {
+                        "Measured result [strokes]": {"value": nr_strokes},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
+        except Exception:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
             print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
 
-        for plot in plots:
-            if "plotly.graph_objs._figure.Figure" in str(type(plot)):
-                self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+
+@teststep_definition(
+    step_number=4,
+    name="UNKNOWN",
+    description=("Verify the average number of strokes for unknown parking type."),
+    expected_result=ExpectedResult(
+        operator=RelationOperator.LESS_OR_EQUAL,
+        numerator=4,
+        unit="strokes",
+        aggregate_function=AggregateFunction.MEAN,
+    ),
+)
+@register_signals(EXAMPLE, Signals)
+@register_pre_processor(alias="avg_strokes", pre_processor=AvgStrokesPreProcessor)
+class AvgNbStrokesBase(TestStep):
+    """Verify the average number of strokes for unknown parking type."""
+
+    custom_report = MfCustomTeststepReport
+
+    def __init__(self):
+        """Initialize the test step."""
+        super().__init__()
+
+    def process(self, **kwargs):
+        """This function processes signal data to evaluate certain conditions and generates plots and remarks based on the evaluation results."""
+        _log.debug("Starting processing...")
+        try:
+            self.result.details.update(
+                {
+                    "Plots": [],
+                    "Plot_titles": [],
+                    "Remarks": [],
+                    "file_name": os.path.basename(self.artifacts[0].file_path),
+                    "file_path": os.path.abspath(self.artifacts[0].file_path),
+                }
+            )
+            # self.result.measured_result = None
+
+            plot_titles, plots, remarks = fh.rep([], 3)
+            self.result.measured_result = DATA_NOK
+            verdict_obj.step_4 = fc.NOT_ASSESSED
+
+            sig_sum, fig, nr_strokes, park_type, finish_park = self.pre_processors["avg_strokes"]
+
+            if park_type == "unknown" or park_type == "perpendicular" or park_type == "angular":
+                if finish_park:
+                    self.result.measured_result = Result(nr_strokes, unit="strokes")
+                    verdict_obj.step_4 = fc.PASS
+                else:
+                    self.result.measured_result = DATA_NOK
+                    verdict_obj.step_4 = fc.FAIL
             else:
-                self.result.details["Plots"].append(plot)
-        for plot_title in plot_titles:
-            self.result.details["Plot_titles"].append(plot_title)
-        for remark in remarks:
-            self.result.details["Remarks"].append(remark)
+                self.result.measured_result = NAN
+                verdict_obj.step_4 = fc.NOT_ASSESSED
+
+            plot_titles.append("")
+            plots.append(sig_sum)
+            remarks.append("")
+
+            plot_titles.append("Graphical Overview")
+            plots.append(fig)
+            remarks.append("")
+
+            for plot in plots:
+                if "plotly.graph_objs._figure.Figure" in str(type(plot)):
+                    self.result.details["Plots"].append(plot.to_html(full_html=False, include_plotlyjs=False))
+                else:
+                    self.result.details["Plots"].append(plot)
+            for plot_title in plot_titles:
+                self.result.details["Plot_titles"].append(plot_title)
+            for remark in remarks:
+                self.result.details["Remarks"].append(remark)
+
+                park_status = verdict_obj.check_parking_success()
+                if park_type == "unknown" or park_type == "perpendicular" or park_type == "angular":
+                    additional_results_dict = {
+                        "Measured result [strokes]": {"value": nr_strokes},
+                        "Parking finished": {"value": f"{park_status}"},
+                    }
+                    self.result.details["Additional_results"] = additional_results_dict
+        except Exception:
+            exc_type, exc_obj, exc_tb = sys.exc_info()
+            fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+            print(f"{exc_type}, {fname}, {exc_tb.tb_lineno}")
 
 
 @verifies("966671")
 @testcase_definition(
-    name="Number of average strokes",
+    name="Average number of strokes ",
     description=("Verify the average number of strokes for specific parking scenarios. "),
     doors_url=r"https://jazz.conti.de/rm4/web#action=com.ibm.rdm.web.pages.showArtifactPage&artifactURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Fresources%2FBI_PfA1GclcEe2iKqc0KPO99Q&oslc_config.context=https%3A%2F%2Fjazz.conti.de%2Fgc%2Fconfiguration%2F17099&componentURI=https%3A%2F%2Fjazz.conti.de%2Frm4%2Frm-projects%2F_lWHOEPvsEeqIqKySVwTVNQ%2Fcomponents%2F_u4eQYMlKEe2iKqc0KPO99Q",
 )
+@register_inputs("/parking")
 class kpiAvgStrokes(TestCase):
     """Test case."""
 
@@ -756,6 +699,7 @@ class kpiAvgStrokes(TestCase):
     def test_steps(self):
         """Define the test steps."""
         return [
+            AvgNbStrokesBase,
             AvgNbStrokesPerpAngF,
             AvgNbStrokesPerpAngB,
             AvgNbStrokesPar,

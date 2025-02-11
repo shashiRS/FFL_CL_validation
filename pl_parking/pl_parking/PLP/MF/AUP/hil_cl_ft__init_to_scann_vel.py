@@ -42,7 +42,6 @@ class ValidationSignals(MDFSignalDefinition):
         """Definition of the dataframe columns."""
 
         CAR_SPEED = "Car_speed"
-        USEER_ACTION = "User_action"
         HMI_INFO = "State_on_HMI"
 
     def __init__(self):
@@ -51,7 +50,6 @@ class ValidationSignals(MDFSignalDefinition):
 
         self._properties = {
             self.Columns.CAR_SPEED: "MTS.ADAS_CAN.Conti_Veh_CAN.Tachometer.SpeedoSpeed",
-            self.Columns.USEER_ACTION: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIOut1.APHMIOutUserActionHU",
             self.Columns.HMI_INFO: "MTS.AP_Private_CAN.AP_Private_CAN.APHMIInGeneral1.APHMIParkingProcedureCtrlState",
         }
 
@@ -94,7 +92,6 @@ class AupInitScannVelCheck(TestStep):
         """Prepare sinals and variables"""
         signal_summary = {}
         time_signal = read_data.index
-        user_action_sig = read_data["User_action"].tolist()
         car_speed_sig = read_data["Car_speed"].tolist()
         state_on_hmi_sig = read_data["State_on_HMI"].tolist()
 
@@ -127,14 +124,14 @@ class AupInitScannVelCheck(TestStep):
             if t2_idx is not None:
                 # Find when speed of ego vehicle is lower or equal with limit after Init mode
                 for cnt in range(t2_idx, len(car_speed_sig)):
-                    if car_speed_sig[cnt] <= 3.6 * constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_ON_MPS:
+                    if car_speed_sig[cnt] < 3.6 * constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_ON_MPS:
                         t3_idx = cnt
                         break
 
                 if t3_idx is not None:
                     eval_cond = [True] * 1
 
-                    states_dict = HilClFuntions.States(state_on_hmi_sig, t1_idx, len(state_on_hmi_sig), 1)
+                    states_dict = HilClFuntions.States(state_on_hmi_sig, t2_idx, len(state_on_hmi_sig), 1)
 
                     counter = 0
                     # counter == 0 : This is Scanning mode, because states are collected from the begining of Scanning.
@@ -147,11 +144,12 @@ class AupInitScannVelCheck(TestStep):
                             actual_value = constants.HilCl.Hmi.ParkingProcedureCtrlState.DICT_CTRL_STATE.get(
                                 states_dict[key]
                             )
+                            actual_number = int(states_dict[key])
 
                             if key < t3_idx:
                                 evaluation1 = " ".join(
-                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} at {time_signal[key]} us but speed of"
-                                    f" ego vehicle is {car_speed_sig[key] / 3.6} m/s. This value is more"
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} ({actual_number}) at {time_signal[key]} us but speed of"
+                                    f" ego vehicle is {car_speed_sig[key] / 3.6} m/s. This value is greather"
                                     f" than {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_ON_MPS} m/s.".split()
                                 )
                                 eval_cond[0] = False
@@ -159,13 +157,13 @@ class AupInitScannVelCheck(TestStep):
 
                             if states_dict[key] != constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SCANNING_IN:
                                 evaluation1 = " ".join(
-                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} at {time_signal[key]} us not to Scanning mode"
-                                    f" but speed of ego vehicle is {car_speed_sig[key] / 3.6} m/s. This value is lass"
+                                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal switches to {actual_value} ({actual_number}) at {time_signal[key]} us not to Scanning mode"
+                                    f" ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SCANNING_IN}) but speed of ego vehicle is {car_speed_sig[key] / 3.6} m/s. This value is less"
                                     f" than {constants.HilCl.ApThreshold.AP_G_V_SCANNING_THRESH_ON_MPS} m/s. ".split()
                                 )
                                 eval_cond[0] = False
                                 break
-
+                            counter += 1
                         else:
                             counter += 1
 
@@ -173,20 +171,25 @@ class AupInitScannVelCheck(TestStep):
                     test_result = fc.FAIL
                     eval_cond = [False] * 1
                     evaluation1 = " ".join(
-                        f"The evaluation of {signal_name['Car_speed']} signal is FAILED, speed of ego vehicle never turned back to Scanning speed range.".split()
+                        f"The evaluation of {signal_name['Car_speed']} signal is FAILED, speed of ego vehicle never turned back to Scanning speed range."
+                        " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                     )
 
             else:
                 test_result = fc.FAIL
                 eval_cond = [False] * 1
                 evaluation1 = " ".join(
-                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Init mode afte Scanning mode.".split()
+                    f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Init mode"
+                    f" afte PPC_SCANNING_IN mode ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SCANNING_IN}). "
+                    " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
                 )
         else:
             test_result = fc.FAIL
             eval_cond = [False] * 1
             evaluation1 = " ".join(
-                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched to Scanning mode (Value: {constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SCANNING_IN}).".split()
+                f"The evaluation of {signal_name['State_on_HMI']} signal is FAILED, signal never switched"
+                f" to PPC_SCANNING_IN mode ({constants.HilCl.Hmi.ParkingProcedureCtrlState.PPC_SCANNING_IN})."
+                " It is not possible to continue evaluation in this case. This event is needed to evaluation.".split()
             )
 
         if all(eval_cond):
@@ -212,7 +215,6 @@ class AupInitScannVelCheck(TestStep):
             fig = go.Figure()
 
             fig.add_trace(go.Scatter(x=time_signal, y=state_on_hmi_sig, mode="lines", name=signal_name["State_on_HMI"]))
-            fig.add_trace(go.Scatter(x=time_signal, y=user_action_sig, mode="lines", name=signal_name["User_action"]))
             fig.add_trace(
                 go.Scatter(x=time_signal, y=car_speed_sig, mode="lines", name=signal_name["Car_speed"] + " [km/h]")
             )
@@ -225,14 +227,10 @@ class AupInitScannVelCheck(TestStep):
             remarks.append("")
 
         """Calculate parameters to additional table"""
-        sw_combatibility = (  # Remainder: Update if SW changed and script working well
-            "swfw_apu_adc5-2.1.0-DR2-PLP-B1-PAR230"
-        )
 
         """Add the data in the table from Functional Test Filter Results"""
         additional_results_dict = {
             "Verdict": {"value": test_result.title(), "color": fh.get_color(test_result)},
-            "Used SW version": {"value": sw_combatibility},
         }
 
         for plot in plots:

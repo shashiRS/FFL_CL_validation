@@ -2,11 +2,10 @@
 
 import math
 import os
-import re
 import time
 from json import dumps
 
-import cv2
+# import cv2
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -22,7 +21,6 @@ from tsf.core.testcase import (
 from tsf.io.signals import SignalDefinition
 
 import pl_parking.common_constants as fc
-import pl_parking.PLP.CV.TPP.constants as ct
 from pl_parking.PLP.CV.TPP.constants import Thresholds
 
 # TODO: Refactor
@@ -38,12 +36,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 relative_path = os.path.join(
     script_dir, "Recordings", "snip1_2022-03-04_12-23-43.012_Otto_LI-DC518_1646393095222790_1646393110222790"
 )
-img_path = relative_path + "3D_Labeling\\Images_Cylindrical\\"
-
-img_path_front = img_path + "Front\\"
-img_path_left = img_path + "Left\\"
-img_path_rear = img_path + "Rear\\"
-img_path_right = img_path + "Right\\"
+# img_path = relative_path + "3D_Labeling\\Images_Cylindrical\\"
+#
+# img_path_front = img_path + "Front\\"
+# img_path_left = img_path + "Left\\"
+# img_path_rear = img_path + "Rear\\"
+# img_path_right = img_path + "Right\\"
 
 WIDTH = 960
 HEIGHT = 640
@@ -267,7 +265,395 @@ columns: table_column_names
         return s
 
 
-class TPPSignals(SignalDefinition):
+class TPPSignals_R3(SignalDefinition):
+    """MF signal definition."""
+
+    class Columns(SignalDefinition.Columns):
+        """Column defines."""
+
+        # Front Camera
+        TIMESTAMP_FRONT = "timestampFront"
+        VERSIONNUMBER_FRONT = "versionNumberFront"
+        SIGTIMESTAMP_FRONT = "sigTimestampFront"
+        SIGMEASCOUNTER_FRONT = "sigMeasCounterFront"
+        SIGCYCLECOUNTER_FRONT = "sigCycleCounterFront"
+        SIGSTATUS_FRONT = "sigStatusFront"
+        SENSORSOURCE_FRONT = "sensorSourceFront"
+        NUMOBJECTS_FRONT = "numObjectsFront"
+        CLASSTYPE_FRONT = "classTypeFront"
+        CONFIDENCE_FRONT = "confidenceFront"
+        CENTERX_FRONT = "center_xFront"
+        CENTERY_FRONT = "center_yFront"
+        CENTERZ_FRONT = "center_zFront"
+        LENGTH_FRONT = "lengthFront"
+        WIDTH_FRONT = "widthFront"
+        HEIGHT_FRONT = "heightFront"
+        WIDTH_2D_FRONT = "width_2dFront"
+        HEIGHT_2D_FRONT = "height_2dFront"
+        YAW_FRONT = "yawFront"
+
+        # Left Camera
+        TIMESTAMP_LEFT = "timestampLeft"
+        VERSIONNUMBER_LEFT = "versionNumberLeft"
+        SIGTIMESTAMP_LEFT = "sigTimestampLeft"
+        SIGMEASCOUNTER_LEFT = "sigMeasCounterLeft"
+        SIGCYCLECOUNTER_LEFT = "sigCycleCounterLeft"
+        SIGSTATUS_LEFT = "sigStatusLeft"
+        SENSORSOURCE_LEFT = "sensorSourceLeft"
+        NUMOBJECTS_LEFT = "numObjectsLeft"
+        CLASSTYPE_LEFT = "classTypeLeft"
+        CONFIDENCE_LEFT = "confidenceLeft"
+        CENTERX_LEFT = "center_xLeft"
+        CENTERY_LEFT = "center_yLeft"
+        CENTERZ_LEFT = "center_zLeft"
+        LENGTH_LEFT = "lengthLeft"
+        WIDTH_LEFT = "widthLeft"
+        HEIGHT_LEFT = "heightLeft"
+        WIDTH_2D_LEFT = "width_2dLeft"
+        HEIGHT_2D_LEFT = "height_2dLeft"
+        YAW_LEFT = "yawLeft"
+
+        # Rear Camera
+        TIMESTAMP_REAR = "timestampRear"
+        VERSIONNUMBER_REAR = "versionNumberRear"
+        SIGTIMESTAMP_REAR = "sigTimestampRear"
+        SIGMEASCOUNTER_REAR = "sigMeasCounterRear"
+        SIGCYCLECOUNTER_REAR = "sigCycleCounterRear"
+        SIGSTATUS_REAR = "sigStatusRear"
+        SENSORSOURCE_REAR = "sensorSourceRear"
+        NUMOBJECTS_REAR = "numObjectsRear"
+        CLASSTYPE_REAR = "classTypeRear"
+        CONFIDENCE_REAR = "confidenceRear"
+        CENTERX_REAR = "center_xRear"
+        CENTERY_REAR = "center_yRear"
+        CENTERZ_REAR = "center_zRear"
+        LENGTH_REAR = "lengthRear"
+        WIDTH_REAR = "widthRear"
+        HEIGHT_REAR = "heightRear"
+        WIDTH_2D_REAR = "width_2dRear"
+        HEIGHT_2D_REAR = "height_2dRear"
+        YAW_REAR = "yawRear"
+
+        # Right Camera
+        TIMESTAMP_RIGHT = "timestampRight"
+        VERSIONNUMBER_RIGHT = "versionNumberRight"
+        SIGTIMESTAMP_RIGHT = "sigTimestampRight"
+        SIGMEASCOUNTER_RIGHT = "sigMeasCounterRight"
+        SIGCYCLECOUNTER_RIGHT = "sigCycleCounterRight"
+        SIGSTATUS_RIGHT = "sigStatusRight"
+        SENSORSOURCE_RIGHT = "sensorSourceRight"
+        NUMOBJECTS_RIGHT = "numObjectsRight"
+        CLASSTYPE_RIGHT = "classTypeRight"
+        CONFIDENCE_RIGHT = "confidenceRight"
+        CENTERX_RIGHT = "center_xRight"
+        CENTERY_RIGHT = "center_yRight"
+        CENTERZ_RIGHT = "center_zRight"
+        LENGTH_RIGHT = "lengthRight"
+        WIDTH_RIGHT = "widthRight"
+        HEIGHT_RIGHT = "heightRight"
+        WIDTH_2D_RIGHT = "width_2dRight"
+        HEIGHT_2D_RIGHT = "height_2dRight"
+        YAW_RIGHT = "yawRight"
+
+    def get_properties(self):
+        """Generate a string of signals to be read."""
+        signal_dict = {}
+
+        # Front
+        signal_dict[self.Columns.TIMESTAMP_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            ".DynamicObjectsFront.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+        ]
+        signal_dict[self.Columns.SIGSTATUS_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+        ]
+        signal_dict[self.Columns.SENSORSOURCE_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.eSensorSource",
+        ]
+        signal_dict[self.Columns.NUMOBJECTS_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.numberOfObjects",
+            ".DynamicObjectsFront.numObjects",
+        ]
+        signal_dict[self.Columns.CLASSTYPE_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].classType",
+            ".DynamicObjectsFront.objects[%].classType",
+        ]
+        signal_dict[self.Columns.CONFIDENCE_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].confidence",
+            ".DynamicObjectsFront.objects[%].confidence",
+        ]
+        signal_dict[self.Columns.CENTERX_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_x",
+            ".DynamicObjectsFront.objects[%].centerPointWorld.x",
+        ]
+        signal_dict[self.Columns.CENTERY_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_y",
+            ".DynamicObjectsFront.objects[%].centerPointWorld.y",
+        ]
+        signal_dict[self.Columns.CENTERZ_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_z",
+            ".DynamicObjectsFront.objects[%].centerPointWorld.z",
+        ]
+
+        signal_dict[self.Columns.LENGTH_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.length",
+            ".DynamicObjectsFront.objects[%].cuboidSizeWorld.x",
+        ]
+        signal_dict[self.Columns.WIDTH_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.width",
+            ".DynamicObjectsFront.objects[%].cuboidSizeWorld.y",
+        ]
+        signal_dict[self.Columns.HEIGHT_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.height",
+            ".DynamicObjectsFront.objects[%].cuboidSizeWorld.z",
+        ]
+        # Sizes of the Bounding Boxes
+        # Only on CarPC
+        signal_dict[self.Columns.WIDTH_2D_FRONT] = [".DynamicObjectsFront.objects[%].planeSizeWorld.x"]
+        signal_dict[self.Columns.HEIGHT_2D_FRONT] = [".DynamicObjectsFront.objects[%].planeSizeWorld.y"]
+
+        signal_dict[self.Columns.YAW_FRONT] = [
+            ".RUM2TPP_FC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectYaw",
+            ".DynamicObjectsFront.objects[%].cuboidYawWorld",
+        ]
+
+        # Left
+        signal_dict[self.Columns.TIMESTAMP_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            ".DynamicObjectsLeft.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+        ]
+        signal_dict[self.Columns.SIGSTATUS_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+        ]
+
+        signal_dict[self.Columns.SENSORSOURCE_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.eSensorSource",
+        ]
+        signal_dict[self.Columns.NUMOBJECTS_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.numberOfObjects",
+            ".DynamicObjectsLeft.numObjects",
+        ]
+        signal_dict[self.Columns.CLASSTYPE_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].classType",
+            ".DynamicObjectsLeft.objects[%].classType",
+        ]
+        signal_dict[self.Columns.CONFIDENCE_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].confidence",
+            ".DynamicObjectsLeft.objects[%].confidence",
+        ]
+        signal_dict[self.Columns.CENTERX_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_x",
+            ".DynamicObjectsLeft.objects[%].centerPointWorld.x",
+        ]
+        signal_dict[self.Columns.CENTERY_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_y",
+            ".DynamicObjectsLeft.objects[%].centerPointWorld.y",
+        ]
+        signal_dict[self.Columns.CENTERZ_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_z",
+            ".DynamicObjectsLeft.objects[%].centerPointWorld.z",
+        ]
+
+        signal_dict[self.Columns.LENGTH_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.length",
+            ".DynamicObjectsLeft.objects[%].cuboidSizeWorld.x",
+        ]
+        signal_dict[self.Columns.WIDTH_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.width",
+            ".DynamicObjectsLeft.objects[%].cuboidSizeWorld.y",
+        ]
+        signal_dict[self.Columns.HEIGHT_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.height",
+            ".DynamicObjectsLeft.objects[%].cuboidSizeWorld.z",
+        ]
+        # Sizes of the Bounding Boxes
+        # Only on CarPC
+        signal_dict[self.Columns.WIDTH_2D_LEFT] = [".DynamicObjectsLeft.objects[%].planeSizeWorld.x"]
+        signal_dict[self.Columns.HEIGHT_2D_LEFT] = [".DynamicObjectsLeft.objects[%].planeSizeWorld.y"]
+
+        signal_dict[self.Columns.YAW_LEFT] = [
+            ".RUM2TPP_LSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectYaw",
+            ".DynamicObjectsLeft.objects[%].cuboidYawWorld",
+        ]
+
+        # Rear
+        signal_dict[self.Columns.TIMESTAMP_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            ".DynamicObjectsRear.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_REAR] = (
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter"
+        )
+        signal_dict[self.Columns.SIGSTATUS_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+        ]
+
+        signal_dict[self.Columns.SENSORSOURCE_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.eSensorSource",
+        ]
+        signal_dict[self.Columns.NUMOBJECTS_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.numberOfObjects",
+            ".DynamicObjectsRear.numObjects",
+        ]
+        signal_dict[self.Columns.CLASSTYPE_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].classType",
+            ".DynamicObjectsRear.objects[%].classType",
+        ]
+        signal_dict[self.Columns.CONFIDENCE_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].confidence",
+            ".DynamicObjectsRear.objects[%].confidence",
+        ]
+        signal_dict[self.Columns.CENTERX_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_x",
+            ".DynamicObjectsRear.objects[%].centerPointWorld.x",
+        ]
+        signal_dict[self.Columns.CENTERY_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_y",
+            ".DynamicObjectsRear.objects[%].centerPointWorld.y",
+        ]
+        signal_dict[self.Columns.CENTERZ_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_z",
+            ".DynamicObjectsRear.objects[%].centerPointWorld.z",
+        ]
+
+        signal_dict[self.Columns.LENGTH_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.length",
+            ".DynamicObjectsRear.objects[%].cuboidSizeWorld.x",
+        ]
+        signal_dict[self.Columns.WIDTH_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.width",
+            ".DynamicObjectsRear.objects[%].cuboidSizeWorld.y",
+        ]
+        signal_dict[self.Columns.HEIGHT_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.height",
+            ".DynamicObjectsRear.objects[%].cuboidSizeWorld.z",
+        ]
+        # Sizes of the Bounding Boxes
+        # Only on CarPC
+        signal_dict[self.Columns.WIDTH_2D_REAR] = [".DynamicObjectsRear.objects[%].planeSizeWorld.x"]
+        signal_dict[self.Columns.HEIGHT_2D_REAR] = [".DynamicObjectsRear.objects[%].planeSizeWorld.y"]
+
+        signal_dict[self.Columns.YAW_REAR] = [
+            ".RUM2TPP_RC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectYaw",
+            ".DynamicObjectsRear.objects[%].cuboidYawWorld",
+        ]
+
+        # Right
+        signal_dict[self.Columns.TIMESTAMP_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            ".DynamicObjectsRight.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+        ]
+        signal_dict[self.Columns.SIGSTATUS_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+        ]
+
+        signal_dict[self.Columns.SENSORSOURCE_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.eSensorSource",
+        ]
+        signal_dict[self.Columns.NUMOBJECTS_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.numberOfObjects",
+            ".DynamicObjectsRight.numObjects",
+        ]
+        signal_dict[self.Columns.CLASSTYPE_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].classType",
+            ".DynamicObjectsRight.objects[%].classType",
+        ]
+        signal_dict[self.Columns.CONFIDENCE_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].confidence",
+            ".DynamicObjectsRight.objects[%].confidence",
+        ]
+        signal_dict[self.Columns.CENTERX_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_x",
+            ".DynamicObjectsRight.objects[%].centerPointWorld.x",
+        ]
+        signal_dict[self.Columns.CENTERY_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_y",
+            ".DynamicObjectsRight.objects[%].centerPointWorld.y",
+        ]
+        signal_dict[self.Columns.CENTERZ_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].centerPoint_z",
+            ".DynamicObjectsRight.objects[%].centerPointWorld.z",
+        ]
+
+        signal_dict[self.Columns.LENGTH_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.length",
+            ".DynamicObjectsRight.objects[%].cuboidSizeWorld.x",
+        ]
+        signal_dict[self.Columns.WIDTH_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.width",
+            ".DynamicObjectsRight.objects[%].cuboidSizeWorld.y",
+        ]
+        signal_dict[self.Columns.HEIGHT_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectSize.height",
+            ".DynamicObjectsRight.objects[%].cuboidSizeWorld.z",
+        ]
+        # Sizes of the Bounding Boxes
+        # Only on CarPC
+        signal_dict[self.Columns.WIDTH_2D_RIGHT] = [".DynamicObjectsRight.objects[%].planeSizeWorld.x"]
+        signal_dict[self.Columns.HEIGHT_2D_RIGHT] = [".DynamicObjectsRight.objects[%].planeSizeWorld.y"]
+
+        signal_dict[self.Columns.YAW_RIGHT] = [
+            ".RUM2TPP_RSC_DATA.pRum2ObjectDetection3DOutput.objects[%].objectYaw",
+            ".DynamicObjectsRight.objects[%].cuboidYawWorld",
+        ]
+
+        return signal_dict
+
+    def __init__(self):
+        """Initialize the signal definition."""
+        super().__init__()
+
+        self._root = ["AP", "ADC5xx_Device", "M7board.EM_Thread", "CarPC.EM_Thread", "MTA_ADC5"]
+
+        self._properties = self.get_properties()
+
+
+class TPPSignalsR2(SignalDefinition):
     """MF signal definition."""
 
     class Columns(SignalDefinition.Columns):
@@ -345,6 +731,807 @@ class TPPSignals(SignalDefinition):
         self._properties = self.get_properties()
 
 
+class TPPSignals(SignalDefinition):
+    """MF signal definition."""
+
+    class Columns(SignalDefinition.Columns):
+        """Column defines."""
+
+        # # # # # # # # # # # Front Camera # # # # # # # # # # #
+        TIMESTAMP_FRONT = "timestampFront"
+        VERSIONNUMBER_FRONT = "versionNumberFront"
+        # # # # # # # # # # Signal Header # # # # # # # # # #
+        SIGTIMESTAMP_FRONT = "sigTimestampFront"
+        SIGMEASCOUNTER_FRONT = "sigMeasCounterFront"
+        SIGCYCLECOUNTER_FRONT = "sigCycleCounterFront"
+        SIGSTATUS_FRONT = "sigStatusFront"
+        # SENSORSOURCE_FRONT = "sensorSourceFront"
+        # # # # # # # # # # # # Cuboids # # # # # # # # # # # #
+        NUM_CUBOID_FRONT = "numCuboidFront"
+        # CAR_CONFIDENCE_FRONT = "carConfidenceFront"  # TODO: Check the order
+        # VAN_CONFIDENCE_FRONT = "vanConfidenceFront"  # TODO: Check the order
+        # TRUCK_CONFIDENCE_FRONT = "TruckConfidenceFront"  # TODO: Check the order
+        CUBOID_SUBCLASS_CONFIDENCE_FRONT = "cuboidSubClassConfidenceFront"
+        CUBOID_CENTERX_FRONT = "cuboidCenter_xFront"
+        CUBOID_CENTERY_FRONT = "cuboidCenter_yFront"
+        CUBOID_CENTERZ_FRONT = "cuboidCenter_zFront"
+        CUBOID_LENGTH_FRONT = "cuboidLengthFront"
+        CUBOID_WIDTH_FRONT = "cuboidWidthFront"
+        CUBOID_HEIGHT_FRONT = "cuboidHeightFront"
+        CUBOID_CLASSTYPE_FRONT = "cuboidClassTypeFront"
+        CUBOID_CONFIDENCE_FRONT = "cuboidConfidenceFront"
+        CUBOID_YAW_FRONT = "cuboidYawFront"
+        # # # # # # # # # # Bounding Boxes # # # # # # # # # #
+        NUM_BBOX_FRONT = "numBBoxFront"
+        # PEDESTRIAN_CONFIDENCE_FRONT = "pedestrianConfidenceFront"  # TODO: Check the order
+        # TWOWHEELER_CONFIDENCE_FRONT = "twowheelerConfidenceFront"  # TODO: Check the order
+        # SHOPPING_CART_CONFIDENCE_FRONT = "shoppingCartConfidenceFront"  # TODO: Check the order
+        # ANIMAL_CONFIDENCE_FRONT = "animalConfidenceFront"  # TODO: Check the order
+        BOX_SUBCLASS_CONFIDENCE_FRONT = "boxSubClassConfidenceFront"
+        BOX_CENTERX_FRONT = "boxCenter_xFront"
+        BOX_CENTERY_FRONT = "boxCenter_yFront"
+        BOX_CENTERZ_FRONT = "boxCenter_zFront"
+        BOX_WIDTH_FRONT = "boxWidthFront"
+        BOX_HEIGHT_FRONT = "boxHeightFront"
+        BOX_CLASSTYPE_FRONT = "boxClassTypeFront"
+        BOX_CONFIDENCE_FRONT = "boxConfidenceFront"
+        BOX_YAW_FRONT = "boxYawFront"
+
+        # # # # # # # # # # # Left Camera # # # # # # # # # # #
+        TIMESTAMP_LEFT = "timestampLeft"
+        VERSIONNUMBER_LEFT = "versionNumberLeft"
+        # # # # # # # # # # Signal Header # # # # # # # # # #
+        SIGTIMESTAMP_LEFT = "sigTimestampLeft"
+        SIGMEASCOUNTER_LEFT = "sigMeasCounterLeft"
+        SIGCYCLECOUNTER_LEFT = "sigCycleCounterLeft"
+        SIGSTATUS_LEFT = "sigStatusLeft"
+        # # # # # # # # # # # # Cuboids # # # # # # # # # # # #
+        NUM_CUBOID_LEFT = "numCuboidLeft"
+        # CAR_CONFIDENCE_LEFT = "carConfidenceLeft"  # TODO: Check the order
+        # VAN_CONFIDENCE_LEFT = "vanConfidenceLeft"  # TODO: Check the order
+        # TRUCK_CONFIDENCE_LEFT = "TruckConfidenceLeft"  # TODO: Check the order
+        CUBOID_SUBCLASS_CONFIDENCE_LEFT = "cuboidSubClassConfidenceLeft"
+        CUBOID_CENTERX_LEFT = "cuboidCenter_xLeft"
+        CUBOID_CENTERY_LEFT = "cuboidCenter_yLeft"
+        CUBOID_CENTERZ_LEFT = "cuboidCenter_zLeft"
+        CUBOID_LENGTH_LEFT = "cuboidLengthLeft"
+        CUBOID_WIDTH_LEFT = "cuboidWidthLeft"
+        CUBOID_HEIGHT_LEFT = "cuboidHeightLeft"
+        CUBOID_CLASSTYPE_LEFT = "cuboidClassTypeLeft"
+        CUBOID_CONFIDENCE_LEFT = "cuboidConfidenceLeft"
+        CUBOID_YAW_LEFT = "cuboidYawLeft"
+        # # # # # # # # # # Bounding Boxes # # # # # # # # # #
+        NUM_BBOX_LEFT = "numBBoxLeft"
+        # PEDESTRIAN_CONFIDENCE_LEFT = "pedestrianConfidenceLeft"  # TODO: Check the order
+        # TWOWHEELER_CONFIDENCE_LEFT = "twowheelerConfidenceLeft"  # TODO: Check the order
+        # SHOPPING_CART_CONFIDENCE_LEFT = "shoppingCartConfidenceLeft"  # TODO: Check the order
+        # ANIMAL_CONFIDENCE_LEFT = "animalConfidenceLeft"  # TODO: Check the order
+        BOX_SUBCLASS_CONFIDENCE_LEFT = "boxSubClassConfidenceLeft"
+        BOX_CENTERX_LEFT = "boxCenter_xLeft"
+        BOX_CENTERY_LEFT = "boxCenter_yLeft"
+        BOX_CENTERZ_LEFT = "boxCenter_zLeft"
+        BOX_WIDTH_LEFT = "boxWidthLeft"
+        BOX_HEIGHT_LEFT = "boxHeightLeft"
+        BOX_CLASSTYPE_LEFT = "boxClassTypeLeft"
+        BOX_CONFIDENCE_LEFT = "boxConfidenceLeft"
+        BOX_YAW_LEFT = "boxYawLeft"
+
+        # # # # # # # # # # # Rear Camera # # # # # # # # # # #
+        TIMESTAMP_REAR = "timestampRear"
+        VERSIONNUMBER_REAR = "versionNumberRear"
+        # # # # # # # # # # Signal Header # # # # # # # # # #
+        SIGTIMESTAMP_REAR = "sigTimestampRear"
+        SIGMEASCOUNTER_REAR = "sigMeasCounterRear"
+        SIGCYCLECOUNTER_REAR = "sigCycleCounterRear"
+        SIGSTATUS_REAR = "sigStatusRear"
+        # # # # # # # # # # # # Cuboids # # # # # # # # # # # #
+        NUM_CUBOID_REAR = "numCuboidRear"
+        # CAR_CONFIDENCE_REAR = "carConfidenceRear"  # TODO: Check the order
+        # VAN_CONFIDENCE_REAR = "vanConfidenceRear"  # TODO: Check the order
+        # TRUCK_CONFIDENCE_REAR = "TruckConfidenceRear"  # TODO: Check the order
+        CUBOID_SUBCLASS_CONFIDENCE_REAR = "cuboidSubClassConfidenceRear"
+        CUBOID_CENTERX_REAR = "cuboidCenter_xRear"
+        CUBOID_CENTERY_REAR = "cuboidCenter_yRear"
+        CUBOID_CENTERZ_REAR = "cuboidCenter_zRear"
+        CUBOID_LENGTH_REAR = "cuboidLengthRear"
+        CUBOID_WIDTH_REAR = "cuboidWidthRear"
+        CUBOID_HEIGHT_REAR = "cuboidHeightRear"
+        CUBOID_CLASSTYPE_REAR = "cuboidClassTypeRear"
+        CUBOID_CONFIDENCE_REAR = "cuboidConfidenceRear"
+        CUBOID_YAW_REAR = "cuboidYawRear"
+        # # # # # # # # # # Bounding Boxes # # # # # # # # # #
+        NUM_BBOX_REAR = "numBBoxRear"
+        # PEDESTRIAN_CONFIDENCE_REAR = "pedestrianConfidenceRear"  # TODO: Check the order
+        # TWOWHEELER_CONFIDENCE_REAR = "twowheelerConfidenceRear"  # TODO: Check the order
+        # SHOPPING_CART_CONFIDENCE_REAR = "shoppingCartConfidenceRear"  # TODO: Check the order
+        # ANIMAL_CONFIDENCE_REAR = "animalConfidenceRear"  # TODO: Check the order
+        BOX_SUBCLASS_CONFIDENCE_REAR = "boxSubClassConfidenceRear"
+        BOX_CENTERX_REAR = "boxCenter_xRear"
+        BOX_CENTERY_REAR = "boxCenter_yRear"
+        BOX_CENTERZ_REAR = "boxCenter_zRear"
+        BOX_WIDTH_REAR = "boxWidthRear"
+        BOX_HEIGHT_REAR = "boxHeightRear"
+        BOX_CLASSTYPE_REAR = "boxClassTypeRear"
+        BOX_CONFIDENCE_REAR = "boxConfidenceRear"
+        BOX_YAW_REAR = "boxYawRear"
+
+        # # # # # # # # # # # Right Camera # # # # # # # # # # #
+        TIMESTAMP_RIGHT = "timestampRight"
+        VERSIONNUMBER_RIGHT = "versionNumberRight"
+        # # # # # # # # # # Signal Header # # # # # # # # # #
+        SIGTIMESTAMP_RIGHT = "sigTimestampRight"
+        SIGMEASCOUNTER_RIGHT = "sigMeasCounterRight"
+        SIGCYCLECOUNTER_RIGHT = "sigCycleCounterRight"
+        SIGSTATUS_RIGHT = "sigStatusRight"
+        # # # # # # # # # # # # Cuboids # # # # # # # # # # # #
+        NUM_CUBOID_RIGHT = "numCuboidRight"
+        # CAR_CONFIDENCE_RIGHT = "carConfidenceRight"  # TODO: Check the order
+        # VAN_CONFIDENCE_RIGHT = "vanConfidenceRight"  # TODO: Check the order
+        # TRUCK_CONFIDENCE_RIGHT = "TruckConfidenceRight"  # TODO: Check the order
+        CUBOID_SUBCLASS_CONFIDENCE_RIGHT = "cuboidSubClassConfidenceRight"
+        CUBOID_CENTERX_RIGHT = "cuboidCenter_xRight"
+        CUBOID_CENTERY_RIGHT = "cuboidCenter_yRight"
+        CUBOID_CENTERZ_RIGHT = "cuboidCenter_zRight"
+        CUBOID_LENGTH_RIGHT = "cuboidLengthRight"
+        CUBOID_WIDTH_RIGHT = "cuboidWidthRight"
+        CUBOID_HEIGHT_RIGHT = "cuboidHeightRight"
+        CUBOID_CLASSTYPE_RIGHT = "cuboidClassTypeRight"
+        CUBOID_CONFIDENCE_RIGHT = "cuboidConfidenceRight"
+        CUBOID_YAW_RIGHT = "cuboidYawRight"
+        # # # # # # # # # # Bounding Boxes # # # # # # # # # #
+        NUM_BBOX_RIGHT = "numBBoxRight"
+        # PEDESTRIAN_CONFIDENCE_RIGHT = "pedestrianConfidenceRight"  # TODO: Check the order
+        # TWOWHEELER_CONFIDENCE_RIGHT = "twowheelerConfidenceRight"  # TODO: Check the order
+        # SHOPPING_CART_CONFIDENCE_RIGHT = "shoppingCartConfidenceRight"  # TODO: Check the order
+        # ANIMAL_CONFIDENCE_RIGHT = "animalConfidenceRight"  # TODO: Check the order
+        BOX_SUBCLASS_CONFIDENCE_RIGHT = "boxSubClassConfidenceRight"
+        BOX_CENTERX_RIGHT = "boxCenter_xRight"
+        BOX_CENTERY_RIGHT = "boxCenter_yRight"
+        BOX_CENTERZ_RIGHT = "boxCenter_zRight"
+        BOX_WIDTH_RIGHT = "boxWidthRight"
+        BOX_HEIGHT_RIGHT = "boxHeightRight"
+        BOX_CLASSTYPE_RIGHT = "boxClassTypeRight"
+        BOX_CONFIDENCE_RIGHT = "boxConfidenceRight"
+        BOX_YAW_RIGHT = "boxYawRight"
+
+    def get_properties(self):
+        """Generate a string of signals to be read."""
+        signal_dict = {}
+
+        # Front
+        signal_dict[self.Columns.TIMESTAMP_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.timestamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+        ]
+        signal_dict[self.Columns.SIGSTATUS_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.signalStatus",
+        ]
+        # Cuboids
+        signal_dict[self.Columns.NUM_CUBOID_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.numberOfCuboidObjects",
+        ]
+        # signal_dict[self.Columns.CAR_CONFIDENCE_FRONT] = [
+        #     "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.VAN_CONFIDENCE_FRONT] = [
+        #     "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.TRUCK_CONFIDENCE_FRONT] = [
+        #     "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[2]",
+        # ]
+        signal_dict[self.Columns.CUBOID_SUBCLASS_CONFIDENCE_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERX_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERY_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERZ_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.CUBOID_LENGTH_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].objectSize.length",
+        ]
+        signal_dict[self.Columns.CUBOID_WIDTH_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.CUBOID_HEIGHT_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.CUBOID_CLASSTYPE_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.CUBOID_CONFIDENCE_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.CUBOID_YAW_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.cuboidObjects[%].objectYaw",
+        ]
+        # BBoxes
+        signal_dict[self.Columns.NUM_BBOX_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.numberOfBBoxObjects",
+        ]
+        # signal_dict[self.Columns.PEDESTRIAN_CONFIDENCE_FRONT] = [
+        #     "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.TWOWHEELER_CONFIDENCE_FRONT] = [
+        #     "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.SHOPPING_CART_CONFIDENCE_FRONT] = [
+        #     "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[2]",
+        # ]
+        # signal_dict[self.Columns.ANIMAL_CONFIDENCE_FRONT] = [
+        #     "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[3]",
+        # ]
+        signal_dict[self.Columns.BOX_SUBCLASS_CONFIDENCE_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.BOX_CENTERX_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.BOX_CENTERY_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.BOX_CENTERZ_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.BOX_WIDTH_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.BOX_HEIGHT_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.BOX_CLASSTYPE_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.BOX_CONFIDENCE_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.BOX_YAW_FRONT] = [
+            "MTA_ADC5.TPP_FC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_fc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListFront.bBoxObjects[%].objectYaw",
+        ]
+
+        # Left
+        signal_dict[self.Columns.TIMESTAMP_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.timestamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+        ]
+        signal_dict[self.Columns.SIGSTATUS_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.signalStatus",
+        ]
+        # Cuboids
+        signal_dict[self.Columns.NUM_CUBOID_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.numberOfCuboidObjects",
+        ]
+        # signal_dict[self.Columns.CAR_CONFIDENCE_LEFT] = [
+        #     "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.VAN_CONFIDENCE_LEFT] = [
+        #     "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.TRUCK_CONFIDENCE_LEFT] = [
+        #     "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[2]",
+        # ]
+        signal_dict[self.Columns.CUBOID_SUBCLASS_CONFIDENCE_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERX_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERY_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERZ_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.CUBOID_LENGTH_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].objectSize.length",
+        ]
+        signal_dict[self.Columns.CUBOID_WIDTH_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.CUBOID_HEIGHT_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.CUBOID_CLASSTYPE_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.CUBOID_CONFIDENCE_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.CUBOID_YAW_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.cuboidObjects[%].objectYaw",
+        ]
+        # BBoxes
+        signal_dict[self.Columns.NUM_BBOX_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.numberOfBBoxObjects",
+        ]
+        # signal_dict[self.Columns.PEDESTRIAN_CONFIDENCE_LEFT] = [
+        #     "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.TWOWHEELER_CONFIDENCE_LEFT] = [
+        #     "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.SHOPPING_CART_CONFIDENCE_LEFT] = [
+        #     "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[2]",
+        # ]
+        # signal_dict[self.Columns.ANIMAL_CONFIDENCE_LEFT] = [
+        #     "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[3]",
+        # ]
+        signal_dict[self.Columns.BOX_SUBCLASS_CONFIDENCE_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.BOX_CENTERX_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.BOX_CENTERY_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.BOX_CENTERZ_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.BOX_WIDTH_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.BOX_HEIGHT_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.BOX_CLASSTYPE_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.BOX_CONFIDENCE_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.BOX_YAW_LEFT] = [
+            "MTA_ADC5.TPP_LSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_lsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListLeft.bBoxObjects[%].objectYaw",
+        ]
+
+        # Rear
+        signal_dict[self.Columns.TIMESTAMP_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.timestamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+        ]
+        signal_dict[self.Columns.SIGSTATUS_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.signalStatus",
+        ]
+        # Cuboids
+        signal_dict[self.Columns.NUM_CUBOID_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.numberOfCuboidObjects",
+        ]
+        # signal_dict[self.Columns.CAR_CONFIDENCE_REAR] = [
+        #     "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.VAN_CONFIDENCE_REAR] = [
+        #     "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.TRUCK_CONFIDENCE_REAR] = [
+        #     "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[2]",
+        # ]
+        signal_dict[self.Columns.CUBOID_SUBCLASS_CONFIDENCE_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERX_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERY_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERZ_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.CUBOID_LENGTH_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].objectSize.length",
+        ]
+        signal_dict[self.Columns.CUBOID_WIDTH_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.CUBOID_HEIGHT_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.CUBOID_CLASSTYPE_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.CUBOID_CONFIDENCE_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.CUBOID_YAW_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.cuboidObjects[%].objectYaw",
+        ]
+        # BBoxes
+        signal_dict[self.Columns.NUM_BBOX_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.numberOfBBoxObjects",
+        ]
+        # signal_dict[self.Columns.PEDESTRIAN_CONFIDENCE_REAR] = [
+        #     "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.TWOWHEELER_CONFIDENCE_REAR] = [
+        #     "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.SHOPPING_CART_CONFIDENCE_REAR] = [
+        #     "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[2]",
+        # ]
+        # signal_dict[self.Columns.ANIMAL_CONFIDENCE_REAR] = [
+        #     "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[3]",
+        # ]
+        signal_dict[self.Columns.BOX_SUBCLASS_CONFIDENCE_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.BOX_CENTERX_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.BOX_CENTERY_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.BOX_CENTERZ_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.BOX_WIDTH_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.BOX_HEIGHT_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.BOX_CLASSTYPE_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.BOX_CONFIDENCE_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.BOX_YAW_REAR] = [
+            "MTA_ADC5.TPP_RC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_rc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRear.bBoxObjects[%].objectYaw",
+        ]
+
+        # Right
+        signal_dict[self.Columns.TIMESTAMP_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.timestamp",
+        ]
+        signal_dict[self.Columns.VERSIONNUMBER_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.uiVersionNumber",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.uiVersionNumber",
+        ]
+        signal_dict[self.Columns.SIGTIMESTAMP_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.sSigHeader.uiTimeStamp",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.timestamp",
+        ]
+        signal_dict[self.Columns.SIGMEASCOUNTER_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.sSigHeader.uiMeasurementCounter",
+        ]
+        signal_dict[self.Columns.SIGCYCLECOUNTER_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.sSigHeader.uiCycleCounter",
+        ]
+        signal_dict[self.Columns.SIGSTATUS_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.sSigHeader.eSigStatus",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.signalStatus",
+        ]
+        # Cuboids
+        signal_dict[self.Columns.NUM_CUBOID_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.numberOfCuboidObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.numberOfCuboidObjects",
+        ]
+        # signal_dict[self.Columns.CAR_CONFIDENCE_RIGHT] = [
+        #     "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.VAN_CONFIDENCE_RIGHT] = [
+        #     "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.TRUCK_CONFIDENCE_RIGHT] = [
+        #     "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences[2]",
+        # ]
+        signal_dict[self.Columns.CUBOID_SUBCLASS_CONFIDENCE_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERX_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERY_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.CUBOID_CENTERZ_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.CUBOID_LENGTH_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.length",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].objectSize.length",
+        ]
+        signal_dict[self.Columns.CUBOID_WIDTH_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.CUBOID_HEIGHT_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.CUBOID_CLASSTYPE_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.CUBOID_CONFIDENCE_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.CUBOID_YAW_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.cuboidObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.cuboidObjects[%].objectYaw",
+        ]
+        # BBoxes
+        signal_dict[self.Columns.NUM_BBOX_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.numberOfBBoxObjects",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.numberOfBBoxObjects",
+        ]
+        # signal_dict[self.Columns.PEDESTRIAN_CONFIDENCE_RIGHT] = [
+        #     "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[0]",
+        # ]
+        # signal_dict[self.Columns.TWOWHEELER_CONFIDENCE_RIGHT] = [
+        #     "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[1]",
+        # ]
+        # signal_dict[self.Columns.SHOPPING_CART_CONFIDENCE_RIGHT] = [
+        #     "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[2]",
+        # ]
+        # signal_dict[self.Columns.ANIMAL_CONFIDENCE_RIGHT] = [
+        #     "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences[3]",
+        # ]
+        signal_dict[self.Columns.BOX_SUBCLASS_CONFIDENCE_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassConfidences",
+        ]
+        signal_dict[self.Columns.BOX_CENTERX_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.x",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].centerPoint.x",
+        ]
+        signal_dict[self.Columns.BOX_CENTERY_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.y",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].centerPoint.y",
+        ]
+        signal_dict[self.Columns.BOX_CENTERZ_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].centerPoint.z",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].centerPoint.z",
+        ]
+        signal_dict[self.Columns.BOX_WIDTH_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.width",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].objectSize.width",
+        ]
+        signal_dict[self.Columns.BOX_HEIGHT_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectSize.height",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].objectSize.height",
+        ]
+        signal_dict[self.Columns.BOX_CLASSTYPE_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].subClassId",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].subClassId",
+        ]
+        signal_dict[self.Columns.BOX_CONFIDENCE_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].confidence",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].confidence",
+        ]
+        signal_dict[self.Columns.BOX_YAW_RIGHT] = [
+            "MTA_ADC5.TPP_RSC_DATA.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "SIM VFB.TPPINSTANCE_rsc.pRum2ObjectDetection3DOutput.boundingBoxObjects[%].objectYaw",
+            "AP.svcModelProcessingOutput.data.dynamicObjectsListRight.bBoxObjects[%].objectYaw",
+        ]
+
+        return signal_dict
+
+    def __init__(self):
+        """Initialize the signal definition."""
+        super().__init__()
+
+        self._root = ["AP", "ADC5xx_Device", "M7board.EM_Thread", "CarPC.EM_Thread", "MTA_ADC5"]
+
+        self._properties = self.get_properties()
+
+
+example_obj = TPPSignals()
+
+
 class GrappaSignals(SignalDefinition):
     """MF signal definition."""
 
@@ -370,7 +1557,7 @@ class GrappaSignals(SignalDefinition):
         """Generate a string of signals to be read."""
         signal_dict = {}
 
-        for idx in range(0, 256):  # TODO: Edit magin numbers (256 = max num of obj)
+        for idx in range(0, 256):  # TODO: Edit margin numbers (256 = max num of obj)
             signal_dict[self.Columns.CLASS_ID + str(idx)] = (
                 f".GRAPPA_FC_DATA.GrappaDetectionResultsFc.GrappaDetections[{idx}].aClassConfidences[0].eClassID"
             )
@@ -410,7 +1597,7 @@ class GrappaSignals(SignalDefinition):
 
         for idx in range(
             0, 6
-        ):  # TODO: Edit magin numbers (22 = len grappa det indexes, but only the first 6 are of interest)
+        ):  # TODO: Edit margin numbers (22 = len grappa det indexes, but only the first 6 are of interest)
             signal_dict[self.Columns.DET_IDX_FIRST + str(idx)] = (
                 f".GRAPPA_FC_DATA.GrappaDetectionResultsFc.GrappaDetectionIndexes[{idx}].firstIdx"
             )
@@ -427,104 +1614,6 @@ class GrappaSignals(SignalDefinition):
         self._root = ["AP", "ADC5xx_Device", "M7board.EM_Thread", "CarPC.EM_Thread"]
 
         self._properties = self.get_properties()
-
-
-def check_size(df: pd.DataFrame, size: str, className: str) -> bool:
-    """
-    Compare the sizes of TPP object with defined thresholds.
-    :param df: Pandas DataFrame containing TPP objects.
-    :param size: The name of the size that will be checked (i.e. width, height, length).
-    :param className: Tha class type that will be checked (i.e. Car, Pedestrian).
-    :return: False if any checks fails, True otherwise.
-    """
-    for current_size in list(df[size]):
-        if (
-            current_size < ct.ObjectSizes[className][size]["min"]
-            or current_size > ct.ObjectSizes[className][size]["max"]
-        ):
-            return False
-    return True
-
-
-def check_yaw(df: pd.DataFrame) -> bool:
-    """
-    Check the yaw value of TPP object.
-    :param df: Pandas DataFrame containing TPP objects.
-    :return: False if any checks fails, True otherwise.
-    """
-    for yaw in list(df[TPPSignals.Columns.YAW]):
-        if (yaw < -PI) or (yaw > PI):
-            return False
-    return True
-
-
-def check_confidence(df: pd.DataFrame):
-    """
-    Check the confidence value of TPP object.
-    :param df: Pandas DataFrame containing TPP objects.
-    :return: False if any checks fails, True otherwise.
-    """
-    for conf in list(df[TPPSignals.Columns.CONFIDENCE]):
-        if (conf <= 0.0) or (conf >= 1.0):
-            return False
-    return True
-
-
-def check_class_type(df: pd.DataFrame, expected_classes: list):
-    """
-    Check the class type of TPP object.
-    :param df: Pandas DataFrame containing TPP objects.
-    :param expected_classes: A string with the name of the expected class type.
-    :return: False if any checks fails, True otherwise.
-    """
-    no_obj = len(df)
-    no_required_classes = 0
-    for classType in expected_classes:
-        no_required_classes = no_required_classes + len(df[df["classType"] == ct.ClassTypes[classType]])
-
-    return no_obj == no_required_classes
-
-
-def is_in_image(x, y):
-    """
-    Check if a point is inside the image.
-    Image is defined by width and height.
-    :param x: x coordinate of the pixel.
-    :param y: y coordinate of the pixel.
-    :return: False when the point is not in image. True otherwise.
-    """
-    x_in_range = (0 <= x) & (x <= IMG_WIDTH)
-    y_in_range = (0 <= y) & (y <= IMG_HEIGHT)
-    return x_in_range & y_in_range
-
-
-def check_center_point(df: pd.DataFrame):
-    """
-    Compute Euclidean Distance between the center of the object and (0,0) and compare it to the detection range.
-    :param df: Pandas DataFrame containing TPP objects.
-    :return: False if any checks fails, True otherwise.
-    """
-    return (
-        ((df[TPPSignals.Columns.CENTERX] ** 2 + df[TPPSignals.Columns.CENTERY] ** 2) ** (1 / 2))
-        <= ct.TPP_DETECTION_RANGE
-    ).all()
-
-
-# TODO: Remove if not used
-def points_to_float_list(string_with_points):
-    """
-    Convert a string containing points to a list of floats.
-    :param string_with_points: a string containing 3D points.
-    :return: a list of 3D points.
-    """
-    string_list = re.findall("[-]?[0-9.0-9e+-]+", string_with_points)
-
-    list_of_points = []
-    for s in string_list:
-        list_of_points.append(float(s))
-    list_of_points = np.array(list_of_points).reshape(8, 3)
-
-    return list_of_points
 
 
 def setFrame(frame: np.array, image: np.array, pos_x: int, pos_y: int):
@@ -547,51 +1636,51 @@ def setFrame(frame: np.array, image: np.array, pos_x: int, pos_y: int):
 
 
 # TODO: Remove if not used
-def read_images(image_path):
-    """
-    Read images from a specified path.
-    :param image_path: Path to the file with images.
-    :return: a list with the read images.
-    """
-    img_list = []
-
-    for _, file_name in enumerate(os.listdir(image_path)):
-        if file_name.split(".")[-1].lower() in {"jpg", "png"}:
-            # if frame_counter % 1 == 0: # condition used to read less images
-            img = cv2.imread(image_path + file_name)
-            res = cv2.resize(img, dsize=(960, 640), interpolation=cv2.INTER_CUBIC)
-            res_rgb = cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
-
-            img_list.append(res_rgb)
-
-    return img_list
+# def read_images(image_path):
+#     """
+#     Read images from a specified path.
+#     :param image_path: Path to the file with images.
+#     :return: a list with the read images.
+#     """
+#     img_list = []
+#
+#     for _, file_name in enumerate(os.listdir(image_path)):
+#         if file_name.split(".")[-1].lower() in {"jpg", "png"}:
+#             # if frame_counter % 1 == 0: # condition used to read less images
+#             img = cv2.imread(image_path + file_name)
+#             res = cv2.resize(img, dsize=(960, 640), interpolation=cv2.INTER_CUBIC)
+#             res_rgb = cv2.cvtColor(res, cv2.COLOR_BGR2RGB)
+#
+#             img_list.append(res_rgb)
+#
+#     return img_list
 
 
 # TODO: Remove if not used
-def generate_frames():
-    """
-    Generate a list of 2x2 frames from images provided by the camera.
-    :return: a list with all the generated frames.
-    """
-    frames_list = []
-
-    # get images
-    img_list_front = read_images(img_path_front)
-    img_list_left = read_images(img_path_left)
-    img_list_rear = read_images(img_path_rear)
-    img_list_right = read_images(img_path_right)
-
-    for i in range(0, 150):
-        frame = np.zeros((2 * HEIGHT, 2 * WIDTH, 3), dtype=np.uint8)
-
-        setFrame(frame, img_list_front[i], 0, 0)
-        setFrame(frame, img_list_left[i], 1, 0)
-        setFrame(frame, img_list_rear[i], 0, 1)
-        setFrame(frame, img_list_right[i], 1, 1)
-
-        frames_list.append(frame)
-
-    return frames_list
+# def generate_frames():
+#     """
+#     Generate a list of 2x2 frames from images provided by the camera.
+#     :return: a list with all the generated frames.
+#     """
+#     frames_list = []
+#
+#     # get images
+#     img_list_front = read_images(img_path_front)
+#     img_list_left = read_images(img_path_left)
+#     img_list_rear = read_images(img_path_rear)
+#     img_list_right = read_images(img_path_right)
+#
+#     for i in range(0, 150):
+#         frame = np.zeros((2 * HEIGHT, 2 * WIDTH, 3), dtype=np.uint8)
+#
+#         setFrame(frame, img_list_front[i], 0, 0)
+#         setFrame(frame, img_list_left[i], 1, 0)
+#         setFrame(frame, img_list_rear[i], 0, 1)
+#         setFrame(frame, img_list_right[i], 1, 1)
+#
+#         frames_list.append(frame)
+#
+#     return frames_list
 
 
 def generate_2d_figure(df: pd.DataFrame, fid: int, color: str):
@@ -624,27 +1713,6 @@ def generate_2d_figure(df: pd.DataFrame, fid: int, color: str):
     return fig
 
 
-def generate_2d_objects(df: pd.DataFrame):
-    """
-    Generate smaller dataframes to easily draw 2d rectangles.
-    :param df: DataFrame containing all required data(fid, oid, points).
-    :return: DataFrame only with required columns to generate 2D figures.
-    """
-    sdf = df[["fid", "objectId", "objectClass"]].copy()
-    pts_x = []
-    pts_y = []
-    for _, row in df.iterrows():
-        pts = points_to_float_list(row.points)
-        p_x = [pts[0][0], pts[2][0], pts[6][0], pts[4][0], pts[0][0]]
-        p_y = [pts[0][1], pts[2][1], pts[6][1], pts[4][1], pts[0][1]]
-        pts_x.append(p_x)
-        pts_y.append(p_y)
-    sdf["pts_x"] = pts_x
-    sdf["pts_y"] = pts_y
-
-    return sdf
-
-
 def merge_2d_figures(fig1, fig2):
     """
     Merge 2d figures.
@@ -668,21 +1736,6 @@ class GenericObject3D:
         self.yaw = yaw
         self.className = className
         self.points = points
-
-
-# TODO: Remove if not used
-# Not used
-"""
-def getErrors(errorDict: dict, errorTh: dict):
-
-    significantErrorDict = dict()
-
-    for d in errorDict:
-        if (errorDict[d] > errorTh[d]):
-            significantErrorDict[d] = errorDict[d]
-
-    return significantErrorDict
-"""
 
 
 def get_points_error(gt_pts, pred_pts):
@@ -803,7 +1856,7 @@ def average_center_error_on_frame(df):
     """
     Generate a list with average errors of the objects provided by center points in range.
     :param df: DataFrame with all the objects.
-    :return: A list withh all errors provided by center points for each frame.
+    :return: A list with all errors provided by center points for each frame.
     """
     sum_list = []
     n = len(np.unique(df.fid))

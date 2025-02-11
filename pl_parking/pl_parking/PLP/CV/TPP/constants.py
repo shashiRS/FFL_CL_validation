@@ -9,12 +9,23 @@ class Thresholds:
 
 
 TPP_DETECTION_RANGE = 20.0  # [m]
+TPP_MAX_NUMBER_OF_DETECTIONS = 64
 
 # TODO: Update class types and sizes after GRAPPA interface changes
 # Release 1.3.1
-ClassTypes = {"CLASS_UNKNOWN": 0, "PEDESTRIAN": 1, "BIKE": 2, "MOTOR": 3, "RIDER": 4, "CAR": 5, "TRUCK": 6}
-TppCuboids = ["CAR", "TRUCK"]
+CuboidClassTypes = {"UNKNOWN": 0, "CAR": 1, "VAN": 2, "TRUCK": 3}
+BoxClassTypes = {"UNKNOWN": 0, "PEDESTRIAN": 1, "TWOWHEELER": 2, "SHOPPINGCART": 3, "ANIMAL": 4}
+TppCuboids = ["CAR", "VAN", "TRUCK"]
 TppBoxes = [
+    "PEDESTRIAN",
+    "TWOWHEELER",
+    "SHOPPINGCART",
+    "ANIMAL",
+]
+# Release 1.3.1 R3
+ClassTypesR3 = {"CLASS_UNKNOWN": 0, "PEDESTRIAN": 1, "BIKE": 2, "MOTOR": 3, "CAR": 4, "TRUCK": 5}
+TppCuboidsR3 = ["CAR", "TRUCK"]
+TppBoxesR3 = [
     "PEDESTRIAN",
     "BIKE",
     "MOTOR",
@@ -31,8 +42,13 @@ GrappaBoxes = [
     GrappaClassTypes["RIDER"],
 ]
 
-# Sizes measured in meters [m]
+# Sizes measured in meters [m] for the latest release
 ObjectSizes = {
+    "UNKNOWN": {
+        "width": {"min": 0, "max": 0, "default": 0},
+        "height": {"min": 0, "max": 0, "default": 0},
+        "length": {"min": 0, "max": 0, "default": 0},
+    },
     "PEDESTRIAN": {
         "width": {"min": 0.3, "max": 2.0, "default": 0.5},
         "height": {"min": 0.8, "max": 2.2, "default": 1.75},
@@ -40,6 +56,14 @@ ObjectSizes = {
     "TWOWHEELER": {
         "width": {"min": 0.3, "max": 2.0, "default": 1.6},
         "height": {"min": 0.6, "max": 1.8, "default": 1.5},
+    },
+    "SHOPPINGCART": {
+        "width": {"min": 1.8, "max": 3.0, "default": 2.6},
+        "height": {"min": 1.5, "max": 3.0, "default": 2.6},
+    },
+    "ANIMAL": {
+        "width": {"min": 1.8, "max": 3.0, "default": 2.6},
+        "height": {"min": 1.5, "max": 3.0, "default": 2.6},
     },
     "CAR": {
         "width": {"min": 1.6, "max": 2.4, "default": 1.8},
@@ -57,3 +81,17 @@ ObjectSizes = {
         "length": {"min": 5.0, "max": 15.0, "default": 8.0},
     },
 }
+
+# Constants for the signal state
+AL_SIG_STATE_INIT = 0
+AL_SIG_STATE_OK = 1
+AL_SIG_STATE_INVALID = 2
+
+# range for extrinsic parameters
+POS_MIN_VALUE = -5000
+POS_MAX_VALUE = 5000
+ROT_MIN_VALUE = -3.14159
+ROT_MAX_VALUE = 3.14159
+
+IMG_WIDTH = 832
+IMG_HEIGHT = 650

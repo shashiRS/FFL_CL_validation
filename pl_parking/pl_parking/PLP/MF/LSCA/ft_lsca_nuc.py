@@ -597,7 +597,7 @@ class LscaNucTestStep(TestStep):
     name="NUC LSCA",
     description="LSCA function shall reach a classification <passed> if no intervention does NOT lead to a collision with a <protected ego part> and the system does not brake.",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class LscaNUC(TestCase):
     """Test case."""

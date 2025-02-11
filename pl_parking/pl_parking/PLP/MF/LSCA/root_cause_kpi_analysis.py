@@ -202,81 +202,57 @@ class Signals(SignalDefinition):
     def __init__(self):
         """Initialize the signal definition."""
         super().__init__()
-        #         signal_list = [
-
-        # 'ADC5xx_Device.EM_DATA.EmPerceptionAvailabilityPort.statusEnvModel_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.numberOfStaticObjects_u8',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.numberOfDynamicObjects_u8',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.firstDynObjOutDetZoneIdx_u8',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.firstStatObjOutDetZoneIdx_u8',
-
-        # ]
-        #         dynamic_list = [
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].refObjID_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].classConfidence_perc',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].existenceProb_perc',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].measurementState_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].objShape_m.actualSize',
-
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].vel_mps.x_dir',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].vel_mps.y_dir',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].accel_mps2.x_dir',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].accel_mps2.y_dir',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].headingAngle_rad',
-        # ]
-        #         static_list = [
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].refObjID_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].refObjClass_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].existenceProb_perc',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].measurementPrinciple_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].objAgeInCycles_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].objMeasLastUpdateInCycles_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].objTrendLastUpdateInCycles_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].objTrend_nu',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].objShape_m.actualSize',
-        # ]
-        #         dynamic_list_arrays=['ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].objShape_m.array[{}].x_dir',
-        # 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.dynamicObjects[{}].objShape_m.array[{}].y_dir',]
-        #         static_list_arrays = ['ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].objShape_m.array[{}].x_dir',
-        #                                 'ADC5xx_Device.EM_DATA.EmCollEnvModelPort.staticObjects[{}].objShape_m.array[{}].y_dir']
-
-        #         for i in range(10):
-        #             for j in range(4):
-        #                 for test in dynamic_list_arrays:
-        #                     signal_list.append(test.format(i,j))
-        #         for i in range(16):
-        #             for j in range(4):
-        #                 for test in static_list_arrays:
-        #                     signal_list.append(test.format(i,j))
-        #         for i in range(10):
-        #             for test in dynamic_list:
-        #                 signal_list.append(test.format(i))
-        #         for i in range(16):
-        #             for test in static_list:
-        #                 signal_list.append(test.format(i))
-        #         signal_dict = {i:i for i in signal_list}
 
         self._properties = {
-            self.Columns.VD_vehicleOccupancyStatusPort: "ADC5xx_Device.VD_DATA.vehicleOccupancyStatusPort.sSigHeader.eSigStatus",
-            self.Columns.VD_IuTrailerStatusPort: "ADC5xx_Device.VD_DATA.IuTrailerStatusPort.sSigHeader.eSigStatus",
-            self.Columns.VD_IuDoorStatusPort: "ADC5xx_Device.VD_DATA.IuDoorStatusPort.sSigHeader.eSigStatus",
-            self.Columns.VD_IuLaDMCStatusPort: "ADC5xx_Device.VD_DATA.IuLaDMCStatusPort.sSigHeader.eSigStatus",
-            self.Columns.VD_IuLoDMCStatusPort: "ADC5xx_Device.VD_DATA.IuLoDMCStatusPort.sSigHeader.eSigStatus",
-            self.Columns.VD_IuGearboxCtrlStatusPort: "ADC5xx_Device.VD_DATA.IuGearboxCtrlStatusPort.sSigHeader.eSigStatus",
-            self.Columns.VD_IuEngineCtrlStatusPort: "ADC5xx_Device.VD_DATA.IuEngineCtrlStatusPort.sSigHeader.eSigStatus",
-            self.Columns.SI_STATUS_PERCEPTION: "ADC5xx_Device.EM_DATA.EmPerceptionAvailabilityPort.sSigHeader.eSigStatus",
-            self.Columns.SI_STATUS_EGOMOTIONPORT: "ADC5xx_Device.EM_DATA.EmEgoMotionPort.sSigHeader.eSigStatus",
-            self.Columns.SI_STATUS_COLLENVMODELPORT: "ADC5xx_Device.EM_DATA.EmCollEnvModelPort.sSigHeader.eSigStatus",
-            self.Columns.CEM_STATUS: "ADC5xx_Device.CEM_EM_DATA.AUPDF_DynamicObjects.sSigHeader.eSigStatus",
-            self.Columns.PARKSM_STATUS: "ADC5xx_Device.EM_DATA.EmOverrideLSCAPort.sSigHeader.eSigStatus",
-            # self.Columns.motionState_nu :'ADC5xx_Device.EM_DATA.EmEgoMotionPort.motionState_nu',
-            # self.Columns.pitch_rad :'ADC5xx_Device.EM_DATA.EmEgoMotionPort.pitch_rad',
-            # self.Columns.roll_rad :'ADC5xx_Device.EM_DATA.EmEgoMotionPort.roll_rad',
-            # self.Columns.frontWheelAngle_rad :'ADC5xx_Device.EM_DATA.EmEgoMotionPort.frontWheelAngle_rad',
-            # self.Columns.rearWheelAngle_rad :'ADC5xx_Device.EM_DATA.EmEgoMotionPort.rearWheelAngle_rad',
+            self.Columns.VD_vehicleOccupancyStatusPort: [
+                "ADC5xx_Device.VD_DATA.vehicleOccupancyStatusPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.VDP_DATA.vehicleOccupancyStatusPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.VD_IuTrailerStatusPort: [
+                "ADC5xx_Device.VD_DATA.IuTrailerStatusPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.VDP_DATA.TrailerStatusPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.VD_IuDoorStatusPort: [
+                "ADC5xx_Device.VD_DATA.IuDoorStatusPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.VDP_DATA.DoorStatusPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.VD_IuLaDMCStatusPort: [
+                "ADC5xx_Device.VD_DATA.IuLaDMCStatusPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.AP_LODMC_DATA.LaDMCStatusPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.VD_IuLoDMCStatusPort: [
+                "ADC5xx_Device.VD_DATA.IuLoDMCStatusPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.AP_LODMC_DATA.LoDMCStatusPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.VD_IuGearboxCtrlStatusPort: [
+                "ADC5xx_Device.VD_DATA.IuGearboxCtrlStatusPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.VDP_DATA.GearboxCtrlStatusPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.VD_IuEngineCtrlStatusPort: [
+                "ADC5xx_Device.VD_DATA.IuEngineCtrlStatusPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.VDP_DATA.EngineCtrlStatusPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.SI_STATUS_PERCEPTION: [
+                "ADC5xx_Device.EM_DATA.EmPerceptionAvailabilityPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.SI_DATA.m_perceptionAvailabilityPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.SI_STATUS_EGOMOTIONPORT: [
+                "ADC5xx_Device.EM_DATA.EmEgoMotionPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.SI_DATA.m_egoMotionPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.SI_STATUS_COLLENVMODELPORT: [
+                "ADC5xx_Device.EM_DATA.EmCollEnvModelPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.SI_DATA.m_collisionEnvironmentModelPort.sSigHeader.eSigStatus",
+            ],
+            self.Columns.CEM_STATUS: [
+                "ADC5xx_Device.CEM_EM_DATA.AUPDF_DynamicObjects.sSigHeader.eSigStatus",
+                "MTA_ADC5.CEM200_TPF2_DATA.m_tpObjectList.sSigHeader.eSigStatus",
+            ],
+            self.Columns.PARKSM_STATUS: [
+                "ADC5xx_Device.EM_DATA.EmOverrideLSCAPort.sSigHeader.eSigStatus",
+                "MTA_ADC5.APPDEMO_PARKSM_DATA.overrideLSCAPort.sSigHeader.eSigStatus",
+            ],
         }
-
-        # self._properties.update(signal_dict)
 
 
 signals_obj = Signals()
@@ -383,21 +359,9 @@ class Step1(TestStep):
             self.result.measured_result = DATA_NOK
             # Read measurement
 
-            try:
-                df = self.readers[ALIAS].signals  # for bsig
-            except Exception:
-                df = self.readers[ALIAS]  # for rrec
-                df[Signals.Columns.TIMESTAMP] = df.index
+            df = self.readers[ALIAS]  # for rrec
+            df[Signals.Columns.TIMESTAMP] = df.index
 
-            # Used to evaluate values of egomotionport signals
-
-            # pitch_rad_measured = (min(df[Signals.Columns.pitch_rad]),max(df[Signals.Columns.pitch_rad]))
-            # roll_rad_measured = (min(df[Signals.Columns.roll_rad]),max(df[Signals.Columns.roll_rad]))
-            # motionState_nu_measured = (min(df[Signals.Columns.motionState_nu]),max(df[Signals.Columns.motionState_nu]))
-            # frontWheelAngle_rad_measured = (min(df[Signals.Columns.frontWheelAngle_rad]),max(df[Signals.Columns.frontWheelAngle_rad]))
-            # rearWheelAngle_rad_measured = (min(df[Signals.Columns.rearWheelAngle_rad]),max(df[Signals.Columns.rearWheelAngle_rad]))
-            # frontWheelAngle_rad_measured = tuple(round(element, 1) for element in frontWheelAngle_rad_measured)
-            # rearWheelAngle_rad_measured = tuple(round(element, 1) for element in rearWheelAngle_rad_measured)
             sig_status_collenv = any(df[Signals.Columns.SI_STATUS_COLLENVMODELPORT] == VALID_SIGNAL_STATUS)
             sig_status_egomotion = any(df[Signals.Columns.SI_STATUS_EGOMOTIONPORT] == VALID_SIGNAL_STATUS)
             sig_status_perception = any(df[Signals.Columns.SI_STATUS_PERCEPTION] == VALID_SIGNAL_STATUS)
@@ -410,50 +374,12 @@ class Step1(TestStep):
                 test_result = fc.FAIL
                 self.result.measured_result = FALSE
 
-            # ego_motion_table = pd.DataFrame({
-            #     "Signal evaluated": {
-            #         "0": signals_obj._properties[signals_obj.Columns.SI_STATUS_EGOMOTIONPORT],
-            #         "1": signals_obj._properties[signals_obj.Columns.motionState_nu],
-            #         "2": signals_obj._properties[signals_obj.Columns.pitch_rad],
-            #         "3": signals_obj._properties[signals_obj.Columns.roll_rad],
-            #         "4": signals_obj._properties[signals_obj.Columns.frontWheelAngle_rad],
-            #         "5": signals_obj._properties[signals_obj.Columns.rearWheelAngle_rad],
-            #         "6": signals_obj._properties[signals_obj.Columns.SI_STATUS_COLLENVMODELPORT],
-            #         "7": signals_obj._properties[signals_obj.Columns.SI_STATUS_PERCEPTION],
-            #     },
-            #     "Threshold range": {
-            #         "0": str(VALID_SIGNAL_STATUS),
-            #         "1": str(constants.RCA_LSCA.EGOMOTIONPORT_motionState_nu),
-            #         "2": str(constants.RCA_LSCA.EGOMOTIONPORT_pitch_rad),
-            #         "3": str(constants.RCA_LSCA.EGOMOTIONPORT_roll_rad),
-            #         "4": str(constants.RCA_LSCA.EGOMOTIONPORT_frontWheelAngle_rad),
-            #         "5": str(constants.RCA_LSCA.EGOMOTIONPORT_rearWheelAngle_rad),
-            #         "6": str(VALID_SIGNAL_STATUS),
-            #         "7": str(VALID_SIGNAL_STATUS),
-            #     },
-            #     "Signal has values in following ranges": {
-            #         "0":port_status(sig_status_egomotion),
-            #         "1": check_range(motionState_nu_measured,constants.RCA_LSCA.EGOMOTIONPORT_motionState_nu,sig_status_egomotion).format(motionState_nu_measured),
-            #         "2": check_range(pitch_rad_measured,constants.RCA_LSCA.EGOMOTIONPORT_pitch_rad,sig_status_egomotion).format(pitch_rad_measured),
-            #         "3": check_range(roll_rad_measured,constants.RCA_LSCA.EGOMOTIONPORT_roll_rad,sig_status_egomotion).format(roll_rad_measured),
-            #         "4": check_range(frontWheelAngle_rad_measured,constants.RCA_LSCA.EGOMOTIONPORT_frontWheelAngle_rad,sig_status_egomotion).format(frontWheelAngle_rad_measured),
-            #         "5": check_range(rearWheelAngle_rad_measured,constants.RCA_LSCA.EGOMOTIONPORT_rearWheelAngle_rad,sig_status_egomotion).format(rearWheelAngle_rad_measured),
-            #         "6": port_status(sig_status_collenv),
-            #         "7": port_status(sig_status_perception),
-            #     },
-            # })
-            # #table_title =f'<span style="background-color: {port_status(sig_status_egomotion)}; color : #ffffff">Egomotionport status</span>'
-            # sig_sum = fh.build_html_table(ego_motion_table)
-
-            # plot_titles.append("")
-            # plots.append(sig_sum)
-            # remarks.append("")
             ego_motion_table = pd.DataFrame(
                 {
                     "Signal evaluated": {
-                        "0": signals_obj._properties[signals_obj.Columns.SI_STATUS_EGOMOTIONPORT],
-                        "6": signals_obj._properties[signals_obj.Columns.SI_STATUS_COLLENVMODELPORT],
-                        "7": signals_obj._properties[signals_obj.Columns.SI_STATUS_PERCEPTION],
+                        "0": signals_obj._properties[signals_obj.Columns.SI_STATUS_EGOMOTIONPORT][1],
+                        "6": signals_obj._properties[signals_obj.Columns.SI_STATUS_COLLENVMODELPORT][1],
+                        "7": signals_obj._properties[signals_obj.Columns.SI_STATUS_PERCEPTION][1],
                     },
                     "Expected value": {
                         "0": str(VALID_SIGNAL_STATUS),
@@ -478,7 +404,7 @@ class Step1(TestStep):
                     y=df[Signals.Columns.SI_STATUS_EGOMOTIONPORT].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.SI_STATUS_EGOMOTIONPORT],
+                    name=signals_obj._properties[signals_obj.Columns.SI_STATUS_EGOMOTIONPORT][1],
                 )
             )
             fig.add_trace(
@@ -486,7 +412,7 @@ class Step1(TestStep):
                     y=df[Signals.Columns.SI_STATUS_COLLENVMODELPORT].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.SI_STATUS_COLLENVMODELPORT],
+                    name=signals_obj._properties[signals_obj.Columns.SI_STATUS_COLLENVMODELPORT][1],
                 )
             )
             fig.add_trace(
@@ -494,11 +420,11 @@ class Step1(TestStep):
                     y=df[Signals.Columns.SI_STATUS_PERCEPTION].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.SI_STATUS_PERCEPTION],
+                    name=signals_obj._properties[signals_obj.Columns.SI_STATUS_PERCEPTION][1],
                 )
             )
             fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time [epoch]")
-            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
             plot_titles.append("")
             plots.append(fig)
             remarks.append("")
@@ -561,11 +487,9 @@ class Step2(TestStep):
             test_result = fc.INPUT_MISSING
             self.result.measured_result = DATA_NOK
             # Read measurement
-            try:
-                df = self.readers[ALIAS].signals  # for bsig
-            except Exception:
-                df = self.readers[ALIAS]  # for rrec
-                df[Signals.Columns.TIMESTAMP] = df.index
+
+            df = self.readers[ALIAS]
+            df[Signals.Columns.TIMESTAMP] = df.index
             sig_status_cem = any(df[Signals.Columns.CEM_STATUS] == VALID_SIGNAL_STATUS)
 
             if sig_status_cem:
@@ -579,7 +503,7 @@ class Step2(TestStep):
             signal_status_table = pd.DataFrame(
                 {
                     "Signal evaluated": {
-                        "0": signals_obj._properties[signals_obj.Columns.CEM_STATUS],
+                        "0": signals_obj._properties[signals_obj.Columns.CEM_STATUS][1],
                     },
                     "Expected value": {
                         "0": str(VALID_SIGNAL_STATUS),
@@ -601,12 +525,12 @@ class Step2(TestStep):
                     y=df[Signals.Columns.CEM_STATUS].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.CEM_STATUS],
+                    name=signals_obj._properties[signals_obj.Columns.CEM_STATUS][1],
                 )
             )
 
             fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time [epoch]")
-            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
             plot_titles.append("car")
             plots.append(fig)
             remarks.append("")
@@ -670,11 +594,9 @@ class Step3(TestStep):
             test_result = fc.INPUT_MISSING
             self.result.measured_result = DATA_NOK
             # Read measurement
-            try:
-                df = self.readers[ALIAS].signals  # for bsig
-            except Exception:
-                df = self.readers[ALIAS]  # for rrec
-                df[Signals.Columns.TIMESTAMP] = df.index
+
+            df = self.readers[ALIAS]  # for rrec
+            df[Signals.Columns.TIMESTAMP] = df.index
             sig_status_parksm = any(df[Signals.Columns.PARKSM_STATUS] == VALID_SIGNAL_STATUS)
 
             if sig_status_parksm:
@@ -687,7 +609,7 @@ class Step3(TestStep):
             signal_status_table = pd.DataFrame(
                 {
                     "Signal evaluated": {
-                        "0": signals_obj._properties[signals_obj.Columns.PARKSM_STATUS],
+                        "0": signals_obj._properties[signals_obj.Columns.PARKSM_STATUS][1],
                     },
                     "Expected value": {
                         "0": str(VALID_SIGNAL_STATUS),
@@ -709,12 +631,12 @@ class Step3(TestStep):
                     y=df[Signals.Columns.PARKSM_STATUS].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.PARKSM_STATUS],
+                    name=signals_obj._properties[signals_obj.Columns.PARKSM_STATUS][1],
                 )
             )
 
             fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time [epoch]")
-            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
             plot_titles.append("car")
             plots.append(fig)
             remarks.append("")
@@ -778,11 +700,9 @@ class Step4(TestStep):
             test_result = fc.INPUT_MISSING
             self.result.measured_result = DATA_NOK
             # Read measurement
-            try:
-                df = self.readers[ALIAS].signals  # for bsig
-            except Exception:
-                df = self.readers[ALIAS]  # for rrec
-                df[Signals.Columns.TIMESTAMP] = df.index
+
+            df = self.readers[ALIAS]  # for rrec
+            df[Signals.Columns.TIMESTAMP] = df.index
             sig_status_vd_1 = any(df[Signals.Columns.VD_vehicleOccupancyStatusPort] == VALID_SIGNAL_STATUS)
             sig_status_vd_2 = any(df[Signals.Columns.VD_IuTrailerStatusPort] == VALID_SIGNAL_STATUS)
             sig_status_vd_3 = any(df[Signals.Columns.VD_IuDoorStatusPort] == VALID_SIGNAL_STATUS)
@@ -810,13 +730,13 @@ class Step4(TestStep):
             signal_status_table = pd.DataFrame(
                 {
                     "Signal evaluated": {
-                        "0": signals_obj._properties[signals_obj.Columns.VD_vehicleOccupancyStatusPort],
-                        "1": signals_obj._properties[signals_obj.Columns.VD_IuTrailerStatusPort],
-                        "2": signals_obj._properties[signals_obj.Columns.VD_IuDoorStatusPort],
-                        "3": signals_obj._properties[signals_obj.Columns.VD_IuLaDMCStatusPort],
-                        "4": signals_obj._properties[signals_obj.Columns.VD_IuLoDMCStatusPort],
-                        "5": signals_obj._properties[signals_obj.Columns.VD_IuGearboxCtrlStatusPort],
-                        "6": signals_obj._properties[signals_obj.Columns.VD_IuEngineCtrlStatusPort],
+                        "0": signals_obj._properties[signals_obj.Columns.VD_vehicleOccupancyStatusPort][1],
+                        "1": signals_obj._properties[signals_obj.Columns.VD_IuTrailerStatusPort][1],
+                        "2": signals_obj._properties[signals_obj.Columns.VD_IuDoorStatusPort][1],
+                        "3": signals_obj._properties[signals_obj.Columns.VD_IuLaDMCStatusPort][1],
+                        "4": signals_obj._properties[signals_obj.Columns.VD_IuLoDMCStatusPort][1],
+                        "5": signals_obj._properties[signals_obj.Columns.VD_IuGearboxCtrlStatusPort][1],
+                        "6": signals_obj._properties[signals_obj.Columns.VD_IuEngineCtrlStatusPort][1],
                     },
                     "Expected value": {
                         "0": str(VALID_SIGNAL_STATUS),
@@ -850,7 +770,7 @@ class Step4(TestStep):
                     y=df[Signals.Columns.VD_vehicleOccupancyStatusPort].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.VD_vehicleOccupancyStatusPort],
+                    name=signals_obj._properties[signals_obj.Columns.VD_vehicleOccupancyStatusPort][1],
                 )
             )
             fig.add_trace(
@@ -858,7 +778,7 @@ class Step4(TestStep):
                     y=df[Signals.Columns.VD_IuTrailerStatusPort].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.VD_IuTrailerStatusPort],
+                    name=signals_obj._properties[signals_obj.Columns.VD_IuTrailerStatusPort][1],
                 )
             )
             fig.add_trace(
@@ -866,7 +786,7 @@ class Step4(TestStep):
                     y=df[Signals.Columns.VD_IuLoDMCStatusPort].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.VD_IuLoDMCStatusPort],
+                    name=signals_obj._properties[signals_obj.Columns.VD_IuLoDMCStatusPort][1],
                 )
             )
             fig.add_trace(
@@ -874,7 +794,7 @@ class Step4(TestStep):
                     y=df[Signals.Columns.VD_IuLaDMCStatusPort].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.VD_IuLaDMCStatusPort],
+                    name=signals_obj._properties[signals_obj.Columns.VD_IuLaDMCStatusPort][1],
                 )
             )
             fig.add_trace(
@@ -882,7 +802,7 @@ class Step4(TestStep):
                     y=df[Signals.Columns.VD_IuGearboxCtrlStatusPort].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.VD_IuGearboxCtrlStatusPort],
+                    name=signals_obj._properties[signals_obj.Columns.VD_IuGearboxCtrlStatusPort][1],
                 )
             )
             fig.add_trace(
@@ -890,7 +810,7 @@ class Step4(TestStep):
                     y=df[Signals.Columns.VD_IuEngineCtrlStatusPort].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.VD_IuEngineCtrlStatusPort],
+                    name=signals_obj._properties[signals_obj.Columns.VD_IuEngineCtrlStatusPort][1],
                 )
             )
             fig.add_trace(
@@ -898,11 +818,11 @@ class Step4(TestStep):
                     y=df[Signals.Columns.VD_IuDoorStatusPort].values.tolist(),
                     x=df[Signals.Columns.TIMESTAMP].values.tolist(),
                     mode="lines",
-                    name=signals_obj._properties[signals_obj.Columns.VD_IuDoorStatusPort],
+                    name=signals_obj._properties[signals_obj.Columns.VD_IuDoorStatusPort][1],
                 )
             )
             fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time [epoch]")
-            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
+            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
             plot_titles.append("car")
             plots.append(fig)
             remarks.append("")
@@ -933,7 +853,7 @@ class Step4(TestStep):
     name="Output check",
     description="",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class OutputCheckLSCA(TestCase):
     """Test case class"""
@@ -1181,7 +1101,7 @@ class Step4_ROOT(TestStep):
     name="Root Cause Analisys",
     description="",
 )
-@register_inputs("/Playground_2/TSF-Debug")
+@register_inputs("/parking")
 # @register_inputs("/TSF_DEBUG/")
 class RootCauseLSCA(TestCase):
     """Root cause test case class"""

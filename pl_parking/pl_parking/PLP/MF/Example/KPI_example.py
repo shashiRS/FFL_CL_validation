@@ -14,7 +14,7 @@ TRC_ROOT = os.path.abspath(os.path.join(__file__, "..", "..", "..", ".."))
 if TRC_ROOT not in sys.path:
     sys.path.append(TRC_ROOT)
 """imports from tsf core"""
-from tsf.core.results import DATA_NOK, FALSE, Result
+from tsf.core.results import DATA_NOK, Result
 from tsf.core.testcase import (
     TestCase,
     TestStep,
@@ -38,7 +38,7 @@ _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 # any test must have a specific and UNIQUE alias as it will contain a data frame with all the signals for a test script
-ALIAS = "MF_EXAMPLE"
+ALIAS = "MF_EXAMPLE_1"
 
 
 class Signals(SignalDefinition):
@@ -143,13 +143,11 @@ class TestStepKpiExample(TestStep):
 
         signal_summary = {}  # Initializing the dictionary with data for final evaluation table
         # Read measurement
-        try:
-            signals = self.readers[ALIAS].signals  # for bsig
-        except Exception:
-            signals = self.readers[ALIAS]  # for rrec
-            signals[Signals.Columns.TIMESTAMP] = (
-                signals.index
-            )  # Make a dataframe(df) with all signals extracted from Signals class
+
+        signals = self.readers[ALIAS]
+        signals[Signals.Columns.TIMESTAMP] = (
+            signals.index
+        )  # Make a dataframe(df) with all signals extracted from Signals class
         ap_time = signals[Signals.Columns.TIME]  # the info for specific signal are extracted from the bigger data frame
         velocity = signals[Signals.Columns.VELOCITY]
 
@@ -169,13 +167,12 @@ class TestStepKpiExample(TestStep):
         self.sig_sum = fh.convert_dict_to_pandas(signal_summary, remark)
         plots.append(self.sig_sum)
 
-        if self.result.measured_result in [FALSE, DATA_NOK] or bool(constants.GeneralConstants.ACTIVATE_PLOTS):
-            fig = go.Figure()
-            # add the needed signals in the plot
-            fig.add_trace(go.Scatter(x=ap_time, y=velocity, mode="lines", name=Signals.Columns.VELOCITY))
-            fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
-            fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
-            plots.append(fig)
+        fig = go.Figure()
+        # add the needed signals in the plot
+        fig.add_trace(go.Scatter(x=ap_time, y=velocity, mode="lines", name=Signals.Columns.VELOCITY))
+        fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), xaxis_title="Time[s]")
+        fig.update_layout(constants.PlotlyTemplate.lgt_tmplt, showlegend=True)
+        plots.append(fig)
 
         # Add the plots in html page
         for plot in plots:
@@ -191,7 +188,7 @@ class TestStepKpiExample(TestStep):
     description=("This an example of test case with one test step."),
 )
 # Define the class for test case which will inherit the TestCase class and will return the test steps.
-class TestExample(TestCase):
+class TestExampleKPI(TestCase):
     """Example test case."""  # example of required docstring
 
     custom_report = MfCustomTestcaseReport
