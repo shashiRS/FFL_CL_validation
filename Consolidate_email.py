@@ -81,8 +81,8 @@ def retrieve_html_info(report_file):
 if __name__ == "__main__":
     sender_email = 'uig88154@contiwan.com'
     sender_password = 'Helloworld@123'
-    recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com']
-    #recipient_email = ['shashikala.r.s@continental-corporation.com']   
+    #recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com']
+    recipient_email = ['shashikala.r.s@continental-corporation.com']   
     subject = '[ADC544NN16] Closed Loop FFL JENKINS CI/CD'
     body_html = """
     <!DOCTYPE html>
