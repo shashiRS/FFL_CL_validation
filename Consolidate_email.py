@@ -251,7 +251,7 @@ if __name__ == "__main__":
     body_html = body_html.format(
     url_link=txt_dict['url'],
     datetime=str(datetime.datetime.now()),
-    sw_version="1.0.0",  # Replace with actual software version
+    sw_version=['Subject under Test'],
     simulation_github_url=txt_dict['simulation_repo'],
     validation_github_url=txt_dict['validation_repo'],
     contest_github_url=txt_dict['Contest_repo'],
