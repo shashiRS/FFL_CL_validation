@@ -85,7 +85,7 @@ if __name__ == "__main__":
     sender_email = 'uig88154@contiwan.com'
     sender_password = 'Helloworld@123'
     #recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com','sunil.kumar.n@continental-corporation.com']
-    recipient_email = ['shashikala.r.s@continental-corporation.com','sunil.kumar.n@continental-corporation.com']   
+    recipient_email = ['shashikala.r.s@continental-corporation.com']   
     subject = '[SYS230TM14] Closed Loop FFL JENKINS CI/CD'
     body_html = """
     <!DOCTYPE html>
@@ -203,7 +203,8 @@ if __name__ == "__main__":
             txt_dict[key] = line.strip().replace('\n', '')
 
     # Fetch information from the html related to the test cases
-    report_file = txt_dict['output_folder'] + r"\out\report\html\index.html"
+    #report_file = txt_dict['output_folder'] + r"\out\report\html\index.html"
+    report_file = txt_dict['output_folder']
 
     #project_table_dict, test_case_table_dict = retrieve_html_info(report_file)
     # Initialize aggregate storage
@@ -254,7 +255,7 @@ if __name__ == "__main__":
     simulation_github_url=txt_dict['simulation_repo'],
     validation_github_url=txt_dict['validation_repo'],
     contest_github_url=txt_dict['Contest_repo'],
-    report_file=report_file,
+    report_file=basepath,
     test_execution_duration="N/A",  # Add actual duration
     executed_test_cases=executed,
     passed_test_cases=passed,
