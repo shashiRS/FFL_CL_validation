@@ -10,6 +10,9 @@ import datetime
 # Importing BeautifulSoup class from the bs4 module 
 from bs4 import BeautifulSoup
 import re
+import os
+from collections import defaultdict
+
  
 def send_email_with_attachment(sender_email, sender_password, recipient_email, subject, body_html):
     # Create a multipart message
@@ -81,8 +84,8 @@ def retrieve_html_info(report_file):
 if __name__ == "__main__":
     sender_email = 'uig88154@contiwan.com'
     sender_password = 'Helloworld@123'
-    #recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com']
-    recipient_email = ['shashikala.r.s@continental-corporation.com']   
+    #recipient_email = ['shashikala.r.s@continental-corporation.com','devendra.ogi@continental-corporation.com','madhurika.rao.k.s@continental-corporation.com','sunil.kumar.n@continental-corporation.com']
+    recipient_email = ['shashikala.r.s@continental-corporation.com','sunil.kumar.n@continental-corporation.com']   
     subject = '[SYS230TM14] Closed Loop FFL JENKINS CI/CD'
     body_html = """
     <!DOCTYPE html>
@@ -190,7 +193,7 @@ if __name__ == "__main__":
     """
 
     txt_dict = {}
-    txt_key_list = ['output_folder', 'url', 'simulation_repo', 'validation_repo','contest_repo']
+    txt_key_list = ['output_folder', 'url', 'simulation_repo', 'validation_repo','Contest_repo']
 
     # basepath
     basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_Report_TATA_LVMD'
@@ -202,15 +205,67 @@ if __name__ == "__main__":
     # Fetch information from the html related to the test cases
     report_file = txt_dict['output_folder'] + r"\out\report\html\index.html"
 
-    project_table_dict, test_case_table_dict = retrieve_html_info(report_file)
+    #project_table_dict, test_case_table_dict = retrieve_html_info(report_file)
+    # Initialize aggregate storage
+    aggregated_test_cases = defaultdict(int)
 
+    # Find all index.html files
+    for root, dirs, files in os.walk(basepath):
+        if "index.html" in files:
+            report_file = os.path.join(root, "index.html")
+            project_table_dict, test_case_table_dict = retrieve_html_info(report_file)
+
+            # Aggregate test case counts
+            aggregated_test_cases['Executed Test Cases'] += int(test_case_table_dict.get('Executed Test Cases', 0) or 0)
+            aggregated_test_cases['PASSED Test Cases'] += int(test_case_table_dict.get('PASSED Test Cases', 0) or 0)
+            aggregated_test_cases['FAILED Test Cases'] += int(test_case_table_dict.get('FAILED Test Cases', 0) or 0)
+            aggregated_test_cases['N/A Test Cases'] += int(test_case_table_dict.get('N/A Test Cases', 0) or 0)
+            aggregated_test_cases['Other Executed Test Cases'] += int(test_case_table_dict.get('Other Executed Test Cases', 0) or 0)
+
+    # Determine the overall status
+    executed = aggregated_test_cases['Executed Test Cases']
+    passed = aggregated_test_cases['PASSED Test Cases']
+    failed = aggregated_test_cases['FAILED Test Cases']
+    na = aggregated_test_cases['N/A Test Cases']
+
+    if passed == executed:
+        overall_status = "PASS"
+    elif failed > 0:
+        overall_status = "FAIL"
+    elif na > 0:
+        overall_status = "FAIL"
+    else:
+        overall_status = "UNKNOWN"
+
+
+    """
     body_html = body_html.format(url_link=txt_dict['url'], datetime=datetime.datetime.now(), \
                                  sw_version=project_table_dict['Subject under Test'], simulation_github_url=txt_dict['simulation_repo'], \
-                                 validation_github_url=txt_dict['validation_repo'],contest_github_url=txt_dict['contest_repo'], report_file=txt_dict["output_folder"], \
+                                 validation_github_url=txt_dict['validation_repo'],contest_github_url=txt_dict['Contest_repo'], report_file=txt_dict["output_folder"], \
                                  test_execution_duration=None, executed_test_cases=test_case_table_dict['Executed Test Cases'], \
                                  passed_test_cases=test_case_table_dict['PASSED Test Cases'], failed_test_cases=test_case_table_dict['FAILED Test Cases'], \
                                  na_test_cases=test_case_table_dict['N/A Test Cases'], other_executed_test_cases=test_case_table_dict['Other Executed Test Cases'])
-    
+    """
+    # Generate final HTML report
+    body_html = body_html.format(
+    url_link=txt_dict['url'],
+    datetime=str(datetime.datetime.now()),
+    sw_version="1.0.0",  # Replace with actual software version
+    simulation_github_url=txt_dict['simulation_repo'],
+    validation_github_url=txt_dict['validation_repo'],
+    contest_github_url=txt_dict['Contest_repo'],
+    report_file=report_file,
+    test_execution_duration="N/A",  # Add actual duration
+    executed_test_cases=executed,
+    passed_test_cases=passed,
+    failed_test_cases=failed,
+    na_test_cases=na,
+    other_executed_test_cases=aggregated_test_cases['Other Executed Test Cases']
+    )
+
+    body_html += f"<br/><b>Overall Execution Status: {overall_status}</b></br></br>"
+
+
     # # Creating the ZIP file
     # if not os.path.exists(base_path + r'\report.zip'):
     #     archived = shutil.make_archive(base_path + r'\report', 'zip', base_path + r'\out')
