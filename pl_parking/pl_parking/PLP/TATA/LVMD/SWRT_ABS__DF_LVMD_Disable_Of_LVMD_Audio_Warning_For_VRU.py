@@ -18,10 +18,7 @@ import matplotlib.pyplot as plt
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-TRC_ROOT = os.path.abspath(os.path.join(__file__, "..", "..", "..","..",".."))
-
-print(TRC_ROOT)
-print("-----------------------------------------")
+TRC_ROOT = os.path.abspath(os.path.join(__file__, "..", "..", "..", ".."))
 if TRC_ROOT not in sys.path:
     sys.path.append(TRC_ROOT)
 """imports from tsf core"""
@@ -40,7 +37,7 @@ import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
 import pl_parking.PLP.MF.constants as constants
 from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport
-from pl_parking.PLP.TATA.LVMD.constants import ConstantsLVMD, WarningTrigger, WarningStatus, SystemStatus
+from pl_parking.PLP.TATA.LVMD.CLS.constants import ConstantsLVMD, WarningTrigger, WarningStatus, SystemStatus
 
 __author__ = "A AM SB PRK IAS LAT1"
 __copyright__ = "2020-2012, Continental AG"
@@ -316,7 +313,7 @@ def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
     This is only meant to jump start testcase debugging.
     """
     # Define your directory path to your measurements for debugging purposes
-    test_bsigs = [r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\package\tests\SIL\CarMaker\SimOutput\SWRT_ABS__DF_LVMD_Disable_Of_LVMD_Audio_Warning_For_VRU_1300658.erg"]
+    test_bsigs = [r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\mf_sil\tests\SIL\CarMaker\SimOutput\SWRT_ABS__DF_LVMD_Disable_Of_LVMD_Audio_Warning_For_VRU_1300658.erg"]
     debug(
         LVMD_Disable_audio,
         *test_bsigs,
@@ -330,22 +327,9 @@ def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
 
 
 if __name__ == "__main__":
-    import time
-    timestr = time.strftime("%Y%m%d_%H%M%S")
-    
-    pat= r"\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_Report_TATA_LVMD\FFL_CL"+timestr
-    working_directory = Path(pat)
-
-    with open(r"\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_Report_TATA_LVMD\Jenkin_info.txt", "w") as f:
-        
-        contents = "".join(str(working_directory))
-        f.write(contents)
-        f.write("\n")
-
+    working_directory = Path(tempfile.mkdtemp("_tsf"))
 
     data_folder = working_directory / "data"
-    
     out_folder = working_directory / "out"
-    
-    
+
     main(data_folder=data_folder, temp_dir=out_folder, open_explorer=True)

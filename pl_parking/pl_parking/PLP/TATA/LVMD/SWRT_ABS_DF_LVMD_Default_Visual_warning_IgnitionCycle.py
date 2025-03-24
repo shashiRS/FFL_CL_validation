@@ -1,9 +1,9 @@
 """Example functional test"""  # this is a required docstring
 import tempfile
-import pandas as pd
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+import pandas as pd
+
 from tsf.core.utilities import debug
 
 """import libraries"""
@@ -13,7 +13,6 @@ import sys
 
 import numpy as np
 import plotly.graph_objects as go
-import matplotlib.pyplot as plt
 
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -37,31 +36,30 @@ import pl_parking.common_constants as fc
 import pl_parking.common_ft_helper as fh
 import pl_parking.PLP.MF.constants as constants
 from pl_parking.common_ft_helper import MfCustomTestcaseReport, MfCustomTeststepReport
-from pl_parking.PLP.TATA.LVMD.constants import ConstantsLVMD, WarningTrigger, WarningStatus, SystemStatus
+from pl_parking.PLP.TATA.LVMD.constants import ConstantsLVMD, WarningTrigger
 
 __author__ = ""
 __copyright__ = "2020-2012, Continental AG"
 __version__ = ""
-__status__ = ""
+__status__ = "Production"
 
 _log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
-# any test must have a specific and UNIQUE alias as it will contain a data frame with all the signals for a test script
-ALIAS = "SWRT_ABS__DF_LVMD_Disable_Of_LVMD_Visual_Warning_For_VRU"
+ALIAS = "SWRT_ABS_DF_LVMD_Default_Visual_warning_IgnitionCycle"
 
 
 class Signals(SignalDefinition):
-
     class Columns(SignalDefinition.Columns):
         """Column defines."""
 
         TIME = "TimeStamp"
         SYSTEM_STATUS = "system status"
-        WARNING_TRIGGER = 'LVMD Warning Trigger'
-        WARNING_STATUS = 'Warning status'
-        NUM_VEH_IN_ROI = "Number of vehicles in ROI"
-        Driven_Distance = "Lead Vehicle Driven Distance"
+        WARNING_TRIGGER = 'system warning'
+        NUM_VEH_IN_ROI = "number of VehiclesinROI"
+        StandStill_Time = "standstill time"
+        Driven_Distance = "driver off distance"
+        Engine_State = "Ego Engine Status"
 
     def __init__(self):
         """Initialize the signal definition."""
@@ -80,16 +78,18 @@ class Signals(SignalDefinition):
             self.Columns.WARNING_TRIGGER: [
                 ".StatusPort.warningTriger",
             ],
-            self.Columns.WARNING_STATUS: [
-                ".StatusPort.warningStatus",
-            ],
             self.Columns.NUM_VEH_IN_ROI: [
-                ".StatusPort.numVehiclesinROI_nu",
+                ".StatusPort.numVehiclesinROI_nu"
+            ],
+            self.Columns.StandStill_Time: [
+                ".StatusPort.lvmdLeadVehicleStatus_nu.leadvehicle_standstilltime"
             ],
             self.Columns.Driven_Distance: [
-                ".StatusPort.lvmdLeadVehicleStatus_nu.leadvehicle_driven_distance",
-            ]
-
+                ".StatusPort.lvmdLeadVehicleStatus_nu.leadvehicle_driven_distance"
+            ],
+            self.Columns.Engine_State: [
+                ".CommonVehSigProvider.engineCtrlStatusPort.engineOn_nu"
+            ],
         }
 
 
@@ -97,29 +97,15 @@ signals_obj = Signals()
 
 @teststep_definition(
     step_number=1,
-    name="Visual_Warning_VRU",  # this would be shown as a test step name in html report
-    description="LVMD Core Pkg will not enable LVMD Visual warning for VRU in ROI if the "
-                "selected Lead vehicle has moved the required AP_LVMD_s_DriveOff_Dist.",  # this would be shown as a
+    name="LVMD Visual Warning",  # this would be shown as a test step name in html report
+    description="LVMD will Enable Visual warning as default for every ignition cycle.",  # this would be shown as a
     # test step description in html report
     expected_result=BooleanResult(
         TRUE
     ),  # this expected result would be compared with measured_result and give a verdict
 )
 @register_signals(ALIAS, Signals)
-class LVMD_Visual_Warning_For_VRU(TestStep):
-    """testcase that can be tested by a simple pass/fail test.
-    This is a required docstring in which you can add more details about what you verify in test step
-
-    Objective
-    ---------
-
-    ...
-
-    Detail
-    ------
-
-    ...
-    """
+class IgnitionCycle(TestStep):
 
     custom_report = MfCustomTeststepReport  # Specific overview
 
@@ -144,52 +130,39 @@ class LVMD_Visual_Warning_For_VRU(TestStep):
         # Make a constant with the reader for signals:
         self.test_result = fc.INPUT_MISSING  # Result
         self.result.measured_result = DATA_NOK  # Initializing the result with data nok
-        # Create empty lists for titles, plots and remarks,if they are needed, plots and remarks need to have the same length
+
         plot_titles, plots, remarks = fh.rep([], 3)
 
         signal_summary = {}  # Initializing the dictionary with data for final evaluation table
 
         signals = self.readers[ALIAS]
         signals[Signals.Columns.TIMESTAMP] = signals.index
-
-        ap_time = signals[Signals.Columns.TIME]  # the info for specific siganl are extracted from the bigger data frame
-        status = signals[Signals.Columns.SYSTEM_STATUS]  # take into consideration you need to use df methods
         warning = signals[Signals.Columns.WARNING_TRIGGER]
-        warning_status = signals[Signals.Columns.WARNING_STATUS]
-        status = np.array(status)
+        Driven_distance = signals[Signals.Columns.Driven_Distance]
+        Driven_distance = np.array(Driven_distance)
         warning = np.array(warning)
-        warning_status = np.array(warning_status)
         numVehinROI = signals[Signals.Columns.NUM_VEH_IN_ROI]
         numVehinROI = np.array(numVehinROI)
-        driven_distance = signals[Signals.Columns.Driven_Distance]
-        driven_distance = np.array(driven_distance)
+        engine_state = signals[Signals.Columns.Engine_State]
+        engine_state = np.array(engine_state)
 
-        if np.any(numVehinROI == 1):
-            if np.any((driven_distance >= ConstantsLVMD.LVMD_Alert_Min_DriveoffDistance_nu) &
-                      (warning_status == WarningStatus.LVMD_Warning_VRU_In_ROI)):
-                if np.any(warning == WarningTrigger.LVMD_Trigger_NONE):
-                    self.result.measured_result = TRUE
-                    eval_cond = True
-                    eval_text = ("There is no activation of Visual warning when selected Lead Vehicle drives off satisifying LVMD drive off distance,"
-                             "But there is VRU exist in ROI.")
-                else:
-                    self.result.measured_result = FALSE
-                    eval_cond = False
-                    eval_text = ("There is activation of Visual Warning.")
-            elif np.any((driven_distance < ConstantsLVMD.LVMD_Alert_Min_DriveoffDistance_nu) &
-                        (warning_status != WarningStatus.LVMD_Warning_VRU_In_ROI)):
-                self.result.measured_result = FALSE
-                eval_cond = False
-                eval_text = ("Selected lead Vehicle driven distance is less then LVMD Drive off Distance and there is no VRU in the ROI.")
+
+        if np.any(numVehinROI > 0):
+            if np.any((engine_state == 1) &
+                      (warning == WarningTrigger.LVMD_Trigger_VISUAL)):
+                self.result.measured_result = TRUE
+                eval_cond = True
+                eval_text = ("There is activation of Visual warning by default "
+                             "whenever there engine On.")
             else:
                 self.result.measured_result = FALSE
                 eval_cond = False
-                eval_text = ("Driven Distance of Selected Lead Vehicle satisified and there is activation of Visual warning.")
-
+                eval_text = "The engine is in off state."
         else:
             self.result.measured_result = FALSE
             eval_cond = False
-            eval_text = "There is no Vehicle or VRU in ROI."
+            eval_text = "There is no Target vehicle in ROI ."
+
 
         # Set table dataframe
         signal_summary = pd.DataFrame(
@@ -208,20 +181,16 @@ class LVMD_Visual_Warning_For_VRU(TestStep):
         plots.append(sig_sum)
         remarks.append("")
 
-
-
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(
                 x=signals[Signals.Columns.TIME].values.tolist(),
-                y=signals[Signals.Columns.WARNING_STATUS].values.tolist(),
+                y=signals[Signals.Columns.Engine_State].values.tolist(),
                 mode="lines",
-                name=".StatusPort.warningStatus",
+                name=".CommonVehSigProvider.engineCtrlStatusPort.engineOn_nu",
             )
         )
-
-        fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"),
-                               yaxis_title="Warning status", xaxis_title="Time [s]")
+        fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), yaxis_title="Engine State", xaxis_title="Time [s]")
         fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
         plot_titles.append("Graphical Overview")
         plots.append(fig)
@@ -236,26 +205,7 @@ class LVMD_Visual_Warning_For_VRU(TestStep):
                 name=".StatusPort.warningTriger",
             )
         )
-
-        fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"),
-                               yaxis_title="Warning trigger", xaxis_title="Time [s]")
-        fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
-        plot_titles.append("Graphical Overview")
-        plots.append(fig)
-        remarks.append("")
-
-        fig = go.Figure()
-        fig.add_trace(
-            go.Scatter(
-                x=signals[Signals.Columns.TIME].values.tolist(),
-                y=signals[Signals.Columns.Driven_Distance].values.tolist(),
-                mode="lines",
-                name="Driven_Distance.",
-            )
-        )
-
-        fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"),
-                               yaxis_title="Driven_Distance", xaxis_title="Time [s]")
+        fig.layout = go.Layout(yaxis=dict(tickformat="14"), xaxis=dict(tickformat="14"), yaxis_title="Warning trigger", xaxis_title="Time [s]")
         fig.update_layout(constants.PlotlyTemplate.lgt_tmplt)
         plot_titles.append("Graphical Overview")
         plots.append(fig)
@@ -273,13 +223,13 @@ class LVMD_Visual_Warning_For_VRU(TestStep):
 
 
 # Define the test case definition. This will include the name of the test case and a description of the test.
-@verifies("1300654")
+@verifies("2087461")
 @testcase_definition(
-    name="SWRT_ABS__DF_LVMD_Disable_Of_LVMD_Visual_Warning_For_VRU",
-    description=("Deactivation of LVMD Visual Warning for VRU in ROI"),
+    name="SWRT_ABS_DF_LVMD_Default_Visual_warning_IgnitionCycle",
+    description=("LVMD will activate Visual Warning by default."),
 )
 # Define the class for test case which will inherit the TestCase class and will return the test steps.
-class LVMD_Disable_VRU(TestCase):
+class Visual_warning_enable(TestCase):
     """Example test case."""  # example of required docstring
 
     custom_report = MfCustomTestcaseReport
@@ -287,10 +237,7 @@ class LVMD_Disable_VRU(TestCase):
     @property
     def test_steps(self):
         """Returns the test steps."""  # example of required docstring
-        return [LVMD_Visual_Warning_For_VRU,
-                ]
-        # in this list all the needed test steps are included
-
+        return [IgnitionCycle]  # in this list all the needed test steps are included
 
 
 def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
@@ -300,9 +247,9 @@ def main(data_folder: Path, temp_dir: Path = None, open_explorer=True):
     This is only meant to jump start testcase debugging.
     """
     # Define your directory path to your measurements for debugging purposes
-    test_bsigs = [r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\package\tests\SIL\CarMaker\SimOutput\SWRT_ABS__DF_LVMD_Disable_Of_LVMD_Visual_Warning_For_VRU_1300654.erg"]
+    test_bsigs = [r"D:\JenkinsServer_Main\workspace\FFL_CL_Simulation\package\tests\SIL\CarMaker\SimOutput\SWRT_ABS_DF_LVMD_Default_Visual_warning_IgnitionCycle_2087461.erg"]
     debug(
-        LVMD_Disable_VRU,
+        Visual_warning_enable,
         *test_bsigs,
         temp_dir=temp_dir,
         open_explorer=open_explorer,
