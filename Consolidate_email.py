@@ -196,7 +196,7 @@ if __name__ == "__main__":
     txt_key_list = ['output_folder', 'url', 'simulation_repo', 'validation_repo','Contest_repo']
 
     # basepath
-    basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr3320\ADC544NN-Nissan\FFL_CL_Report_TATA_LVMD'
+    basepath = r'\\cw01.contiwan.com\Root\Loc\blr3\didr2991\SYS230TM14\FFL_Reports\FFL_CL_Report_TATA_LVMD'
     # Fetch information from the text file related to the Jenkin jobs
     with open(basepath + '\Jenkin_information.txt') as txt:
         for key, line in zip(txt_key_list, txt.readlines()):
